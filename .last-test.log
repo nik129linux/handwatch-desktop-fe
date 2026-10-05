@@ -25,8 +25,8 @@
   ✓ AI proposal visible
   ✓ proposal text computed with real minutes
   ✓ proposal has window hours
-  ✓ Simulated tag visible
-  ✓ Simulated tag is visible
+  ✓ proposal tag names the real source (On-device rules)
+  ✓ source tag is visible
   ✓ proposal shows how it was decided
   ✓ proposal text changes with timeline data
   ✓ Accept closes proposal
@@ -43,9 +43,9 @@
   ✓ story has no console errors
 
 7 · token test (BOTH themes)
-  ✓ [dark] nothing keeps rgb(166, 255, 0) (247 elements)
+  ✓ [dark] nothing keeps rgb(166, 255, 0) (246 elements)
   ✓ [dark] new primary in use
-  ✓ [light] nothing keeps rgb(166, 255, 0) (247 elements)
+  ✓ [light] nothing keeps rgb(166, 255, 0) (246 elements)
   ✓ [light] new primary in use
 
 7b · theme toggle + contrast >= 4.5 in both themes
@@ -239,8 +239,8 @@
   ✓ demo-mode note in Privacy tab
   ✓ consent box hidden until a model is picked
   ✓ Export my data button present
-  ✓ rules path keeps the Simulated tag
-  ✓ fallback where a real provider ran drops Simulated
+  ✓ rules path names its source (On-device rules)
+  ✓ fallback where a real provider ran names On-device rules
   ✓ loading state is a shimmer skeleton
   ✓ D1 UI has no console errors
 
@@ -265,15 +265,38 @@
   ✓ reduced motion: headline readable
   ✓ reduced motion: no parallax loop
 
+31 · D4 polish: collapsed Now, source tags, entrance, particles
+  ✓ all 4 windows visible after the entrance
+  ✓ Document present after the entrance
+  ✓ panel carries has-resume while the card is up
+  ✓ full Now detail hidden while resume is up
+  ✓ Now collapsed to a single line
+  ✓ Document visible in resume state
+  ✓ sliding ink under the active tab
+  ✓ no nested scroller in resume state
+  ✓ no nested scroller in timeline state
+  ✓ consent payload never keeps its own scroller
+  ✓ no nested scroller with a long consent payload
+  ✓ resume card has no AI tag
+  ✓ proposal tag names the real source
+  ✓ off-mode proposal reads On-device rules
+  ✓ [dark] particle field present and animating
+  ✓ [dark] particles tinted with light ink
+  ✓ [light] particle field present and animating
+  ✓ [light] particles tinted with dark ink
+
 shots · 1440 & 390 capture
 
 summary
-  204 passed, 0 failed
+  222 passed, 0 failed
   screenshots -> shots/
   ✓ window title is Retoma
   ✓ 4 windows present
+  ✓ all 4 windows visible after the entrance
   ✓ theme toggle present
   ✓ theme toggle flips data-theme
+  ✓ [dark] Document present in resume state
+  ✓ [light] Document present in resume state
 
 D1 · preload bridge + IPC persistence + propose
   ✓ preload bridge window.retoma.propose present
@@ -284,4 +307,4 @@ D1 · preload bridge + IPC persistence + propose
   ✓ delete-all empties the store
   ✓ resume card shows after 25 min away (notify path)
   ✓ Smart suggestions control present in app
-  12 passed, 0 failed
+  15 passed, 0 failed
