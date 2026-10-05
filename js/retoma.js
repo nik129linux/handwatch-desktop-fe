@@ -100,7 +100,10 @@ var Retoma = (function () {
   function showResume() {
     if (!el.resumeCard) return;
     el.resumeCard.classList.remove('is-hidden');
-    if (el.resumeHero) el.resumeHero.textContent = 'Estabas en: ' + state.prevApp;
+    if (el.resumeHero) {
+      el.resumeHero.textContent = 'Estabas en ' + state.prevApp;
+      splitHeroWords(el.resumeHero);
+    }
     if (el.resumeSub) el.resumeSub.textContent = state.prevTitle;
     if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió ' + state.interruptionApp + ' · ' + state.awayMinutes + ' min';
     if (el.resumeChips) {
@@ -109,6 +112,59 @@ var Retoma = (function () {
     el.resumeCard.classList.remove('is-visible');
     void el.resumeCard.offsetWidth;
     el.resumeCard.classList.add('is-visible');
+  }
+
+  function splitHeroWords(heroEl) {
+    var text = heroEl.textContent || '';
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    heroEl.innerHTML = '';
+    text.split(' ').forEach(function (word, i) {
+      var s = document.createElement('span');
+      s.className = 'w';
+      s.textContent = word;
+      if (!reduce) s.style.transitionDelay = (i * 100) + 'ms';
+      heroEl.appendChild(s);
+      heroEl.appendChild(document.createTextNode(' '));
+    });
+  }
+
+  function fmtClock(totalMin) {
+    var h = Math.floor(totalMin / 60) % 24;
+    var m = totalMin % 60;
+    return h + ':' + String(m).padStart(2, '0');
+  }
+
+  function computeProposal(data) {
+    var entries = (data && data.length ? data : Events.seedTimeline).slice();
+    var longest = entries[0] || { app: 'Documento', duration: 40 };
+    entries.forEach(function (e) { if (e.duration > longest.duration) longest = e; });
+    var ix = -1;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].app === 'WhatsApp') { ix = i; break; }
+    }
+    if (ix === -1) ix = entries.length > 1 ? 1 : 0;
+    var startMin = 9 * 60;
+    for (var j = 0; j < ix; j++) startMin += entries[j].duration;
+    var winStart = Math.max(6 * 60, startMin - 60);
+    var winEnd = winStart + longest.duration;
+    return {
+      longest: longest,
+      interApp: entries[ix] ? entries[ix].app : longest.app,
+      interStart: startMin,
+      winStart: winStart,
+      winEnd: winEnd,
+      text: 'Mañana: ' + longest.duration + ' min para el informe, ' + fmtClock(winStart) + ' a ' + fmtClock(winEnd) + ', antes de que lleguen los mensajes.',
+      how: 'Cómo lo decidí: bloque mayor ' + longest.app + ' ' + longest.duration + ' min · primera interrupción ' + (entries[ix] ? entries[ix].app : longest.app) + ' ' + fmtClock(startMin) + ' · ventana ' + fmtClock(winStart) + '–' + fmtClock(winEnd)
+    };
+  }
+
+  function renderProposal(data) {
+    var p = computeProposal(data);
+    var textEl = document.getElementById('proposalText');
+    var howEl = document.getElementById('proposalHow');
+    if (textEl) textEl.textContent = p.text;
+    if (howEl) howEl.textContent = p.how;
+    return p;
   }
 
   function hideResume() {
@@ -196,7 +252,7 @@ var Retoma = (function () {
     var data = state.timeline.length ? state.timeline : Events.seedTimeline;
     var total = data.reduce(function (s, e) { return s + e.duration; }, 0) || 80;
     el.timelineBar.style.display = '';
-    var colors = ['var(--bg-primary-500)', 'var(--tint-primary-70)', 'var(--tint-primary-45)', 'var(--tint-primary-30)', 'var(--tint-primary-18)'];
+    var colors = ['var(--color-neutral-100)', 'var(--color-neutral-200)', 'var(--color-neutral-400)', 'var(--color-neutral-500)', 'var(--color-neutral-600)'];
     // map colors consistently by index; will be distinct via tokens
     el.timelineBar.innerHTML = data.map(function (e, i) {
       var w = (e.duration / total * 100).toFixed(1);
@@ -218,6 +274,7 @@ var Retoma = (function () {
       }).join('');
     }
     if (el.timelineText) el.timelineText.textContent = 'Planeado: 2 h de informe · Real: 1 h 20 min';
+    renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');
     if (!state.proposalDismissed && el.proposalCard) {
@@ -287,7 +344,7 @@ var Retoma = (function () {
         colW = Math.max(180, Math.min(colW, 340));
         var map = { 'win-doc': 0, 'win-browser': 1, 'win-whatsapp': 2, 'win-sheet': 3 };
         var lefts = [inset, inset + colW + gap, inset, inset + colW + gap];
-        var tops = [48, 48, 272, 286];
+        var tops = [48, 48, 330, 330];
         Object.keys(map).forEach(function (id) {
           var e = document.getElementById(id);
           if (!e) return;

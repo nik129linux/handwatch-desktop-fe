@@ -22,8 +22,9 @@
   --color-neutral-600: #3d3d3d;
   --color-neutral-500: #4f4f4f;
   --color-neutral-400: #6f6f6f;
-  --color-neutral-100: #e8e8e8;
-  --color-neutral-50: #fdfdfd;
+  --color-neutral-200: #f3e6d0;
+  --color-neutral-100: #fdf1e1;
+  --color-neutral-50: #fffaf0;
   --color-black: #000000;
 
   /* --- Semantic surfaces (pattern-color-weight) ------------------------- */
@@ -57,6 +58,8 @@
   --bg-card: var(--color-neutral-900);
   --bg-raised: var(--color-neutral-800);
   --bg-screen: var(--color-black);
+  --bg-paper: var(--color-neutral-100);
+  --text-paper: var(--color-neutral-100);
   --text-primary: var(--color-neutral-50);
   --text-secondary: var(--color-neutral-400);
   --text-tertiary: var(--color-neutral-600);
@@ -89,24 +92,19 @@
   --ring-track: color-mix(in srgb, var(--color-primary-500) 18%, var(--color-neutral-900));
 
   /* --- Typography ------------------------------------------------------- */
-  --font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
   --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  --text-caption: 14px;
-  --leading-caption: 1.43;
-  --tracking-caption: -0.02em;
-  --text-body: 16px;
-  --leading-body: 1.4;
+  --text-micro: 11px;
+  --leading-micro: 1.45;
+  --tracking-micro: 0.14em;
+  --text-body: 15px;
+  --leading-body: 1.5;
   --tracking-body: 0;
-  --text-subheading: 21px;
-  --leading-subheading: 1.25;
-  --tracking-subheading: -0.01em;
-  --text-heading-sm: 36px;
-  --leading-heading-sm: 1.2;
-  --tracking-heading-sm: -0.01em;
-  --text-heading: 44px;
-  --leading-heading: 1.1;
-  --tracking-heading: -0.02em;
+  --text-display: clamp(56px, 6vw, 96px);
+  --leading-display: 0.95;
+  --tracking-display: -0.02em;
 
   --weight-regular: 400;
   --weight-medium: 500;

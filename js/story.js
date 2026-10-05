@@ -67,7 +67,7 @@ var Story = (function () {
       settle: function () { return Desk.isVisible('Documento') && Desk.isVisible('Navegador'); }
     },
     {
-      sub: 'La IA propone. Tú decides.',
+      sub: 'Una propuesta simple. Tú decides.',
       hold: 2800,
       act: function () { Retoma.showEndOfDay(); Retoma.openPanel(); },
       until: function () { return document.getElementById('proposalCard') && !document.getElementById('proposalCard').classList.contains('is-hidden'); }

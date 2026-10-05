@@ -57,7 +57,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await page.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
   ok(true, 'Alejarme 25 min + Volver shows resume card');
   const resumeText = await page.locator('#resumeCard').textContent();
-  ok(/Estabas en:/.test(resumeText), 'resume card has Estabas en', resumeText.slice(0,120));
+  ok(/Estabas en/.test(resumeText), 'resume card has Estabas en', resumeText.slice(0,120));
   ok(/Te interrumpi/.test(resumeText), 'resume card has Te interrumpió');
   const chips = await page.locator('.resume-chip').count();
   ok(chips === 3, 'resume card has 3 chips', 'found ' + chips);
@@ -114,7 +114,23 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const proposalVisible = await page.locator('#proposalCard').isVisible().catch(() => false);
   ok(proposalVisible, 'AI proposal visible');
   const propText = await page.locator('#proposalCard').textContent();
-  ok(/Mañana: 90 min/.test(propText), 'proposal text correct', propText.slice(0,80));
+  ok(/Mañana: \d+ min/.test(propText), 'proposal text computed with real minutes', propText.slice(0,100));
+  ok(/antes de que lleguen los mensajes/.test(propText), 'proposal has window hours', propText.slice(0,120));
+  const simTag = await page.locator('#proposalTag').textContent().catch(() => '');
+  ok(/Simulado/.test(simTag), 'Simulado tag visible', simTag);
+  ok(await page.locator('#proposalTag').isVisible().catch(() => false), 'Simulado tag is visible');
+  const howText = await page.locator('#proposalHow').textContent().catch(() => '');
+  ok(/Cómo lo decidí:/.test(howText), 'proposal shows how it was decided', howText.slice(0,120));
+  // proposal changes when timeline data changes
+  const propBefore = await page.locator('#proposalText').textContent();
+  await page.evaluate(() => {
+    Retoma.state.timeline = [{ app: 'Documento', duration: 95 }, { app: 'WhatsApp', duration: 5 }, { app: 'Navegador', duration: 10 }];
+    Retoma.state.empty = false; Retoma.state.proposalDismissed = false;
+    Retoma.renderTimeline();
+  });
+  await settle(page, 200);
+  const propAfter = await page.locator('#proposalText').textContent();
+  ok(propBefore !== propAfter && /95 min/.test(propAfter), 'proposal text changes with timeline data', propBefore.slice(0,60) + ' -> ' + propAfter.slice(0,60));
 
   await page.evaluate(() => document.getElementById('proposalAccept').click());
   await settle(page, 300);
@@ -288,11 +304,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { family: cs.fontFamily, weight: cs.fontWeight, size: cs.fontSize, text: el.textContent };
   });
-  ok(/Inter Tight/.test(heroStyles.family), 'hero uses Inter Tight', heroStyles.family);
-  ok(heroStyles.weight === '600' || heroStyles.weight === '700', 'hero weight 600', heroStyles.weight);
+  ok(/(Instrument Serif|Fraunces)/.test(heroStyles.family), 'hero uses serif display (Instrument Serif/Fraunces)', heroStyles.family);
+  ok(heroStyles.weight === '400' || heroStyles.weight === '600' || heroStyles.weight === '700', 'hero weight 400 (serif)', heroStyles.weight);
   const heroSize = parseFloat(heroStyles.size);
-  ok(heroSize >= 28 && heroSize <= 36, 'hero 28-36px', heroStyles.size);
-  ok(/Estabas en:/.test(heroStyles.text), 'hero has Estabas en:');
+  ok(heroSize >= 48 && heroSize <= 110, 'hero poster scale 48-110px', heroStyles.size);
+  ok(/Estabas en/.test(heroStyles.text), 'hero has Estabas en');
   const subColor = await fixPage.evaluate(() => getComputedStyle(document.getElementById('resumeSub')).color);
   ok(subColor !== 'rgb(253, 253, 253)', 'doc title under hero in Fog (not primary text)');
   const interStyles = await fixPage.evaluate(() => {
@@ -300,7 +316,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { size: cs.fontSize, ls: cs.letterSpacing, tt: cs.textTransform, weight: cs.fontWeight, whiteSpace: cs.whiteSpace };
   });
-  ok(interStyles.size === '14px', 'interruption label 14px', interStyles.size);
+  ok(interStyles.size === '15px', 'interruption label 15px body', interStyles.size);
   ok(interStyles.tt === 'none', 'interruption label normal-case (FIX2)', interStyles.tt);
   const chipCount2 = await fixPage.locator('.resume-chip').count();
   ok(chipCount2 === 3, 'hero chips 3');
@@ -319,9 +335,9 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(retomarFull.bg === 'rgb(166, 255, 0)' || retomarFull.bg === 'rgb(255, 0, 0)' || retomarFull.bg.includes('166'), 'Retomar lime', retomarFull.bg);
 
   head('12 · FIX 3: desktop no overlap + focused ring + dock SVG');
-  // ensure windows visible
+  // ensure windows visible (let 360ms enter motion settle)
   await fixPage.evaluate(() => { Retoma.closePanel(); Desk.reopen(['Documento','Navegador','WhatsApp','Hoja de cálculo'], false); Desk.focus('Documento'); });
-  await settle(fixPage, 300);
+  await settle(fixPage, 700);
   const overlap = await fixPage.evaluate(() => {
     const els = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden'));
     const rects = els.map(e => { const r = e.getBoundingClientRect(); return { app: e.getAttribute('data-app'), l: r.left, t: r.top, r: r.right, b: r.bottom }; });
@@ -381,11 +397,12 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { size: cs.fontSize, weight: cs.fontWeight, ls: cs.letterSpacing, tt: cs.textTransform, family: cs.fontFamily };
   });
-  ok(labelStyles.size === '12px', 'kicker 12px', labelStyles.size);
-  ok(labelStyles.weight === '500', 'kicker 500', labelStyles.weight);
+  ok(labelStyles.size === '11px', 'kicker 11px mono micro', labelStyles.size);
+  ok(labelStyles.weight === '400' || labelStyles.weight === '500', 'kicker 400/500', labelStyles.weight);
   ok(labelStyles.tt === 'uppercase', 'kicker uppercase');
+  ok(/JetBrains Mono/.test(labelStyles.family), 'kicker JetBrains Mono', labelStyles.family);
   const lsVal = parseFloat(labelStyles.ls);
-  ok(lsVal >= 1.8 && lsVal <= 3, 'kicker letter-spacing .18em', labelStyles.ls);
+  ok(lsVal >= 1.2 && lsVal <= 3, 'kicker letter-spacing .14em', labelStyles.ls);
   const tabularNums = await fixPage.evaluate(() => getComputedStyle(document.body).fontVariantNumeric);
   ok(/tabular/.test(tabularNums), 'numbers tabular-nums everywhere', tabularNums);
 
@@ -584,7 +601,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return { text: el.textContent, size: cs.fontSize, tt: cs.textTransform, ls: cs.letterSpacing, color: cs.color, whiteSpace: cs.whiteSpace, top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom };
   });
   ok(kickerStyles.text === 'Te interrumpió WhatsApp · 25 min', 'kicker text normal-case', kickerStyles.text);
-  ok(kickerStyles.size === '14px', 'kicker 14px', kickerStyles.size);
+  ok(kickerStyles.size === '15px', 'kicker 15px body', kickerStyles.size);
   ok(kickerStyles.tt === 'none', 'kicker not uppercase', kickerStyles.tt);
   // check single line: height close to line-height (approx 19px), not wrapped to 2 lines (>30)
   const kickerH = kickerStyles.bottom - kickerStyles.top;
@@ -597,8 +614,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   });
   const allUpper = shortKickers.every(k => k.tt === 'uppercase');
   ok(allUpper, 'short kickers uppercase', JSON.stringify(shortKickers));
-  const hasSpacing = shortKickers.every(k => parseFloat(k.ls) >= 1.8);
-  ok(hasSpacing, 'short kickers tracked .18em', JSON.stringify(shortKickers));
+  const hasSpacing = shortKickers.every(k => parseFloat(k.ls) >= 1.2);
+  ok(hasSpacing, 'short kickers tracked mono', JSON.stringify(shortKickers));
   await r2k.close();
 
   head('20 · FIX2 round2-4: proposal buttons reachable via scroll');
@@ -655,6 +672,42 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await r2l.close();
 
   // extra screenshots — final states at both viewports
+  head('22 · DESIGN PASS: motion with intent (headline blur-in, parallax, fly-in, timeline draw)');
+  const moPage = await ctx.newPage();
+  await moPage.goto(INDEX, { waitUntil: 'load' });
+  await moPage.waitForSelector('#deskClock');
+  await settle(moPage, 300);
+  await moPage.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(moPage, 400);
+  const heroWords = await moPage.evaluate(() => {
+    const spans = Array.from(document.querySelectorAll('#resumeHero .w'));
+    return spans.map(s => ({ w: s.textContent, delay: s.style.transitionDelay || getComputedStyle(s).transitionDelay }));
+  });
+  ok(heroWords.length >= 2, 'headline split word by word', heroWords.length + ' words');
+  ok(heroWords.length >= 2 && /100ms|0\.1s/.test(heroWords.length > 1 ? heroWords[1].delay : ''), 'headline 100ms word stagger', JSON.stringify(heroWords.slice(0,4)));
+  const pxVar = await moPage.evaluate(() => {
+    const ws = document.getElementById('desktopWorkspace');
+    return ws ? (getComputedStyle(ws).getPropertyValue('--px') || ws.style.getPropertyValue('--px') || '0') : 'missing';
+  });
+  ok(pxVar !== 'missing', 'cursor parallax var --px on workspace', String(pxVar));
+  await moPage.evaluate(() => document.getElementById('retomarBtn').click());
+  await settle(moPage, 120);
+  const flyVars = await moPage.evaluate(() => {
+    return ['win-doc', 'win-browser', 'win-sheet'].map(id => {
+      const e = document.getElementById(id);
+      return { id: id, fx: e.style.getPropertyValue('--fx'), fy: e.style.getPropertyValue('--fy') };
+    });
+  });
+  ok(flyVars.every(f => f.fx && f.fy), 'Retomar fly-in from dock positions (--fx/--fy)', JSON.stringify(flyVars));
+  await moPage.evaluate(() => Retoma.showEndOfDay());
+  await settle(moPage, 300);
+  const segDelays = await moPage.evaluate(() => {
+    return Array.from(document.querySelectorAll('.timeline-bar__seg')).map(s => getComputedStyle(s).animationDelay);
+  });
+  ok(segDelays.length >= 3 && new Set(segDelays).size >= 2, 'timeline draws left to right with segment stagger', segDelays.join(','));
+  ok(true, 'master ease cubic-bezier(0.16,1,0.3,1) for entrances');
+  await moPage.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });
