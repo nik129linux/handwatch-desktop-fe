@@ -23,6 +23,7 @@ var Retoma = (function () {
   var el = {};
   var clockH = 9, clockM = 0;
   var tickTimer = null;
+  var activeTab = 'ahora';
 
   function formatClock() {
     var h = String(clockH).padStart(2, '0');
@@ -46,14 +47,10 @@ var Retoma = (function () {
     if (el.nowClock) el.nowClock.textContent = formatClock();
   }
 
-  function nowAppLabel() { return state.currentApp; }
-
   function switchApp(next) {
     if (state.paused) return;
     var prev = state.currentApp;
-    // push timeline entry for previous dwell
     if (prev) {
-      // accumulate timeInCurrent into timeline
       var dur = state.timeInCurrent || 5;
       state.timeline.push({ app: prev, duration: dur });
       if (state.timeline.length > 12) state.timeline.shift();
@@ -83,12 +80,8 @@ var Retoma = (function () {
     state.prevApp = state.currentApp;
     state.prevTitle = state.currentTitle;
     state.prevWindows = ['Documento', 'Navegador', 'Hoja de cálculo'];
-    // fast-forward clock x30 simulated: we just jump
-    // hide resume card during away
     hideResume();
-    // tick clock visually? story will handle
     Desk.minimize('Documento');
-    // keep timeline paused during away
     renderAhoraAway();
   }
 
@@ -96,9 +89,10 @@ var Retoma = (function () {
     if (!state.away) return;
     state.away = false;
     advanceClock(state.awayMinutes);
-    // if away >=10 show resume card
     if (state.awayMinutes >= 10) {
       showResume();
+      openPanel();
+      switchTab('ahora');
     }
     renderAhora();
   }
@@ -106,13 +100,12 @@ var Retoma = (function () {
   function showResume() {
     if (!el.resumeCard) return;
     el.resumeCard.classList.remove('is-hidden');
-    // fill content
-    if (el.resumePrev) el.resumePrev.textContent = 'Estabas en: ' + state.prevApp + ' · ' + state.prevTitle;
-    if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió: ' + state.interruptionApp + ', ' + state.awayMinutes + ' min';
+    if (el.resumeHero) el.resumeHero.textContent = 'Estabas en: ' + state.prevApp;
+    if (el.resumeSub) el.resumeSub.textContent = state.prevTitle;
+    if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió: ' + state.interruptionApp + ' · ' + state.awayMinutes + ' min';
     if (el.resumeChips) {
       el.resumeChips.innerHTML = state.prevWindows.map(function (w) { return '<span class="chip resume-chip">' + w + '</span>'; }).join('');
     }
-    // slide up animation
     el.resumeCard.classList.remove('is-visible');
     void el.resumeCard.offsetWidth;
     el.resumeCard.classList.add('is-visible');
@@ -121,8 +114,6 @@ var Retoma = (function () {
   function hideResume() {
     if (!el.resumeCard) return;
     el.resumeCard.classList.remove('is-visible');
-    // keep hidden after animation? but spec says exists hidden until shown
-    // we hide via class after transition
     setTimeout(function () {
       if (!el.resumeCard.classList.contains('is-visible')) el.resumeCard.classList.add('is-hidden');
     }, 320);
@@ -131,7 +122,6 @@ var Retoma = (function () {
   function doRetomar() {
     Desk.reopen(state.prevWindows, true);
     hideResume();
-    // switch back to prev app
     var app = Events.findByLabel(state.prevApp);
     if (app) switchApp(app);
   }
@@ -141,16 +131,32 @@ var Retoma = (function () {
   }
 
   function renderAhora() {
-    if (el.nowApp) el.nowApp.textContent = state.currentApp;
+    if (!el.nowApp) return;
+    if (state.paused) {
+      el.nowApp.textContent = 'Pausado: no estoy viendo nada';
+      if (el.nowTitle) el.nowTitle.textContent = 'Retoma está en pausa. Reanuda cuando quieras.';
+      if (el.nowTime) el.nowTime.textContent = '—';
+      if (el.nowDesc) el.nowDesc.textContent = 'Pausado: no estoy viendo nada';
+      return;
+    }
+    if (state.away) {
+      el.nowApp.textContent = 'Ausente';
+      if (el.nowTitle) el.nowTitle.textContent = 'Fuera · ' + state.awayMinutes + ' min';
+      if (el.nowTime) el.nowTime.textContent = formatClock();
+      if (el.nowDesc) el.nowDesc.textContent = 'Volver te muestra dónde ibas.';
+      return;
+    }
+    el.nowApp.textContent = state.currentApp;
     if (el.nowTitle) el.nowTitle.textContent = state.currentTitle;
     if (el.nowTime) el.nowTime.textContent = state.timeInCurrent + ' min aquí';
-    if (state.away && el.nowApp) el.nowApp.textContent = 'Ausente';
+    if (el.nowDesc) el.nowDesc.textContent = 'Solo el nombre de la app y el título. Nunca lo que escribes.';
   }
 
   function renderAhoraAway() {
     if (el.nowApp) el.nowApp.textContent = 'Ausente';
     if (el.nowTitle) el.nowTitle.textContent = 'Fuera · ' + state.awayMinutes + ' min';
     if (el.nowTime) el.nowTime.textContent = formatClock();
+    if (el.nowDesc) el.nowDesc.textContent = 'Volver te muestra dónde ibas.';
   }
 
   function togglePause() {
@@ -166,8 +172,9 @@ var Retoma = (function () {
         eyeClosed.style.display = state.paused ? 'block' : 'none';
       }
     }
-    // also update sim pause button label
+    if (el.menuBar) el.menuBar.classList.toggle('is-paused', state.paused);
     if (el.simPause) el.simPause.textContent = state.paused ? 'Reanudar' : 'Pausar';
+    renderAhora();
     Events.emit('retoma:pause', state.paused);
   }
 
@@ -177,21 +184,31 @@ var Retoma = (function () {
     if (!el.timelineBar) return;
     if (state.empty) {
       el.timelineBar.innerHTML = '';
+      if (el.timelineLegend) el.timelineLegend.innerHTML = '';
       if (el.timelineText) el.timelineText.textContent = '';
       if (el.proposalCard) el.proposalCard.classList.add('is-hidden');
       if (el.timeline) el.timeline.classList.remove('is-hidden');
       el.timelineBar.style.display = 'none';
+      if (el.timelineLegend) el.timelineLegend.style.display = 'none';
       if (el.emptyState) el.emptyState.classList.remove('is-hidden');
       return;
     }
-    // build segments from timeline OR seed
     var data = state.timeline.length ? state.timeline : Events.seedTimeline;
     var total = data.reduce(function (s, e) { return s + e.duration; }, 0) || 80;
     el.timelineBar.style.display = '';
+    var colors = ['var(--bg-primary-500)', 'var(--tint-primary-70)', 'var(--tint-primary-45)', 'var(--tint-primary-30)', 'var(--tint-primary-18)'];
+    // map colors consistently by index; will be distinct via tokens
     el.timelineBar.innerHTML = data.map(function (e, i) {
       var w = (e.duration / total * 100).toFixed(1);
-      return '<div class="timeline-bar__seg" style="width:' + w + '%;--i:' + i + '"></div>';
+      return '<div class="timeline-bar__seg" style="width:' + w + '%;--i:' + i + ';background:' + colors[i % colors.length] + '"></div>';
     }).join('');
+    if (el.timelineLegend) {
+      el.timelineLegend.style.display = '';
+      el.timelineLegend.innerHTML = data.map(function (e, i) {
+        var c = colors[i % colors.length];
+        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + e.app + ' · ' + e.duration + ' min</span>';
+      }).join('');
+    }
     if (el.timelineText) el.timelineText.textContent = 'Planeado: 2 h de informe · Real: 1 h 20 min';
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');
@@ -204,7 +221,6 @@ var Retoma = (function () {
 
   function showEndOfDay() {
     setClock(18, 0);
-    // push current dwell
     if (!state.paused) {
       state.timeline.push({ app: state.currentApp, duration: state.timeInCurrent || 10 });
     }
@@ -212,8 +228,8 @@ var Retoma = (function () {
     renderTimeline();
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.proposalCard) el.proposalCard.classList.remove('is-hidden');
-    // ensure panel open to show Hoy
     openPanel();
+    switchTab('hoy');
   }
 
   function dismissProposal() {
@@ -223,7 +239,6 @@ var Retoma = (function () {
 
   function acceptProposal() {
     dismissProposal();
-    // accepted leaves trace? spec says declining leaves no trace, accepting closes it as well
   }
 
   function deleteAll() {
@@ -232,26 +247,42 @@ var Retoma = (function () {
     hideResume();
     renderTimeline();
     dismissProposal();
-    // animate out: already handled
   }
 
   function hasTimelineEntries() { return !state.empty && state.timeline.length > 0; }
 
-  function panel() { return el.retomaPanel; }
+  function isPanelOpen() { return el.retomaPanel && el.retomaPanel.classList.contains('is-open'); }
+
   function openPanel() {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.add('is-open');
     el.retomaPanel.classList.remove('is-closing');
+    if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'true');
   }
   function closePanel() {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.remove('is-open');
     el.retomaPanel.classList.add('is-closing');
-    // remove closing after duration
+    if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'false');
     setTimeout(function () { el.retomaPanel.classList.remove('is-closing'); }, 220);
   }
   function togglePanel() {
-    if (el.retomaPanel.classList.contains('is-open')) closePanel(); else openPanel();
+    if (isPanelOpen()) closePanel(); else openPanel();
+  }
+
+  function switchTab(name) {
+    if (!['ahora','hoy','priv'].includes(name)) return;
+    activeTab = name;
+    document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
+      var is = b.getAttribute('data-tab') === name;
+      b.classList.toggle('is-active', is);
+      b.setAttribute('aria-selected', is ? 'true' : 'false');
+    });
+    document.querySelectorAll('.retoma-tab').forEach(function (p) {
+      var idMap = { ahora: 'retomaTabAhora', hoy: 'retomaTabHoy', priv: 'retomaTabPriv' };
+      var target = idMap[name];
+      if (p.id === target) p.classList.add('is-active'); else p.classList.remove('is-active');
+    });
   }
 
   function startTick() {
@@ -259,8 +290,7 @@ var Retoma = (function () {
     tickTimer = setInterval(function () {
       if (state.paused || state.away) return;
       state.timeInCurrent += 1;
-      // every 60s advance clock by 1
-      if (state.timeInCurrent % 2 === 0) { // faster for demo: 2 ticks = 1 minute
+      if (state.timeInCurrent % 2 === 0) {
         advanceClock(1);
       }
       renderAhora();
@@ -269,20 +299,24 @@ var Retoma = (function () {
 
   function mount() {
     el.deskClock = document.getElementById('deskClock');
+    el.menuBar = document.getElementById('menuBar');
     el.nowApp = document.getElementById('nowApp');
     el.nowTitle = document.getElementById('nowTitle');
+    el.nowDesc = document.getElementById('nowDesc');
     el.nowTime = document.getElementById('nowTime');
     el.nowClock = document.getElementById('nowClock');
     el.toggleBtn = document.getElementById('retomaToggle');
     el.retomaPanel = document.getElementById('retomaPanel');
     el.resumeCard = document.getElementById('resumeCard');
-    el.resumePrev = document.getElementById('resumePrev');
+    el.resumeHero = document.getElementById('resumeHero');
+    el.resumeSub = document.getElementById('resumeSub');
     el.resumeInter = document.getElementById('resumeInter');
     el.resumeChips = document.getElementById('resumeChips');
     el.retomarBtn = document.getElementById('retomarBtn');
     el.startFreshBtn = document.getElementById('startFreshBtn');
     el.timeline = document.getElementById('timeline');
     el.timelineBar = document.getElementById('timelineBar');
+    el.timelineLegend = document.getElementById('timelineLegend');
     el.timelineText = document.getElementById('timelineText');
     el.proposalCard = document.getElementById('proposalCard');
     el.proposalAccept = document.getElementById('proposalAccept');
@@ -294,30 +328,36 @@ var Retoma = (function () {
     el.deleteBtn = document.getElementById('btnDelete');
     el.simPause = document.getElementById('btnPause');
 
-    if (el.toggleBtn) el.toggleBtn.addEventListener('click', togglePause);
+    if (el.toggleBtn) {
+      el.toggleBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        togglePause();
+        togglePanel();
+      });
+    }
     if (el.retomarBtn) el.retomarBtn.addEventListener('click', doRetomar);
     if (el.startFreshBtn) el.startFreshBtn.addEventListener('click', doStartFresh);
     if (el.proposalAccept) el.proposalAccept.addEventListener('click', acceptProposal);
     if (el.proposalDecline) el.proposalDecline.addEventListener('click', dismissProposal);
-    // panel toggle via clicking the toggle already does pause? spec says icon click = pause/resume AND dropdown? But we separate: toggleBtn click pauses AND opens? brief says Retoma status icon in menu bar: eye open/struck click = pause/resume always visible. Panel dropdown from icon. So click should do both? We'll make click pause, and double? Simpler: click pauses, panel opens on separate button? But we have only one icon. Implement: click toggles pause and also toggles panel after 120ms? We'll make panel open on click as well but not during story autoplay? Let's make primary click toggle pause and also toggle panel visibility: panel stays open while paused visible. Implement togglePanel inside togglePause after.
-    // Actually we will attach second handler for panel toggle on same button but with distinction: if user clicks, pause + panel toggle.
-    // To satisfy tests, we need panel reachable via toggle button click for Esc close test maybe. We'll make click open panel too.
-    var origToggle = togglePause;
-    // rewrap to also toggle panel open state for visibility in story step 7
-    el.toggleBtn.addEventListener('click', function () {
-      // after pause toggle, ensure panel is open so user sees sections
-      openPanel();
+
+    // tabs
+    document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
+      b.addEventListener('click', function () { switchTab(b.getAttribute('data-tab')); });
     });
 
     // Esc closes panel
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') closePanel();
     });
-    // click outside closes
+    // click outside closes — ignore clicks that intentionally open the panel (Volver, endday) or inside sim-panel
     document.addEventListener('click', function (ev) {
       if (!el.retomaPanel || !el.toggleBtn) return;
+      if (!isPanelOpen()) return;
       if (el.retomaPanel.contains(ev.target) || el.toggleBtn.contains(ev.target)) return;
-      // don't auto close if interacting elsewhere
+      if (ev.target.closest('.confirm-overlay')) return;
+      if (ev.target.closest('.sim-panel') || ev.target.closest('#freeMode')) return;
+      if (ev.target.closest('.retoma-panel')) return;
+      closePanel();
     });
 
     // privacy delete confirm
@@ -328,20 +368,17 @@ var Retoma = (function () {
     if (el.confirmYes) el.confirmYes.addEventListener('click', function () { closeConfirm(); deleteAll(); });
     if (el.confirmOverlay) el.confirmOverlay.addEventListener('click', function (ev) { if (ev.target === el.confirmOverlay) closeConfirm(); });
 
-    // also allow opening panel via eye icon long? Provide separate privacy opener? Story will call openPanel.
-
-    // dock handled by Desk
-
     setClock(9, 0);
     state.timeline = Events.seedTimeline.slice();
     renderAhora();
     renderTimeline();
     hideResume();
-    openPanel();
+    switchTab('ahora');
+    closePanel();
     startTick();
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen };
   }
 
   function openConfirm() { if (el.confirmOverlay) el.confirmOverlay.classList.add('is-open'); }

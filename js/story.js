@@ -182,12 +182,18 @@ var Story = (function () {
     var btn = document.getElementById('retomaToggle');
     if (btn) {
       btn.classList.remove('is-paused');
+      btn.setAttribute('aria-pressed','false');
+      btn.setAttribute('aria-expanded','true');
       var o = btn.querySelector('.eye-open'); var c = btn.querySelector('.eye-closed');
       if (o) o.style.display = 'block';
       if (c) c.style.display = 'none';
     }
+    var mb = document.getElementById('menuBar');
+    if (mb) mb.classList.remove('is-paused');
     var sp = document.getElementById('btnPause');
     if (sp) sp.textContent = 'Pausar';
+    // ensure ahora tab and reset rendered text
+    if (Retoma.switchTab) Retoma.switchTab('ahora');
     window.__storyDone = false;
     say('');
   }
