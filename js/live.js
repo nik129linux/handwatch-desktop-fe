@@ -90,7 +90,22 @@ var Live = (function () {
       btns[i].classList.toggle('is-active', on);
       btns[i].setAttribute('aria-pressed', String(on));
     }
-    if (el.liveView) el.liveView.classList.toggle('is-hidden', !isLive());
+    if (el.liveView) {
+      el.liveView.classList.toggle('is-hidden', !isLive());
+      if (isLive()) el.liveView.removeAttribute('inert');
+      else el.liveView.setAttribute('inert', '');
+    }
+    /* Demo windows leave the layout AND the a11y tree in Live (not faded). */
+    var wins = document.querySelectorAll('.window');
+    for (var w = 0; w < wins.length; w++) {
+      if (isLive()) {
+        wins[w].setAttribute('inert', '');
+        wins[w].setAttribute('aria-hidden', 'true');
+      } else {
+        wins[w].removeAttribute('inert');
+        wins[w].removeAttribute('aria-hidden');
+      }
+    }
     if (el.hint) el.hint.textContent = isLive() ? 'Live — tracking this PC' : 'Simulation — drag focus between windows';
     var simBtns = document.querySelectorAll('.sim-panel .btn');
     for (var j = 0; j < simBtns.length; j++) {
@@ -103,7 +118,24 @@ var Live = (function () {
 
   function setMode(mode) {
     if (mode !== 'demo' && mode !== 'live') return;
+    if (mode === state.mode) {
+      if (window.Retoma && Retoma.reloadForMode) Retoma.reloadForMode(mode);
+      return;
+    }
     saveSettings({ mode: mode }).then(function () {
+      if (window.Retoma && Retoma.reloadForMode) {
+        try {
+          var r = Retoma.reloadForMode(mode);
+          if (r && r.then) {
+            r.then(function () {
+              if (mode === 'live' && hasBridge()) {
+                try { window.retoma.liveReady(); } catch (e) { /* main starts playback */ }
+              }
+            });
+            return;
+          }
+        } catch (e) { /* fall through */ }
+      }
       if (mode === 'live' && hasBridge()) {
         try { window.retoma.liveReady(); } catch (e) { /* main starts playback */ }
       }
@@ -135,9 +167,11 @@ var Live = (function () {
   }
 
   function liveNowText() {
+    /* No live events yet: never name the demo's windows. */
+    if (!state.liveApp) return 'Now: waiting for activity';
     var mins = state.liveMinutes + ' min';
     if (state.storeTitles && state.liveTitle) return 'Now: ' + state.liveApp + ' · ' + state.liveTitle + ' · ' + mins;
-    return 'Now: ' + (state.liveApp || 'this PC') + ' · ' + mins;
+    return 'Now: ' + state.liveApp + ' · ' + mins;
   }
 
   function renderLiveNow() {
@@ -145,7 +179,8 @@ var Live = (function () {
   }
 
   function mergedToday() {
-    var data = (window.Retoma && Retoma.state.timeline) || [];
+    /* Live reads ONLY live events: the demo seed never appears here. */
+    var data = (window.Retoma && Retoma.state.liveTimeline) || [];
     var merged = {};
     var order = [];
     data.forEach(function (e) {
@@ -160,9 +195,15 @@ var Live = (function () {
     if (el.liveToday) {
       el.liveToday.textContent = rows.length
         ? 'Today: ' + rows.map(function (r) { return r.app + ' ' + r.duration + ' min'; }).join(' · ')
-        : 'Today: nothing yet';
+        : 'Nothing tracked yet';
     }
     if (el.liveBar) {
+      if (!rows.length) {
+        el.liveBar.innerHTML = '';
+        el.liveBar.style.display = 'none';
+        return;
+      }
+      el.liveBar.style.display = '';
       var total = rows.reduce(function (s, r) { return s + r.duration; }, 0) || 1;
       var colors = ['var(--seg-1)', 'var(--seg-2)', 'var(--seg-3)', 'var(--seg-4)', 'var(--seg-5)'];
       el.liveBar.innerHTML = rows.map(function (r, i) {
@@ -190,12 +231,16 @@ var Live = (function () {
       Retoma.renderAhora && Retoma.renderAhora();
       renderLiveNow();
     } else if (evt.type === 'episode' && evt.entry) {
-      if (Retoma.state.empty) {
-        Retoma.state.empty = false;
-        Retoma.state.timeline = [];
+      /* Live episodes land ONLY in the live history; demo stays untouched. */
+      if (Retoma.state.liveEmpty) {
+        Retoma.state.liveEmpty = false;
+        Retoma.state.liveTimeline = [];
       }
-      Retoma.state.timeline.push({ app: evt.entry.app, duration: evt.entry.duration });
-      if (Retoma.state.timeline.length > 12) Retoma.state.timeline.shift();
+      Retoma.state.liveTimeline.push({ app: evt.entry.app, duration: evt.entry.duration });
+      if (Retoma.state.liveTimeline.length > 12) Retoma.state.liveTimeline.shift();
+      try {
+        if (window.Persist && Persist.save) Persist.save(Retoma.state.liveTimeline, 'live');
+      } catch (e) { /* demo keeps going */ }
       Retoma.renderTimeline();
       renderLiveToday();
     } else if (evt.type === 'away') {
@@ -271,14 +316,14 @@ var Live = (function () {
     return window.retoma.helperCheck().then(function (res) {
       if (!res) return res;
       onLiveStatus(res.status);
-      var showCmd = (res.status === 'extension-missing' || res.status === 'error') && res.installed;
-      if (el.enableCmd) el.enableCmd.classList.toggle('is-hidden', !showCmd);
-      if (el.enableCopy) el.enableCopy.classList.toggle('is-hidden', !showCmd);
+      /* The enable command is visible and copyable from the start. */
+      if (el.enableCmd) el.enableCmd.classList.remove('is-hidden');
+      if (el.enableCopy) el.enableCopy.classList.remove('is-hidden');
       if (res.status === 'ready') {
         note('Helper is on. Tracking this PC.');
-      } else if (showCmd) {
+      } else if (res.installed) {
         note('Helper files are here but off. Run the command, then press Check again.');
-      } else if (!res.installed) {
+      } else {
         note('Helper not found yet. Press Install helper first.');
       }
       return res;
@@ -464,6 +509,10 @@ var Live = (function () {
 
     loadSettings().then(function (next) {
       applySettings(next || {});
+      /* Starting in Live: show ONLY the live store, never the demo seed. */
+      if (window.Retoma && Retoma.reloadForMode && state.mode === 'live') {
+        try { Retoma.reloadForMode('live'); } catch (e) { /* demo keeps going */ }
+      }
       refreshStatus();
       renderLiveNow();
       renderLiveToday();
@@ -487,6 +536,8 @@ var Live = (function () {
     saveSettings: saveSettings,
     showLiveResume: showLiveResume,
     syncPause: syncPause,
+    renderLiveNow: renderLiveNow,
+    renderLiveToday: renderLiveToday,
     state: state
   };
 })();

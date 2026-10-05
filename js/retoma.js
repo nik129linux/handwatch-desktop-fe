@@ -17,6 +17,8 @@ var Retoma = (function () {
     interruptionApp: 'WhatsApp',
     timeline: [],
     empty: false,
+    liveTimeline: [],
+    liveEmpty: true,
     proposalDismissed: false,
     aiMode: 'off',
     aiConsent: { local: false, cloud: false },
@@ -31,6 +33,18 @@ var Retoma = (function () {
   var clockH = 9, clockM = 0;
   var tickTimer = null;
   var activeTab = 'ahora';
+
+  function isLiveMode() {
+    try {
+      return !!(window.Live && Live.isLive && Live.isLive());
+    } catch (e) { return false; }
+  }
+
+  /* Live reads ONLY live events: never fall back to the demo seed. */
+  function activeEntries() {
+    if (isLiveMode()) return state.liveTimeline;
+    return state.timeline;
+  }
 
   function formatClock() {
     var h = String(clockH).padStart(2, '0');
@@ -56,6 +70,7 @@ var Retoma = (function () {
 
   function switchApp(next) {
     if (state.paused) return;
+    if (isLiveMode()) return;
     var prev = state.currentApp;
     if (prev) {
       var dur = state.timeInCurrent || 5;
@@ -82,6 +97,7 @@ var Retoma = (function () {
   }
 
   function goAway(minutes) {
+    if (isLiveMode()) return;
     minutes = minutes || 25;
     state.away = true;
     state.awayMinutes = minutes;
@@ -163,7 +179,11 @@ var Retoma = (function () {
   }
 
   function computeProposal(data) {
-    var entries = (data && data.length ? data : Events.seedTimeline).slice();
+    if (!data || !data.length) {
+      if (isLiveMode()) return null;
+      data = Events.seedTimeline;
+    }
+    var entries = data.slice();
     var longest = entries[0] || { app: 'Document', duration: 40 };
     entries.forEach(function (e) { if (e.duration > longest.duration) longest = e; });
     var ix = -1;
@@ -192,9 +212,18 @@ var Retoma = (function () {
     var howEl = document.getElementById('proposalHow');
     var tagEl = document.getElementById('proposalTag');
     var card = document.getElementById('proposalCard');
+    /* Live with no live events: no proposal, and propose() never runs. */
+    if (isLiveMode() && (!data || !data.length)) {
+      if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
+      return null;
+    }
     var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'cloud') && state.aiConsent[state.aiMode];
     if (!useProvider) {
       var p = computeProposal(data);
+      if (!p) {
+        if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
+        return null;
+      }
       if (textEl) textEl.textContent = p.text;
       if (howEl) howEl.textContent = p.how;
       if (tagEl) tagEl.textContent = 'On-device rules';
@@ -213,6 +242,7 @@ var Retoma = (function () {
       if (card) card.classList.remove('is-loading');
       if (!res || !Ai.validProposal(res)) {
         var fb = computeProposal(data);
+        if (!fb) { if (card) card.classList.add('is-hidden'); return; }
         if (textEl) textEl.textContent = fb.text;
         if (howEl) howEl.textContent = fb.how;
         if (tagEl) tagEl.textContent = 'On-device rules';
@@ -227,6 +257,7 @@ var Retoma = (function () {
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
       var fb2 = computeProposal(data);
+      if (!fb2) { if (card) card.classList.add('is-hidden'); return; }
       if (textEl) textEl.textContent = fb2.text;
       if (howEl) howEl.textContent = fb2.how;
       if (tagEl) tagEl.textContent = 'On-device rules';
@@ -312,7 +343,12 @@ var Retoma = (function () {
     var box = document.getElementById('aiConsent');
     var pre = document.getElementById('aiPayload');
     if (!box || !pre) return;
-    var summary = Ai.buildSummary(state.timeline.length ? state.timeline : Events.seedTimeline);
+    var entries = activeEntries();
+    var summary = entries.length
+      ? Ai.buildSummary(entries)
+      : (isLiveMode()
+        ? { perApp: {}, longest: { app: 'None', minutes: 0 }, firstInterruption: { app: 'None', at: '—' } }
+        : Ai.buildSummary(Events.seedTimeline));
     paintAiMode();
     var paint = function (payload) {
       pre.textContent = JSON.stringify(payload, null, 2);
@@ -344,8 +380,36 @@ var Retoma = (function () {
   }
 
   function persistTimeline() {
+    if (isLiveMode()) {
+      if (state.liveEmpty) return;
+      Persist.save(state.liveTimeline, 'live');
+      return;
+    }
     if (state.empty) return;
-    Persist.save(state.timeline);
+    Persist.save(state.timeline, 'demo');
+  }
+
+  /* Swap the visible history when the mode flips; each mode keeps its own. */
+  function reloadForMode(mode) {
+    var m = mode === 'live' ? 'live' : 'demo';
+    return Persist.load(m).then(function (events) {
+      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      if (m === 'live') {
+        state.liveTimeline = list.slice(-12);
+        state.liveEmpty = state.liveTimeline.length === 0;
+      } else {
+        if (list.length) {
+          state.timeline = list.slice(-12);
+          state.empty = false;
+        }
+      }
+      hideResume();
+      renderAhora();
+      renderTimeline();
+      if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
+      if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
+      return true;
+    });
   }
 
   function hideResume() {
@@ -358,12 +422,13 @@ var Retoma = (function () {
   }
 
   function doRetomar() {
-    if (state.empty || !el.resumeCard || !el.resumeCard.classList.contains('is-visible')) return;
+    if (!el.resumeCard || !el.resumeCard.classList.contains('is-visible')) return;
     if (window.Live && Live.isLive && Live.isLive()) {
       // Live on Wayland cannot reopen windows: the card only reminds.
       hideResume();
       return;
     }
+    if (state.empty) return;
     Desk.reopen(state.prevWindows, true);
     hideResume();
     var app = Events.findByLabel(state.prevApp);
@@ -376,6 +441,14 @@ var Retoma = (function () {
 
   function renderAhora() {
     if (!el.nowApp) return;
+    if (isLiveMode() && !hasTimelineEntries() && !(window.Live && Live.state && Live.state.liveApp)) {
+      /* Live with no live events: never show the demo's Document. */
+      el.nowApp.textContent = 'Waiting for activity';
+      if (el.nowTitle) el.nowTitle.textContent = 'Start any app to begin tracking.';
+      if (el.nowTime) el.nowTime.textContent = '—';
+      if (el.nowDesc) el.nowDesc.textContent = 'Only app names. Never what you type.';
+      return;
+    }
     if (state.paused) {
       el.nowApp.textContent = 'Paused: I am not watching anything';
       if (el.nowTitle) el.nowTitle.textContent = 'Retoma is paused. Resume whenever you like.';
@@ -433,6 +506,29 @@ var Retoma = (function () {
 
   function renderTimeline() {
     if (!el.timelineBar) return;
+    /* Live reads ONLY live events: empty Live never falls back to the demo seed. */
+    var dayStatement = document.getElementById('dayStatement');
+    if (isLiveMode()) {
+      if (dayStatement) dayStatement.style.display = 'none';
+      if (state.liveEmpty || !state.liveTimeline.length) {
+        el.timelineBar.innerHTML = '';
+        if (el.timelineLegend) el.timelineLegend.innerHTML = '';
+        if (el.timelineText) el.timelineText.textContent = '';
+        if (el.proposalCard) { el.proposalCard.classList.add('is-hidden'); el.proposalCard.classList.remove('is-loading'); }
+        if (el.timeline) el.timeline.classList.remove('is-hidden');
+        el.timelineBar.style.display = 'none';
+        if (el.timelineLegend) el.timelineLegend.style.display = 'none';
+        if (el.emptyState) {
+          el.emptyState.textContent = 'Nothing tracked yet';
+          el.emptyState.classList.remove('is-hidden');
+        }
+        return;
+      }
+      if (dayStatement) dayStatement.style.display = 'none';
+      renderLiveList(state.liveTimeline);
+      return;
+    }
+    if (dayStatement) dayStatement.style.display = '';
     if (state.empty) {
       el.timelineBar.innerHTML = '';
       if (el.timelineLegend) el.timelineLegend.innerHTML = '';
@@ -441,10 +537,18 @@ var Retoma = (function () {
       if (el.timeline) el.timeline.classList.remove('is-hidden');
       el.timelineBar.style.display = 'none';
       if (el.timelineLegend) el.timelineLegend.style.display = 'none';
-      if (el.emptyState) el.emptyState.classList.remove('is-hidden');
+      if (el.emptyState) {
+        el.emptyState.textContent = 'No history. Everything was deleted.';
+        el.emptyState.classList.remove('is-hidden');
+      }
       return;
     }
-    var data = state.timeline.length ? state.timeline : Events.seedTimeline;
+    renderLiveList(state.timeline.length ? state.timeline : Events.seedTimeline);
+  }
+
+  /* Shared painter for one non-empty list. Demo passes the seed fallback;
+   * Live passes ONLY live entries (never the seed). */
+  function renderLiveList(data) {
     var total = data.reduce(function (s, e) { return s + e.duration; }, 0) || 80;
     el.timelineBar.style.display = '';
     var colors = ['var(--seg-1)', 'var(--seg-2)', 'var(--seg-3)', 'var(--seg-4)', 'var(--seg-5)'];
@@ -475,7 +579,11 @@ var Retoma = (function () {
         return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
       }).join('');
     }
-    if (el.timelineText) el.timelineText.textContent = 'Planned: 2 h on the report · Actual: 1 h 20 min';
+    if (el.timelineText) {
+      el.timelineText.textContent = isLiveMode()
+        ? 'Tracked today: ' + total + ' min on this PC'
+        : 'Planned: 2 h on the report · Actual: 1 h 20 min';
+    }
     renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');
@@ -487,6 +595,14 @@ var Retoma = (function () {
   }
 
   function showEndOfDay() {
+    if (isLiveMode()) {
+      state.proposalDismissed = false;
+      renderTimeline();
+      if (el.timeline) el.timeline.classList.remove('is-hidden');
+      openPanel();
+      switchTab('hoy');
+      return;
+    }
     setClock(18, 0);
     if (!state.paused) {
       state.timeline.push({ app: state.currentApp, duration: state.timeInCurrent || 10 });
@@ -510,6 +626,21 @@ var Retoma = (function () {
   }
 
   function deleteAll() {
+    /* Live deletes ONLY the live store and says so; Demo deletes only demo. */
+    if (isLiveMode()) {
+      state.liveTimeline = [];
+      state.liveEmpty = true;
+      state.aiToken++;
+      state.away = false;
+      state.awayMinutes = 0;
+      hideResume();
+      renderTimeline();
+      dismissProposal();
+      if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
+      if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
+      Persist.removeAll('live');
+      return;
+    }
     state.timeline = [];
     state.empty = true;
     state.aiToken++;
@@ -518,10 +649,13 @@ var Retoma = (function () {
     hideResume();
     renderTimeline();
     dismissProposal();
-    Persist.removeAll();
+    Persist.removeAll('demo');
   }
 
-  function hasTimelineEntries() { return !state.empty && state.timeline.length > 0; }
+  function hasTimelineEntries() {
+    if (isLiveMode()) return !state.liveEmpty && state.liveTimeline.length > 0;
+    return !state.empty && state.timeline.length > 0;
+  }
 
   function isPanelOpen() { return el.retomaPanel && el.retomaPanel.classList.contains('is-open'); }
 
@@ -744,16 +878,25 @@ var Retoma = (function () {
         });
       } catch (e) { /* demo keeps going */ }
     }
-    Persist.load().then(function (events) {
+    Persist.load('demo').then(function (events) {
       if (events && events.length) {
         state.timeline = events.slice(-12).map(function (e) { return { app: e.app, duration: e.duration }; });
         state.empty = false;
-        renderTimeline();
+        if (!isLiveMode()) renderTimeline();
         persistTimeline();
       }
     });
+    Persist.load('live').then(function (events) {
+      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      if (list.length) {
+        state.liveTimeline = list.slice(-12);
+        state.liveEmpty = false;
+        if (isLiveMode()) { renderTimeline(); renderAhora(); }
+      }
+    });
     setInterval(function () {
-      Persist.load().then(function (events) { Persist.save(events || []); });
+      var m = isLiveMode() ? 'live' : 'demo';
+      Persist.load(m).then(function (events) { Persist.save(events || [], m); });
     }, 3600 * 1000);
     renderAhora();
     renderTimeline();
@@ -764,11 +907,17 @@ var Retoma = (function () {
     window.addEventListener('resize', syncDesktopLayout);
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode };
   }
 
   function openConfirm() {
     if (!el.confirmOverlay) return;
+    var confirmText = document.getElementById('confirmText');
+    if (confirmText) {
+      confirmText.textContent = isLiveMode()
+        ? 'Only the Live history on this PC will be deleted. Demo history is kept. This cannot be undone.'
+        : 'Today\'s history and cards will be deleted. This cannot be undone.';
+    }
     el.lastFocus = document.activeElement;
     el.confirmOverlay.classList.add('is-open');
     el.confirmOverlay.setAttribute('aria-hidden', 'false');
@@ -783,5 +932,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora };
 })();

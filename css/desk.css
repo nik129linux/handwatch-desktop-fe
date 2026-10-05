@@ -617,11 +617,11 @@ body.is-launch .sim-panel .btn { animation: fadeUp 500ms var(--ease-enter) both;
   to { opacity: 1; transform: none; }
 }
 
-/* crossfade: fake windows leave while the live view enters */
+/* Live honesty: the fake demo windows are fully removed from layout and the
+ * a11y tree (display:none + inert in live.js), never faded ghosts behind
+ * the setup card. Instant removal also keeps screenshots blur-free. */
 body.is-live .window {
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transform: scale(0.96);
-  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), visibility 0s linear var(--dur-enter);
+  display: none;
 }
 @media (max-width: 900px) {
   body.is-live .window { display: none; }

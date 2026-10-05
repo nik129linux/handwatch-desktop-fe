@@ -4,8 +4,22 @@
 var Persist = (function () {
   'use strict';
 
-  var KEY = 'retoma-events-v1';
+  var KEY_DEMO = 'retoma-events-demo-v1';
+  var KEY_LIVE = 'retoma-events-live-v1';
   var RETENTION_MS = 7 * 24 * 3600 * 1000;
+
+  /* Per-mode keys: Live reads ONLY live events, Demo ONLY demo events.
+   * Nothing is migrated silently; a fresh mode starts empty. */
+  function keyFor(mode) {
+    return mode === 'live' ? KEY_LIVE : KEY_DEMO;
+  }
+
+  function currentMode() {
+    try {
+      if (window.Live && Live.isLive && Live.isLive()) return 'live';
+    } catch (e) { /* demo until Live mounts */ }
+    return 'demo';
+  }
 
   function hasBridge() {
     return !!(window.retoma && window.retoma.loadEvents);
@@ -33,9 +47,9 @@ var Persist = (function () {
     });
   }
 
-  function loadLocal() {
+  function loadLocal(mode) {
     var raw = null;
-    try { raw = window.localStorage.getItem(KEY); } catch (e) { raw = null; }
+    try { raw = window.localStorage.getItem(keyFor(mode || currentMode())); } catch (e) { raw = null; }
     if (!raw) return [];
     try {
       var data = JSON.parse(raw);
@@ -44,35 +58,38 @@ var Persist = (function () {
     } catch (e) { return []; }
   }
 
-  function saveLocal(events) {
+  function saveLocal(events, mode) {
     try {
-      window.localStorage.setItem(KEY, JSON.stringify({ version: 1, savedAt: new Date().toISOString(), events: stamp(events) }));
+      window.localStorage.setItem(keyFor(mode || currentMode()), JSON.stringify({ version: 1, savedAt: new Date().toISOString(), events: stamp(events) }));
     } catch (e) { /* storage full or blocked: demo keeps going */ }
   }
 
-  function load() {
+  function load(mode) {
+    var m = mode || currentMode();
     if (hasBridge()) {
-      return window.retoma.loadEvents().then(function (events) {
+      return window.retoma.loadEvents(m).then(function (events) {
         return prune(events || []);
-      }, function () { return loadLocal(); });
+      }, function () { return loadLocal(m); });
     }
-    return Promise.resolve(loadLocal());
+    return Promise.resolve(loadLocal(m));
   }
 
-  function save(events) {
+  function save(events, mode) {
+    var m = mode || currentMode();
     var stamped = stamp(events);
     if (hasBridge()) {
-      return window.retoma.saveEvents(stamped).then(function () { return true; }, function () { saveLocal(stamped); return false; });
+      return window.retoma.saveEvents(stamped, m).then(function () { return true; }, function () { saveLocal(stamped, m); return false; });
     }
-    saveLocal(stamped);
+    saveLocal(stamped, m);
     return Promise.resolve(true);
   }
 
-  function removeAll() {
+  function removeAll(mode) {
+    var m = mode || currentMode();
     if (hasBridge()) {
-      return window.retoma.deleteEvents().then(function () { return true; }, function () { return false; });
+      return window.retoma.deleteEvents(m).then(function () { return true; }, function () { return false; });
     }
-    try { window.localStorage.removeItem(KEY); } catch (e) { /* noop */ }
+    try { window.localStorage.removeItem(keyFor(m)); } catch (e) { /* noop */ }
     return Promise.resolve(true);
   }
 
@@ -88,5 +105,5 @@ var Persist = (function () {
     return Promise.resolve(true);
   }
 
-  return { load: load, save: save, removeAll: removeAll, exportData: exportData, prune: prune, hasBridge: hasBridge };
+  return { load: load, save: save, removeAll: removeAll, exportData: exportData, prune: prune, hasBridge: hasBridge, keyFor: keyFor, currentMode: currentMode };
 })();

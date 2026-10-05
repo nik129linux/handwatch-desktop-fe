@@ -17,14 +17,22 @@ const idleSourceMod = require('./live/idle-source');
 let win = null;
 let tray = null;
 let paused = false;
-let storeFile = null;
 let settingsFile = null;
 let liveMgr = null;
 let liveClock = null;
 
+var persisted = null;
+
+function modeNow() {
+  return (persisted && persisted.mode === 'live') ? 'live' : 'demo';
+}
+
+function eventsFileFor(mode) {
+  return store.eventsPathFor(app.getPath('userData'), mode);
+}
+
 function eventsFile() {
-  if (!storeFile) storeFile = store.eventsPath(app.getPath('userData'));
-  return storeFile;
+  return eventsFileFor(modeNow());
 }
 
 function settingsFilePath() {
@@ -86,9 +94,10 @@ function setupLive() {
       if (win && !win.isDestroyed()) win.webContents.send('retoma:live:status', status);
     },
     saveEpisode: function (entry) {
-      var loaded = store.loadEventsFile(fs, eventsFile());
+      var liveFile = eventsFileFor('live');
+      var loaded = store.loadEventsFile(fs, liveFile);
       loaded.events.push({ app: entry.app, duration: entry.duration, ts: new Date().toISOString() });
-      store.saveEventsFile(fs, eventsFile(), loaded.events);
+      store.saveEventsFile(fs, liveFile, loaded.events);
     },
     notify: function (info) {
       showReturnNotification(info);
@@ -98,8 +107,6 @@ function setupLive() {
   if (initial.mode === 'live') liveMgr.start();
   refreshTray();
 }
-
-var persisted = null;
 
 function applyLiveSettings(next) {
   persisted = next;
@@ -229,17 +236,21 @@ function setupIpc() {
   ipcMain.handle('retoma:propose', (ev, summary, opts) => providers.propose(summary, opts));
   ipcMain.handle('retoma:preview', (ev, summary, mode) => providers.previewPayload(summary, mode));
   ipcMain.handle('retoma:capabilities', () => providers.capabilities());
-  ipcMain.handle('retoma:events:load', () => {
-    var loaded = store.loadEventsFile(fs, eventsFile());
-    store.saveEventsFile(fs, eventsFile(), loaded.events);
+  function fileForArg(arg) {
+    return eventsFileFor(arg === 'live' || arg === 'demo' ? arg : modeNow());
+  }
+  ipcMain.handle('retoma:events:load', (ev, mode) => {
+    var f = fileForArg(mode);
+    var loaded = store.loadEventsFile(fs, f);
+    store.saveEventsFile(fs, f, loaded.events);
     return loaded.events;
   });
-  ipcMain.handle('retoma:events:save', (ev, events) => {
-    store.saveEventsFile(fs, eventsFile(), events || []);
+  ipcMain.handle('retoma:events:save', (ev, events, mode) => {
+    store.saveEventsFile(fs, fileForArg(mode), events || []);
     return true;
   });
-  ipcMain.handle('retoma:events:delete', () => {
-    store.deleteEventsFile(fs, eventsFile());
+  ipcMain.handle('retoma:events:delete', (ev, mode) => {
+    store.deleteEventsFile(fs, fileForArg(mode));
     return true;
   });
   ipcMain.handle('retoma:events:export', async () => {
@@ -312,8 +323,11 @@ function setupIpc() {
 
 function enforceRetention() {
   try {
-    var loaded = store.loadEventsFile(fs, eventsFile());
-    store.saveEventsFile(fs, eventsFile(), loaded.events);
+    ['demo', 'live'].forEach(function (m) {
+      var f = eventsFileFor(m);
+      var loaded = store.loadEventsFile(fs, f);
+      store.saveEventsFile(fs, f, loaded.events);
+    });
   } catch (e) { /* first run: nothing stored yet */ }
 }
 

@@ -13,6 +13,13 @@ function eventsPath(userDataDir) {
   return path.join(userDataDir, 'events.json');
 }
 
+/* Per-mode stores: Live reads ONLY live events, Demo ONLY demo events.
+ * No silent migration: a fresh mode starts empty, old events.json is left alone. */
+function eventsPathFor(userDataDir, mode) {
+  var m = mode === 'live' ? 'live' : 'demo';
+  return path.join(userDataDir, 'events-' + m + '.json');
+}
+
 function eventTime(ev) {
   if (!ev || typeof ev !== 'object') return NaN;
   var t = Date.parse(ev.ts || ev.savedAt || '');
@@ -68,6 +75,7 @@ function serialize(events) {
 module.exports = {
   RETENTION_MS: RETENTION_MS,
   eventsPath: eventsPath,
+  eventsPathFor: eventsPathFor,
   pruneEvents: pruneEvents,
   loadEventsFile: loadEventsFile,
   saveEventsFile: saveEventsFile,

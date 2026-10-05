@@ -101,14 +101,14 @@
           <p class="muted">Only the title, not the cells</p>
         </div>
       </div>
-      <div id="liveView" class="live-view is-hidden" aria-live="polite" aria-label="Live tracking on this PC">
+      <div id="liveView" class="live-view is-hidden" inert aria-live="polite" aria-label="Live tracking on this PC">
         <div class="live-view__inner">
           <div id="liveStatus" class="status-chip" data-status="waiting">
             <span class="status-chip__pulse" aria-hidden="true"></span>
             <span id="liveStatusText">Waiting for helper</span>
           </div>
-          <h2 id="liveNow" class="live-now">Now: this PC</h2>
-          <p id="liveToday" class="live-today tabular">Today: nothing yet</p>
+          <h2 id="liveNow" class="live-now">Now: waiting for activity</h2>
+          <p id="liveToday" class="live-today tabular">Nothing tracked yet</p>
           <div id="liveBar" class="timeline-bar" aria-hidden="true"></div>
           <div id="helperCard" class="helper-card is-hidden" aria-label="Helper setup">
             <h3 class="helper-card__title">Track this PC</h3>
@@ -121,12 +121,12 @@
                 <span class="helper-card__text">Log out and back in</span>
               </li>
               <li class="helper-card__step">
-                <span class="helper-card__text">Turn it on, then check</span>
+                <span class="helper-card__text">Enable and check</span>
                 <span class="helper-card__row">
                   <button id="helperCheck" class="btn">Check again</button>
-                  <button id="enableCopy" class="btn is-hidden">Copy</button>
+                  <button id="enableCopy" class="btn">Copy</button>
                 </span>
-                <code id="enableCmd" class="helper-cmd is-hidden">gnome-extensions enable retoma-focus@retoma.local</code>
+                <code id="enableCmd" class="helper-cmd">gnome-extensions enable retoma-focus@retoma.local</code>
               </li>
             </ol>
             <p id="helperNote" class="helper-card__note is-hidden"></p>
@@ -321,7 +321,7 @@
 <div id="confirmOverlay" class="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
   <div class="confirm-box">
     <h3>Delete everything?</h3>
-    <p>Today's history and cards will be deleted. This cannot be undone.</p>
+    <p id="confirmText">Today's history and cards will be deleted. This cannot be undone.</p>
     <div class="confirm-actions">
       <button id="confirmNo" class="btn">Cancel</button>
       <button id="confirmYes" class="btn btn--primary">Delete</button>

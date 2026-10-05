@@ -184,7 +184,7 @@ var Visual = (function () {
         scrub.style.transform = 'translateX(' + Math.round(x) + 'px)';
         var acc = 0;
         var total = 0;
-        var data = window.Retoma && Retoma.state ? (Retoma.state.timeline.length ? Retoma.state.timeline : []) : [];
+        var data = window.Retoma && Retoma.state ? ((Retoma.isLiveMode && Retoma.isLiveMode() ? Retoma.state.liveTimeline : Retoma.state.timeline) || []) : [];
         for (var i = 0; i < data.length; i++) total += data[i].duration;
         var walked = 0;
         var label = '';
