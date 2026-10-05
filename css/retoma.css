@@ -21,7 +21,11 @@
   visibility: hidden;
   transform: scale(0.96) translateY(-8px);
   transform-origin: top right;
-  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), visibility 0s linear var(--dur-enter);
+  /* Base visibility flips with no delay: the close fade is covered by
+     .is-closing (visibility stays visible for --dur-exit), so once that class
+     is stripped the panel must leave the tab order immediately instead of
+     lingering visible for another --dur-enter. */
+  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), visibility 0s;
   scrollbar-gutter: stable;
   scroll-padding-bottom: 24px;
 }

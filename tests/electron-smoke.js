@@ -2,10 +2,16 @@
  * Under Wayland run with xvfb-run (or --ozone-platform=x11) — see TESTING.md. */
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { _electron } = require('/home/nico/.nvm/versions/node/v22.23.2/lib/node_modules/playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'shots');
+// Isolated profile: parallel agents (or a dev `npm start`) hold the
+// single-instance lock on the default ~/.config/retoma profile, which makes
+// a second instance quit instantly ("Target page ... has been closed").
+// A unique --user-data-dir per run keeps the lock (and events.json) private.
+const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'retoma-smoke-'));
 
 let pass = 0;
 const fails = [];
@@ -19,7 +25,7 @@ function ok(cond, label, detail) {
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
   const electronPath = require('electron');
-  const app = await _electron.launch({ executablePath: electronPath, args: ['.', '--no-sandbox'], cwd: ROOT });
+  const app = await _electron.launch({ executablePath: electronPath, args: ['.', '--no-sandbox', '--user-data-dir=' + PROFILE], cwd: ROOT });
   const window = await app.firstWindow();
   await window.waitForSelector('#deskClock', { timeout: 15000 });
   // screenshots and state checks start only once the entrance choreography is done
@@ -91,6 +97,7 @@ function ok(cond, label, detail) {
   ok(segCount === 3, 'Smart suggestions control present in app', 'found ' + segCount);
 
   await app.close();
+  try { fs.rmSync(PROFILE, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   if (fails.length) { console.log(fails.length + ' failed, ' + pass + ' passed'); process.exit(1); }
   console.log('  ' + pass + ' passed, 0 failed');
 })().catch(e => { console.error(e); process.exit(1); });
