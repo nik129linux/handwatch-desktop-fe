@@ -43,9 +43,9 @@
   ✓ story has no console errors
 
 7 · token test (BOTH themes)
-  ✓ [dark] nothing keeps rgb(166, 255, 0) (256 elements)
+  ✓ [dark] nothing keeps rgb(166, 255, 0) (312 elements)
   ✓ [dark] new primary in use
-  ✓ [light] nothing keeps rgb(166, 255, 0) (256 elements)
+  ✓ [light] nothing keeps rgb(166, 255, 0) (312 elements)
   ✓ [light] new primary in use
 
 7b · theme toggle + contrast >= 4.5 in both themes
@@ -307,4 +307,44 @@ D1 · preload bridge + IPC persistence + propose
   ✓ delete-all empties the store
   ✓ resume card shows after 25 min away (notify path)
   ✓ Smart suggestions control present in app
-  15 passed, 0 failed
+
+L2 · live mode UI
+  ✓ L2 default mode is demo
+  ✓ L2 demo shows fake windows
+  ✓ L2 sim buttons enabled in demo
+  ✓ L2 mode switch enters live view
+  ✓ L2 live view visible
+  ✓ L2 sim buttons disabled in live
+  ✓ L2 sim buttons carry a tooltip
+  ✓ L2 status is extension-missing without helper
+  ✓ L2 chip reads Waiting for helper
+  ✓ L2 setup card shows 3 steps
+  ✓ L2 setup card has 3 numbered steps
+  ✓ L2 enable command text is exact
+  ✓ L2 chip reads Paused
+  ✓ L2 resume restores waiting chip
+  ✓ L2 mode persists across restart
+  ✓ L2 switching never loses stored data
+  ✓ L2 fake launch starts in live
+  ✓ L2 scripted away shows the resume card
+  ✓ L2 Now line names app + minutes, no title
+  ✓ L2 resume button reads Got it
+  ✓ L2 honest Wayland line present
+  ✓ L2 card lists apps used before the break
+  ✓ L2 titles OFF: nothing leaks into the DOM
+  ✓ L2 titles OFF: nothing leaks into events.json
+  ✓ L2 blocklisted app stored as Private app
+  ✓ L2 chip reads Tracking this PC
+  ✓ L2 live bar built from real events
+  ✓ L2 today lists Private app
+  ✓ L2 away-after 2/5/10 control present
+  ✓ L2 titles default OFF
+  ✓ L2 titles ON: truncated to 60
+  ✓ L2 install without confirm copies nothing
+  ✓ L2 no folder created without confirm
+  ✓ L2 install copies exactly the 2 files
+  ✓ L2 check reports install + enable command
+  ✓ [L2 dark] token swap leaves no old lime
+  ✓ [L2 light] token swap leaves no old lime
+  ✓ L2 no console errors in either mode or theme
+  53 passed, 0 failed
