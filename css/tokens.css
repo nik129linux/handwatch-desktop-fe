@@ -81,6 +81,19 @@
   --heat-4: color-mix(in srgb, var(--color-primary-500) 66%, var(--color-neutral-900));
   --heat-5: var(--color-primary-500);
   --wall-glow: color-mix(in srgb, var(--color-primary-500) 10%, var(--color-neutral-950));
+  --wall-glow-b: color-mix(in srgb, var(--color-neutral-100) 12%, transparent);
+  --wall-glow-c: color-mix(in srgb, var(--color-neutral-600) 55%, transparent);
+  --grain-opacity: 0.04;
+
+  /* --- Thin-line lime (dots, hairlines, small accents) -------------------- */
+  --lime-line: var(--color-primary-500);
+
+  /* --- Timeline segment ramps (merged legend dots reuse these) ------------ */
+  --seg-1: var(--color-neutral-100);
+  --seg-2: var(--color-neutral-200);
+  --seg-3: var(--color-neutral-400);
+  --seg-4: var(--color-neutral-500);
+  --seg-5: var(--color-neutral-600);
 
   /* --- Spectrum ring stops (stop 1 == primary) -------------------------- */
   --ring-spectrum-1: var(--color-primary-500);
@@ -135,4 +148,65 @@
   --dur-exit: 200ms;
   --dur-press: 120ms;
   --dur-stagger: 60ms;
+}
+
+/* ==========================================================================
+   Light theme — warm paper. SEMANTIC overrides only; base palette untouched.
+   Lime stays the Retomar fill + focus ring (ink text on it); thin lime
+   accents switch to the darkened derivative for contrast.
+   ========================================================================== */
+:root[data-theme="light"] {
+  --bg-neutral-950: #f6e8d0;
+  --bg-neutral-900: #fffaf0;
+  --bg-neutral-800: #f1e2c6;
+  --bg-neutral-700: #e3d0ab;
+  --bg-neutral-600: #d3ba8a;
+  --bg-neutral-50: #fffaf0;
+
+  --bg-stage: #f6e8d0;
+  --bg-card: #fffaf0;
+  --bg-raised: #f1e2c6;
+  --bg-screen: #fffaf0;
+  --bg-paper: #1d1a14;
+  --text-paper: #1d1a14;
+  --text-primary: #1d1a14;
+  --text-secondary: #57503f;
+  --text-tertiary: #6e675a;
+  --text-neutral-50: #1d1a14;
+  --text-neutral-100: #1d1a14;
+  --text-neutral-400: #57503f;
+  --text-neutral-600: #6e675a;
+  --text-inverse: #fffaf0;
+
+  --border-card: #d9c7a3;
+  --border-subtle: #e6d5b3;
+  --border-strong: #b99c68;
+  --border-neutral-700: #d9c7a3;
+  --border-neutral-600: #c4ab7d;
+  --border-neutral-400: #8a7a5c;
+  --border-neutral-50: #fffaf0;
+
+  --tint-primary-90: color-mix(in srgb, var(--color-primary-500) 92%, var(--bg-card));
+  --tint-primary-70: color-mix(in srgb, var(--color-primary-500) 64%, var(--bg-card));
+  --tint-primary-45: color-mix(in srgb, var(--color-primary-500) 38%, var(--bg-card));
+  --tint-primary-30: color-mix(in srgb, var(--color-primary-500) 22%, var(--bg-card));
+  --tint-primary-18: color-mix(in srgb, var(--color-primary-500) 11%, var(--bg-card));
+  --state-primary-dim: color-mix(in srgb, var(--color-primary-500) 34%, var(--bg-card));
+  --heat-1: color-mix(in srgb, var(--bg-card) 92%, var(--color-primary-500));
+  --heat-2: color-mix(in srgb, var(--color-primary-500) 20%, var(--bg-card));
+  --heat-3: color-mix(in srgb, var(--color-primary-500) 42%, var(--bg-card));
+  --ring-track: color-mix(in srgb, var(--color-primary-500) 18%, var(--bg-card));
+
+  --wall-glow: color-mix(in srgb, var(--color-primary-500) 14%, var(--bg-stage));
+  --wall-glow-b: color-mix(in srgb, var(--color-spectrum-orange) 14%, transparent);
+  --wall-glow-c: color-mix(in srgb, var(--text-neutral-400) 30%, transparent);
+  --grain-opacity: 0.07;
+
+  --lime-line: color-mix(in srgb, var(--color-primary-500) 55%, black);
+
+  --seg-1: #3d3a30;
+  --seg-2: #57503f;
+  --seg-3: #7a6a4e;
+  --seg-4: #a89372;
+  --seg-5: #c4ab7d;
 }

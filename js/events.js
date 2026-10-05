@@ -19,10 +19,10 @@ var Events = (function () {
   }
 
   var APPS = [
-    { id: 'documento', label: 'Documento', title: 'Informe de calidad (párrafo 3)' },
-    { id: 'navegador', label: 'Navegador', title: 'Brightspace · Curso 4B' },
-    { id: 'whatsapp', label: 'WhatsApp', title: 'Mensajes · Ana' },
-    { id: 'hoja', label: 'Hoja de cálculo', title: 'Datos · Seguimiento' }
+    { id: 'documento', label: 'Document', title: 'Quality report (paragraph 3)' },
+    { id: 'navegador', label: 'Browser', title: 'Brightspace · Course 4B' },
+    { id: 'whatsapp', label: 'WhatsApp', title: 'Messages · Ana' },
+    { id: 'hoja', label: 'Spreadsheet', title: 'Data · Tracker' }
   ];
 
   var appIndex = 0;
@@ -39,10 +39,10 @@ var Events = (function () {
 
   // demo timeline seed
   var seedTimeline = [
-    { app: 'Documento', duration: 40 },
-    { app: 'Navegador', duration: 12 },
+    { app: 'Document', duration: 40 },
+    { app: 'Browser', duration: 12 },
     { app: 'WhatsApp', duration: 18 },
-    { app: 'Hoja de cálculo', duration: 10 }
+    { app: 'Spreadsheet', duration: 10 }
   ];
 
   return { on: on, off: off, emit: emit, APPS: APPS, nextApp: nextApp, currentApp: currentApp, findByLabel: findByLabel, seedTimeline: seedTimeline };

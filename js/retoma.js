@@ -3,8 +3,8 @@ var Retoma = (function () {
   'use strict';
 
   var state = {
-    currentApp: 'Documento',
-    currentTitle: 'Informe de calidad (párrafo 3)',
+    currentApp: 'Document',
+    currentTitle: 'Quality report (paragraph 3)',
     timeInCurrent: 0,
     paused: false,
     pausedUntil: 0,
@@ -79,9 +79,9 @@ var Retoma = (function () {
     state.awayMinutes = minutes;
     state.prevApp = state.currentApp;
     state.prevTitle = state.currentTitle;
-    state.prevWindows = ['Documento', 'Navegador', 'Hoja de cálculo'];
+    state.prevWindows = ['Document', 'Browser', 'Spreadsheet'];
     hideResume();
-    Desk.minimize('Documento');
+    Desk.minimize('Document');
     renderAhoraAway();
   }
 
@@ -101,11 +101,11 @@ var Retoma = (function () {
     if (!el.resumeCard) return;
     el.resumeCard.classList.remove('is-hidden');
     if (el.resumeHero) {
-      el.resumeHero.textContent = 'Estabas en ' + state.prevApp;
+      el.resumeHero.textContent = 'You were in ' + state.prevApp;
       splitHeroWords(el.resumeHero);
     }
     if (el.resumeSub) el.resumeSub.textContent = state.prevTitle;
-    if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió ' + state.interruptionApp + ' · ' + state.awayMinutes + ' min';
+    if (el.resumeInter) el.resumeInter.textContent = state.interruptionApp + ' interrupted you · ' + state.awayMinutes + ' min';
     if (el.resumeChips) {
       el.resumeChips.innerHTML = state.prevWindows.map(function (w) { return '<span class="chip resume-chip">' + w + '</span>'; }).join('');
     }
@@ -136,7 +136,7 @@ var Retoma = (function () {
 
   function computeProposal(data) {
     var entries = (data && data.length ? data : Events.seedTimeline).slice();
-    var longest = entries[0] || { app: 'Documento', duration: 40 };
+    var longest = entries[0] || { app: 'Document', duration: 40 };
     entries.forEach(function (e) { if (e.duration > longest.duration) longest = e; });
     var ix = -1;
     for (var i = 0; i < entries.length; i++) {
@@ -154,8 +154,8 @@ var Retoma = (function () {
       interStart: startMin,
       winStart: winStart,
       winEnd: winEnd,
-      text: 'Mañana: ' + longest.duration + ' min para el informe, ' + fmtClock(winStart) + ' a ' + fmtClock(winEnd) + ', antes de que lleguen los mensajes.',
-      how: 'Cómo lo decidí: bloque mayor ' + longest.app + ' ' + longest.duration + ' min · primera interrupción ' + (entries[ix] ? entries[ix].app : longest.app) + ' ' + fmtClock(startMin) + ' · ventana ' + fmtClock(winStart) + '–' + fmtClock(winEnd)
+      text: 'Tomorrow: ' + longest.duration + ' min for the report, ' + fmtClock(winStart) + ' to ' + fmtClock(winEnd) + ', before the messages arrive.',
+      how: 'How I decided: longest block ' + longest.app + ' ' + longest.duration + ' min · first interruption ' + (entries[ix] ? entries[ix].app : longest.app) + ' ' + fmtClock(startMin) + ' · window ' + fmtClock(winStart) + '–' + fmtClock(winEnd)
     };
   }
 
@@ -190,30 +190,30 @@ var Retoma = (function () {
   function renderAhora() {
     if (!el.nowApp) return;
     if (state.paused) {
-      el.nowApp.textContent = 'Pausado: no estoy viendo nada';
-      if (el.nowTitle) el.nowTitle.textContent = 'Retoma está en pausa. Reanuda cuando quieras.';
+      el.nowApp.textContent = 'Paused: I am not watching anything';
+      if (el.nowTitle) el.nowTitle.textContent = 'Retoma is paused. Resume whenever you like.';
       if (el.nowTime) el.nowTime.textContent = '—';
-      if (el.nowDesc) el.nowDesc.textContent = 'Pausado: no estoy viendo nada';
+      if (el.nowDesc) el.nowDesc.textContent = 'Paused: I am not watching anything';
       return;
     }
     if (state.away) {
-      el.nowApp.textContent = 'Ausente';
-      if (el.nowTitle) el.nowTitle.textContent = 'Fuera · ' + state.awayMinutes + ' min';
+      el.nowApp.textContent = 'Away';
+      if (el.nowTitle) el.nowTitle.textContent = 'Out · ' + state.awayMinutes + ' min';
       if (el.nowTime) el.nowTime.textContent = formatClock();
-      if (el.nowDesc) el.nowDesc.textContent = 'Volver te muestra dónde ibas.';
+      if (el.nowDesc) el.nowDesc.textContent = 'Coming back shows where you left off.';
       return;
     }
     el.nowApp.textContent = state.currentApp;
     if (el.nowTitle) el.nowTitle.textContent = state.currentTitle;
-    if (el.nowTime) el.nowTime.textContent = state.timeInCurrent + ' min aquí';
-    if (el.nowDesc) el.nowDesc.textContent = 'Solo el nombre de la app y el título. Nunca lo que escribes.';
+    if (el.nowTime) el.nowTime.textContent = state.timeInCurrent + ' min here';
+    if (el.nowDesc) el.nowDesc.textContent = 'Only the app name and the title. Never what you type.';
   }
 
   function renderAhoraAway() {
-    if (el.nowApp) el.nowApp.textContent = 'Ausente';
-    if (el.nowTitle) el.nowTitle.textContent = 'Fuera · ' + state.awayMinutes + ' min';
+    if (el.nowApp) el.nowApp.textContent = 'Away';
+    if (el.nowTitle) el.nowTitle.textContent = 'Out · ' + state.awayMinutes + ' min';
     if (el.nowTime) el.nowTime.textContent = formatClock();
-    if (el.nowDesc) el.nowDesc.textContent = 'Volver te muestra dónde ibas.';
+    if (el.nowDesc) el.nowDesc.textContent = 'Coming back shows where you left off.';
   }
 
   function togglePause() {
@@ -230,7 +230,7 @@ var Retoma = (function () {
       }
     }
     if (el.menuBar) el.menuBar.classList.toggle('is-paused', state.paused);
-    if (el.simPause) el.simPause.textContent = state.paused ? 'Reanudar' : 'Pausar';
+    if (el.simPause) el.simPause.textContent = state.paused ? 'Resume' : 'Pause';
     renderAhora();
     Events.emit('retoma:pause', state.paused);
   }
@@ -253,7 +253,7 @@ var Retoma = (function () {
     var data = state.timeline.length ? state.timeline : Events.seedTimeline;
     var total = data.reduce(function (s, e) { return s + e.duration; }, 0) || 80;
     el.timelineBar.style.display = '';
-    var colors = ['var(--color-neutral-100)', 'var(--color-neutral-200)', 'var(--color-neutral-400)', 'var(--color-neutral-500)', 'var(--color-neutral-600)'];
+    var colors = ['var(--seg-1)', 'var(--seg-2)', 'var(--seg-3)', 'var(--seg-4)', 'var(--seg-5)'];
     // map colors consistently by index; will be distinct via tokens
     el.timelineBar.innerHTML = data.map(function (e, i) {
       var w = (e.duration / total * 100).toFixed(1);
@@ -270,18 +270,18 @@ var Retoma = (function () {
         merged[e.app] += e.duration;
       });
       // longest uninterrupted (single) block explains proposal minutes
-      var longestSingle = data[0] || { app: 'Documento', duration: 40 };
+      var longestSingle = data[0] || { app: 'Document', duration: 40 };
       data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
       el.timelineLegend.innerHTML = order.map(function (app) {
         var c = appFirstColor[app];
         var label = app + ' · ' + merged[app] + ' min';
         if (app === longestSingle.app) {
-          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span>' + label + '<span class="timeline-legend__sub">bloque mayor ' + longestSingle.duration + ' min</span></span></span>';
+          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span>' + label + '<span class="timeline-legend__sub">longest block ' + longestSingle.duration + ' min</span></span></span>';
         }
         return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
       }).join('');
     }
-    if (el.timelineText) el.timelineText.textContent = 'Planeado: 2 h de informe · Real: 1 h 20 min';
+    if (el.timelineText) el.timelineText.textContent = 'Planned: 2 h on the report · Actual: 1 h 20 min';
     renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');

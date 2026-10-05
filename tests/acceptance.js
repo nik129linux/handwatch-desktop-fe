@@ -43,22 +43,22 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(await page.locator('.window').count() === 4, '4 windows present');
   await page.screenshot({ path: path.join(SHOTS, '01-load.png'), fullPage: true });
 
-  head('2 · free mode: Cambiar de app, Alejarme/Volver, Retomar');
+  head('2 · free mode: Switch app, Step away/Come back, Resume');
   const beforeApp = (await page.locator('#nowApp').textContent()).trim();
   await page.click('#freeMode [data-act="switch"]');
   await settle(page, 400);
   const afterApp = (await page.locator('#nowApp').textContent()).trim();
-  ok(beforeApp !== afterApp, 'Cambiar de app changes Ahora', beforeApp + ' -> ' + afterApp);
+  ok(beforeApp !== afterApp, 'Switch app changes Now', beforeApp + ' -> ' + afterApp);
 
-  await page.evaluate(() => { Retoma.state.currentApp = 'Documento'; Retoma.state.currentTitle = 'Informe de calidad (párrafo 3)'; });
+  await page.evaluate(() => { Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; });
   await page.click('#freeMode [data-act="away"]');
   await settle(page, 400);
   await page.click('#freeMode [data-act="return"]');
   await page.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
-  ok(true, 'Alejarme 25 min + Volver shows resume card');
+  ok(true, 'Step away 25 min + Come back shows resume card');
   const resumeText = await page.locator('#resumeCard').textContent();
-  ok(/Estabas en/.test(resumeText), 'resume card has Estabas en', resumeText.slice(0,120));
-  ok(/Te interrumpi/.test(resumeText), 'resume card has Te interrumpió');
+  ok(/You were in/.test(resumeText), 'resume card has You were in', resumeText.slice(0,120));
+  ok(/interrupted you/.test(resumeText), 'resume card has interrupted line');
   const chips = await page.locator('.resume-chip').count();
   ok(chips === 3, 'resume card has 3 chips', 'found ' + chips);
   await page.evaluate(() => document.getElementById('retomarBtn').click());
@@ -67,8 +67,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const els = document.querySelectorAll('.window');
     return Array.from(els).map(e => ({ app: e.getAttribute('data-app'), hidden: e.classList.contains('is-minimized') || e.classList.contains('is-hidden'), visible: !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden') }));
   });
-  const docVis = visibleDocs.find(v => v.app === 'Documento');
-  ok(docVis && docVis.visible, 'Retomar reopens windows (Documento visible)', JSON.stringify(visibleDocs));
+  const docVis = visibleDocs.find(v => v.app === 'Document');
+  ok(docVis && docVis.visible, 'Resume reopens windows (Document visible)', JSON.stringify(visibleDocs));
   await page.screenshot({ path: path.join(SHOTS, '02-resume.png'), fullPage: true });
 
   await page.click('#freeMode [data-act="away"]');
@@ -77,9 +77,9 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await page.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
   await page.evaluate(() => document.getElementById('startFreshBtn').click());
   await settle(page, 400);
-  ok(await page.locator('#resumeCard.is-visible').count() === 0, 'Empezar de cero hides resume card');
+  ok(await page.locator('#resumeCard.is-visible').count() === 0, 'Start fresh hides resume card');
 
-  head('3 · Pausar prevents timeline entry');
+  head('3 · Pause prevents timeline entry');
   await page.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); Retoma.closePanel(); });
   await settle(page, 200);
   const lenBefore = await page.evaluate(() => Retoma.state.timeline.length);
@@ -96,35 +96,35 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await page.click('#freeMode [data-act="switch"]');
   await settle(page, 400);
   const lenAfter = await page.evaluate(() => Retoma.state.timeline.length);
-  ok(lenAfter === lenBefore, 'Cambiar de app while paused creates NO timeline entry', lenBefore + ' -> ' + lenAfter);
+  ok(lenAfter === lenBefore, 'Switch app while paused creates NO timeline entry', lenBefore + ' -> ' + lenAfter);
   await page.click('#retomaToggle');
   await settle(page, 200);
   await page.evaluate(() => Retoma.closePanel());
   await settle(page, 200);
   await page.screenshot({ path: path.join(SHOTS, '03-paused.png'), fullPage: true });
 
-  head('4 · Terminar el día shows timeline and proposal');
+  head('4 · End the day shows timeline and proposal');
   await page.click('#freeMode [data-act="endday"]');
   await settle(page, 400);
   const timelineVisible = await page.locator('#timeline').isVisible().catch(() => false);
   ok(await page.locator('#timelineBar').count() === 1, 'timeline bar present');
-  ok(await page.locator('#timelineText').count() === 1, 'Planeado/Real line present');
+  ok(await page.locator('#timelineText').count() === 1, 'Planned/Actual line present');
   const prText = await page.locator('#timelineText').textContent();
-  ok(/Planeado:/.test(prText) && /Real:/.test(prText), 'timeline shows Planeado and Real', prText);
+  ok(/Planned:/.test(prText) && /Actual:/.test(prText), 'timeline shows Planned and Actual', prText);
   const proposalVisible = await page.locator('#proposalCard').isVisible().catch(() => false);
   ok(proposalVisible, 'AI proposal visible');
   const propText = await page.locator('#proposalCard').textContent();
-  ok(/Mañana: \d+ min/.test(propText), 'proposal text computed with real minutes', propText.slice(0,100));
-  ok(/antes de que lleguen los mensajes/.test(propText), 'proposal has window hours', propText.slice(0,120));
+  ok(/Tomorrow: \d+ min/.test(propText), 'proposal text computed with real minutes', propText.slice(0,100));
+  ok(/before the messages arrive/.test(propText), 'proposal has window hours', propText.slice(0,120));
   const simTag = await page.locator('#proposalTag').textContent().catch(() => '');
-  ok(/Simulado/.test(simTag), 'Simulado tag visible', simTag);
-  ok(await page.locator('#proposalTag').isVisible().catch(() => false), 'Simulado tag is visible');
+  ok(/Simulated/.test(simTag), 'Simulated tag visible', simTag);
+  ok(await page.locator('#proposalTag').isVisible().catch(() => false), 'Simulated tag is visible');
   const howText = await page.locator('#proposalHow').textContent().catch(() => '');
-  ok(/Cómo lo decidí:/.test(howText), 'proposal shows how it was decided', howText.slice(0,120));
+  ok(/How I decided:/.test(howText), 'proposal shows how it was decided', howText.slice(0,120));
   // proposal changes when timeline data changes
   const propBefore = await page.locator('#proposalText').textContent();
   await page.evaluate(() => {
-    Retoma.state.timeline = [{ app: 'Documento', duration: 95 }, { app: 'WhatsApp', duration: 5 }, { app: 'Navegador', duration: 10 }];
+    Retoma.state.timeline = [{ app: 'Document', duration: 95 }, { app: 'WhatsApp', duration: 5 }, { app: 'Browser', duration: 10 }];
     Retoma.state.empty = false; Retoma.state.proposalDismissed = false;
     Retoma.renderTimeline();
   });
@@ -134,21 +134,21 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   await page.evaluate(() => document.getElementById('proposalAccept').click());
   await settle(page, 300);
-  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'Aceptar closes proposal');
+  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'Accept closes proposal');
 
   await page.click('#freeMode [data-act="endday"]');
   await settle(page, 300);
   await page.evaluate(() => document.getElementById('proposalDecline').click());
   await settle(page, 300);
-  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'No, gracias closes proposal');
+  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'No, thanks closes proposal');
   await page.screenshot({ path: path.join(SHOTS, '04-timeline.png'), fullPage: true });
 
-  head('5 · Borrar todo requires confirm then empty state');
+  head('5 · Delete everything requires confirm then empty state');
   await page.click('#freeMode [data-act="endday"]');
   await settle(page, 300);
   await page.click('#btnDelete');
   await settle(page, 200);
-  ok(await page.locator('#confirmOverlay.is-open').count() === 1, 'Borrar todo opens confirm');
+  ok(await page.locator('#confirmOverlay.is-open').count() === 1, 'Delete everything opens confirm');
   await page.click('#confirmYes');
   await settle(page, 600);
   ok(await page.locator('#emptyState').isVisible().catch(()=>false), 'empty state visible after delete');
@@ -171,32 +171,95 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await storyPage.screenshot({ path: path.join(SHOTS, '06-story.png'), fullPage: true });
   await storyPage.close();
 
-  head('7 · token test');
-  await page.evaluate(() => { document.documentElement.style.setProperty('--color-primary-500', '#ff0000'); });
-  await settle(page, 600);
-  const stale = await page.evaluate((old) => {
-    const props = ['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','outlineColor','fill','stroke'];
-    const hits = [];
-    const all = document.querySelectorAll('*');
-    for (let i=0;i<all.length;i++){
-      const cs = getComputedStyle(all[i]);
-      for (let k=0;k<props.length;k++) if (cs[props[k]]===old) hits.push(all[i].tagName+'.'+(all[i].className||'')+'->'+props[k]);
+  head('7 · token test (BOTH themes)');
+  async function tokenSweep(theme) {
+    await page.evaluate((t) => { Theme.apply(t, false); document.documentElement.style.setProperty('--color-primary-500', '#ff0000'); }, theme);
+    await settle(page, 600);
+    const stale = await page.evaluate((old) => {
+      const props = ['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','outlineColor','fill','stroke'];
+      const hits = [];
+      const all = document.querySelectorAll('*');
+      for (let i=0;i<all.length;i++){
+        const cs = getComputedStyle(all[i]);
+        for (let k=0;k<props.length;k++) if (cs[props[k]]===old) hits.push(all[i].tagName+'.'+(all[i].className||'')+'->'+props[k]);
+      }
+      return { hits: hits, scanned: all.length };
+    }, OLD_LIME);
+    ok(stale.hits.length===0, '['+theme+'] nothing keeps '+OLD_LIME+' ('+stale.scanned+' elements)', stale.hits.slice(0,4).join(' | '));
+    const nowColor = await page.evaluate(()=> {
+      const el = document.querySelector('.btn--primary');
+      return el? getComputedStyle(el).backgroundColor : 'no-target';
+    });
+    ok(nowColor==='rgb(255, 0, 0)', '['+theme+'] new primary in use', nowColor);
+  }
+  await tokenSweep('dark');
+  await tokenSweep('light');
+  await page.evaluate(()=> { document.documentElement.style.setProperty('--color-primary-500','#a6ff00'); Theme.apply('dark', false); });
+
+  head('7b · theme toggle + contrast >= 4.5 in both themes');
+  ok(await page.locator('#themeToggle').count() === 1, 'theme toggle present next to eye icon');
+  ok(await page.locator('#themeToggle[aria-label="Switch theme"]').count() === 1, 'toggle has aria-label Switch theme');
+  ok(await page.locator('#themeToggle svg').count() === 2, 'sun/moon inline SVGs present');
+  const themeBefore = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  await page.click('#themeToggle');
+  await settle(page, 500);
+  const themeAfter = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  ok(themeBefore !== themeAfter, 'toggle flips data-theme', themeBefore + ' -> ' + themeAfter);
+  await page.click('#themeToggle');
+  await settle(page, 500);
+  ok((await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) === themeBefore, 'toggle flips back');
+  let storedTheme = null;
+  try { storedTheme = await page.evaluate(() => window.localStorage.getItem('retoma-theme')); } catch (e) { storedTheme = 'unavailable'; }
+  ok(storedTheme === themeBefore || storedTheme === 'unavailable', 'theme persisted in localStorage', String(storedTheme));
+  // contrast: 6 representative text elements per theme
+  const probeSrc = `(() => {
+    function lum(r, g, b) {
+      const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     }
-    return { hits: hits, scanned: all.length };
-  }, OLD_LIME);
-  ok(stale.hits.length===0, 'nothing keeps '+OLD_LIME+' ('+stale.scanned+' elements)', stale.hits.slice(0,4).join(' | '));
-  const nowColor = await page.evaluate(()=> {
-    const el = document.querySelector('.btn--primary');
-    return el? getComputedStyle(el).backgroundColor : 'no-target';
-  });
-  ok(nowColor==='rgb(255, 0, 0)', 'new primary in use', nowColor);
-  await page.evaluate(()=> document.documentElement.style.setProperty('--color-primary-500','#a6ff00'));
+    function parse(c) {
+      const m = String(c).match(/rgba?\\(([^)]+)\\)/);
+      if (!m) return null;
+      return m[1].split(',').map((x) => parseFloat(x.trim()));
+    }
+    function opaqueBg(elm) {
+      const layers = [];
+      let n = elm;
+      while (n && n !== document.documentElement) { layers.unshift(parse(getComputedStyle(n).backgroundColor)); n = n.parentElement; }
+      layers.unshift(parse(getComputedStyle(document.body).backgroundColor));
+      let out = [0, 0, 0];
+      layers.forEach((p) => {
+        if (!p) return;
+        const a = p.length === 4 ? p[3] : 1;
+        out = [out[0] * (1 - a) + p[0] * a, out[1] * (1 - a) + p[1] * a, out[2] * (1 - a) + p[2] * a];
+      });
+      return out;
+    }
+    const sels = ['body', '.window__body p', '.window__title', '.menu-bar__clock', '#retomarBtn', '.proposal-card__text'];
+    return sels.map((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { sel: sel, missing: true, ratio: 0 };
+      const fg = parse(getComputedStyle(el).color).slice(0, 3);
+      const bg = opaqueBg(el);
+      const L1 = lum(fg[0], fg[1], fg[2]), L2 = lum(bg[0], bg[1], bg[2]);
+      const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+      return { sel: sel, ratio: Math.round(ratio * 100) / 100 };
+    });
+  })()`;
+  for (const th of ['dark', 'light']) {
+    await page.evaluate((t) => Theme.apply(t, false), th);
+    await settle(page, 400);
+    const rows = await page.evaluate((src) => eval(src), probeSrc);
+    const bad = rows.filter((r) => r.missing || r.ratio < 4.5);
+    ok(bad.length === 0, '[' + th + '] contrast >= 4.5 for 6 text elements', rows.map((r) => r.sel + '=' + r.ratio).join(' | '));
+  }
+  await page.evaluate(() => Theme.apply('dark', false));
 
   head('8 · source rules');
   const read = (f) => fs.readFileSync(path.join(ROOT,f),'utf8');
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
   const colorRe = /#[0-9a-f]{3,8}\b|rgba?\s*\(|hsla?\s*\(/gi;
-  const scanned = ['index.html','css/desk.css','css/retoma.css','js/events.js','js/desk.js','js/retoma.js','js/story.js'];
+  const scanned = ['index.html','css/desk.css','css/retoma.css','js/events.js','js/desk.js','js/retoma.js','js/story.js','js/theme.js'];
   const offenders=[];
   for (const f of scanned){
     if (f==='css/tokens.css') continue;
@@ -207,20 +270,30 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     });
   }
   ok(offenders.length===0, 'no hex/rgb outside css/tokens.css', offenders.slice(0,4).join(' | '));
-  const voseo = /\b(tocá|mirá|podés|tenés|querés|acordate)\b/i;
-  const badCopy=[];
-  scanned.concat(['css/tokens.css']).forEach(f=>{
-    const src=read(f);
-    if(voseo.test(src)) badCopy.push(f);
+  const uiFiles = ['index.html','js/events.js','js/desk.js','js/retoma.js','js/story.js','js/theme.js'];
+  const stopwords = [' el ', ' la ', ' de ', ' que '];
+  const spanishOff = [];
+  uiFiles.forEach(f => {
+    const src = read(f);
+    const quoted = [];
+    const qre = /"([^"\n]*)"|'([^'\n]*)'/g;
+    let m;
+    while ((m = qre.exec(src))) quoted.push(m[1] !== undefined ? m[1] : m[2]);
+    const tre = />([^<>{}]+)</g;
+    while ((m = tre.exec(src))) quoted.push(m[1]);
+    quoted.forEach(q => {
+      const low = ' ' + q.toLowerCase() + ' ';
+      stopwords.forEach(w => { if (low.includes(w)) spanishOff.push(f + ' -> ' + q.trim().slice(0, 60)); });
+    });
   });
-  ok(badCopy.length===0, 'no voseo words', badCopy.join(','));
-  const forbid = ['productividad','distraído','distraido','puntaje'];
-  const forbidOff=[];
-  scanned.forEach(f=>{
-    const src=read(f).toLowerCase();
-    forbid.forEach(w=>{ if(src.includes(w)) forbidOff.push(f+':'+w); });
+  ok(spanishOff.length === 0, 'no Spanish stopwords in UI strings', spanishOff.slice(0, 4).join(' | '));
+  const forbid = ['productivity', 'distracted', 'score', 'lazy', 'wasted'];
+  const forbidOff = [];
+  scanned.forEach(f => {
+    const src = read(f).toLowerCase();
+    forbid.forEach(w => { if (src.includes(w)) forbidOff.push(f + ':' + w); });
   });
-  ok(forbidOff.length===0, 'no productividad/distraído/puntaje', forbidOff.join(' | '));
+  ok(forbidOff.length === 0, 'no productivity/distracted/score/lazy/wasted', forbidOff.join(' | '));
 
   head('9 · reduced-motion block');
   const deskCss=read('css/desk.css');
@@ -279,14 +352,14 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await fixPage.click('.desktop-workspace');
   await settle(fixPage, 300);
   ok(await fixPage.evaluate(() => !Retoma.isPanelOpen()), 'click outside closes panel');
-  // Volver auto-opens with resume card hero first
+  // Come back auto-opens with resume card hero first
   await fixPage.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); if (Retoma.isPanelOpen()) Retoma.closePanel(); });
   await settle(fixPage, 200);
   await fixPage.click('#freeMode [data-act="away"]');
   await settle(fixPage, 300);
   await fixPage.click('#freeMode [data-act="return"]');
   await settle(fixPage, 500);
-  ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && document.getElementById('resumeCard').classList.contains('is-visible')), 'Volver auto-opens panel with resume card');
+  ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && document.getElementById('resumeCard').classList.contains('is-visible')), 'Come back auto-opens panel with resume card');
   // hero is first element in panel
   const heroFirst = await fixPage.evaluate(() => {
     const panel = document.getElementById('retomaPanel');
@@ -308,7 +381,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(heroStyles.weight === '400' || heroStyles.weight === '600' || heroStyles.weight === '700', 'hero weight 400 (serif)', heroStyles.weight);
   const heroSize = parseFloat(heroStyles.size);
   ok(heroSize >= 48 && heroSize <= 110, 'hero poster scale 48-110px', heroStyles.size);
-  ok(/Estabas en/.test(heroStyles.text), 'hero has Estabas en');
+  ok(/You were in/.test(heroStyles.text), 'hero has You were in');
   const subColor = await fixPage.evaluate(() => getComputedStyle(document.getElementById('resumeSub')).color);
   ok(subColor !== 'rgb(253, 253, 253)', 'doc title under hero in Fog (not primary text)');
   const interStyles = await fixPage.evaluate(() => {
@@ -331,12 +404,12 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const bg = getComputedStyle(btn).backgroundColor;
     return { full: Math.abs(bw - inner) < 4 || bw >= inner * 0.96, bg: bg, bw: bw, cw: cw, inner: inner };
   });
-  ok(retomarFull.full, 'Retomar full width', JSON.stringify(retomarFull));
-  ok(retomarFull.bg === 'rgb(166, 255, 0)' || retomarFull.bg === 'rgb(255, 0, 0)' || retomarFull.bg.includes('166'), 'Retomar lime', retomarFull.bg);
+  ok(retomarFull.full, 'Resume full width', JSON.stringify(retomarFull));
+  ok(retomarFull.bg === 'rgb(166, 255, 0)' || retomarFull.bg === 'rgb(255, 0, 0)' || retomarFull.bg.includes('166'), 'Resume lime', retomarFull.bg);
 
   head('12 · FIX 3: desktop no overlap + focused ring + dock SVG');
   // ensure windows visible (let 360ms enter motion settle)
-  await fixPage.evaluate(() => { Retoma.closePanel(); Desk.reopen(['Documento','Navegador','WhatsApp','Hoja de cálculo'], false); Desk.focus('Documento'); });
+  await fixPage.evaluate(() => { Retoma.closePanel(); Desk.reopen(['Document','Browser','WhatsApp','Spreadsheet'], false); Desk.focus('Document'); });
   await settle(fixPage, 700);
   const overlap = await fixPage.evaluate(() => {
     const els = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden'));
@@ -465,11 +538,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return { openDisplay: getComputedStyle(open).display, closedDisplay: getComputedStyle(closed).display, isPaused: btn.classList.contains('is-paused') };
   });
   ok(eyeStruck.closedDisplay !== 'none' && eyeStruck.openDisplay === 'none', 'eye icon struck when paused', JSON.stringify(eyeStruck));
-  // open panel to see Ahora text
+  // open panel to see Now text
   await paPage.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('ahora'); });
   await settle(paPage, 300);
   const ahoraText = await paPage.locator('#nowApp').textContent();
-  ok(/Pausado: no estoy viendo nada/.test(ahoraText), 'Ahora reads Pausado: no estoy viendo nada', ahoraText);
+  ok(/Paused: I am not watching anything/.test(ahoraText), 'Now reads Paused line', ahoraText);
   await paPage.close();
 
   head('17 · FIX2 round2-1: windows left of panel + staggered reopen');
@@ -478,14 +551,14 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await r2Page.waitForSelector('#deskClock');
   await settle(r2Page, 400);
   // ensure windows visible and panel open
-  await r2Page.evaluate(() => { Desk.reopen(['Documento','Navegador','WhatsApp','Hoja de cálculo'], false); Desk.focus('Documento'); Retoma.closePanel(); });
+  await r2Page.evaluate(() => { Desk.reopen(['Document','Browser','WhatsApp','Spreadsheet'], false); Desk.focus('Document'); Retoma.closePanel(); });
   await settle(r2Page, 200);
   await r2Page.evaluate(() => Retoma.goAway(25));
   await settle(r2Page, 200);
   await r2Page.evaluate(() => Retoma.comeBack());
   await settle(r2Page, 500);
   // panel should be open with resume visible
-  ok(await r2Page.evaluate(() => Retoma.isPanelOpen()), 'r2: panel open after Volver');
+  ok(await r2Page.evaluate(() => Retoma.isPanelOpen()), 'r2: panel open after Come back');
   const winVsPanel = await r2Page.evaluate(() => {
     const panel = document.getElementById('retomaPanel');
     const pRect = panel.getBoundingClientRect();
@@ -506,7 +579,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const allLeft = winVsPanel.checks.every(c => c.ok);
   ok(allLeft, 'every visible window right <= panel left', JSON.stringify(winVsPanel));
   ok(!winVsPanel.overlap, 'windows not overlapping each other with panel open', winVsPanel.overlap || '');
-  // staggered reopen after Retomar must be visible in left region
+  // staggered reopen after Resume must be visible in left region
   await r2Page.evaluate(() => document.getElementById('retomarBtn').click());
   await settle(r2Page, 100);
   // check that reopen animation staggered 60ms: windows have animationDelay 0,60,120
@@ -530,7 +603,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden'));
     return wins.map(w => { const r=w.getBoundingClientRect(); return { app: w.getAttribute('data-app'), right: Math.round(r.right), panelLeft: Math.round(pRect.left), ok: r.right <= pRect.left + 0.5 }; });
   });
-  ok(afterRetomar.every(c=>c.ok), 'after Retomar windows still left of panel', JSON.stringify(afterRetomar));
+  ok(afterRetomar.every(c=>c.ok), 'after Resume windows still left of panel', JSON.stringify(afterRetomar));
   await r2Page.close();
 
   head('18 · FIX2 round2-2: 390 compact stacked list');
@@ -600,7 +673,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { text: el.textContent, size: cs.fontSize, tt: cs.textTransform, ls: cs.letterSpacing, color: cs.color, whiteSpace: cs.whiteSpace, top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom };
   });
-  ok(kickerStyles.text === 'Te interrumpió WhatsApp · 25 min', 'kicker text normal-case', kickerStyles.text);
+  ok(kickerStyles.text === 'WhatsApp interrupted you · 25 min', 'kicker text normal-case', kickerStyles.text);
   ok(kickerStyles.size === '15px', 'kicker 15px body', kickerStyles.size);
   ok(kickerStyles.tt === 'none', 'kicker not uppercase', kickerStyles.tt);
   // check single line: height close to line-height (approx 19px), not wrapped to 2 lines (>30)
@@ -646,7 +719,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const inside = r.top >= 0 && r.left >=0 && r.bottom <= vh && r.right <= vw;
     return { found:true, top: Math.round(r.top), bottom: Math.round(r.bottom), vh: vh, inside: inside, rect: {t:Math.round(r.top), b:Math.round(r.bottom), l:Math.round(r.left), r:Math.round(r.right)} };
   });
-  ok(acceptReach.inside, 'Aceptar inside viewport after scrollIntoView', JSON.stringify(acceptReach));
+  ok(acceptReach.inside, 'Accept inside viewport after scrollIntoView', JSON.stringify(acceptReach));
   await r2p.close();
 
   head('21 · FIX2 round2-5: timeline legend merged');
@@ -656,7 +729,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await settle(r2l, 300);
   // create duplicate app segments
   await r2l.evaluate(() => {
-    Retoma.state.timeline = [{ app:'Documento', duration:40 },{ app:'Navegador', duration:12 },{ app:'Documento', duration:1 },{ app:'Hoja de cálculo', duration:10 }];
+    Retoma.state.timeline = [{ app:'Document', duration:40 },{ app:'Browser', duration:12 },{ app:'Document', duration:1 },{ app:'Spreadsheet', duration:10 }];
     Retoma.state.empty = false;
     Retoma.state.proposalDismissed = true;
     Retoma.renderTimeline();
@@ -665,7 +738,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const legendText = await r2l.evaluate(() => document.getElementById('timelineLegend').textContent);
   const legendItems = await r2l.locator('.timeline-legend__item').count();
   ok(legendItems === 3, 'legend merged same-app (3 items not 4)', 'found '+legendItems+' -> '+legendText);
-  ok(/Documento.*41 min/.test(legendText), 'Documento merged 41 min', legendText);
+  ok(/Document.*41 min/.test(legendText), 'Document merged 41 min', legendText);
   // keep bar segments: should be 4 segments
   const segCount = await r2l.locator('.timeline-bar__seg').count();
   ok(segCount === 4, 'bar segments kept (4)', 'found '+segCount);
@@ -698,7 +771,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
       return { id: id, fx: e.style.getPropertyValue('--fx'), fy: e.style.getPropertyValue('--fy') };
     });
   });
-  ok(flyVars.every(f => f.fx && f.fy), 'Retomar fly-in from dock positions (--fx/--fy)', JSON.stringify(flyVars));
+  ok(flyVars.every(f => f.fx && f.fy), 'Resume fly-in from dock positions (--fx/--fy)', JSON.stringify(flyVars));
   await moPage.evaluate(() => Retoma.showEndOfDay());
   await settle(moPage, 300);
   const segDelays = await moPage.evaluate(() => {
@@ -738,17 +811,17 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     proposal: document.getElementById('proposalText').textContent,
     how: document.getElementById('proposalHow').textContent
   }));
-  const majorM = nums.legend.match(/bloque mayor (\d+) min/);
-  const propM = nums.proposal.match(/Mañana: (\d+) min/);
-  ok(!!majorM, 'legend labels longest block distinctly (bloque mayor)', nums.legend.slice(0, 140));
+  const majorM = nums.legend.match(/longest block (\d+) min/);
+  const propM = nums.proposal.match(/Tomorrow: (\d+) min/);
+  ok(!!majorM, 'legend labels longest block distinctly', nums.legend.slice(0, 140));
   ok(!!propM, 'proposal states minutes', nums.proposal.slice(0, 100));
   ok(majorM && propM && majorM[1] === propM[1], 'legend bloque mayor == proposal minutes, no mismatch', 'legend ' + (majorM && majorM[1]) + ' vs proposal ' + (propM && propM[1]));
-  ok(/bloque mayor \S+ \d+ min/.test(nums.how), 'Cómo lo decidí consistent with longest block', nums.how.slice(0, 140));
+  ok(/longest block \S+ \d+ min/.test(nums.how), 'How I decided consistent with longest block', nums.how.slice(0, 140));
   // FIX 3: proposed window start rounded to 15 min
-  const winM = nums.proposal.match(/(\d{1,2}):(\d{2}) a (\d{1,2}):(\d{2})/);
+  const winM = nums.proposal.match(/(\d{1,2}):(\d{2}) to (\d{1,2}):(\d{2})/);
   const startMin = winM ? (parseInt(winM[1], 10) * 60 + parseInt(winM[2], 10)) : -1;
   ok(!!winM && startMin % 15 === 0, 'proposed window start rounded to 15 min', nums.proposal.slice(0, 100));
-  ok(/9:00 a 9:40/.test(nums.proposal), 'seed proposal window is 9:00-9:40', nums.proposal.slice(0, 100));
+  ok(/9:00 to 9:40/.test(nums.proposal), 'seed proposal window is 9:00-9:40', nums.proposal.slice(0, 100));
   // FIX 4: sim buttons readable + hittable
   const simBtns = await f3.evaluate(() => {
     const els = Array.from(document.querySelectorAll('.sim-panel .btn'));
@@ -768,13 +841,13 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const r = el.getBoundingClientRect();
     return { bg: cs.backgroundColor, radius: cs.borderRadius, w: Math.round(r.width), text: el.textContent.trim() };
   });
-  ok(/Turno guiado/.test(heroPill.text) && heroPill.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(heroPill.radius) > 10, 'Turno guiado is one clear primary pill', JSON.stringify(heroPill));
+  ok(/Guided tour/.test(heroPill.text) && heroPill.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(heroPill.radius) > 10, 'Guided tour is one clear primary pill', JSON.stringify(heroPill));
   const trioRow = await f3.evaluate(() => {
     const ids = ['storyPause', 'storySkip', 'storyRestart'];
     const tops = ids.map(id => Math.round(document.getElementById(id).getBoundingClientRect().top));
     return { tops: tops, oneRow: Math.max.apply(null, tops) - Math.min.apply(null, tops) < 12 };
   });
-  ok(trioRow.oneRow, 'Pausar/Saltar/Reiniciar on one row', JSON.stringify(trioRow));
+  ok(trioRow.oneRow, 'Pause/Skip/Restart on one row', JSON.stringify(trioRow));
   await f3.close();
 
   head('shots · 1440 & 390 capture');
@@ -796,7 +869,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     await p.evaluate(() => Retoma.comeBack());
     await settle(p, 500);
     await p.screenshot({ path: path.join(SHOTS, `${label}-${viewW}-resume.png`), fullPage: true });
-    // after Retomar — windows staggered back in left region
+    // after Resume — windows staggered back in left region
     await p.evaluate(() => document.getElementById('retomarBtn').click());
     await settle(p, 600);
     await p.screenshot({ path: path.join(SHOTS, `${label}-${viewW}-after-retomar.png`), fullPage: true });

@@ -3,7 +3,7 @@ var Desk = (function () {
   'use strict';
 
   var windows = {};
-  var focused = 'Documento';
+  var focused = 'Document';
 
   function mount() {
     initParallax();

@@ -12,6 +12,11 @@ body {
   overflow-x: hidden;
 }
 
+/* theme change animates: background/color 300ms expo ease (transient class) */
+.theme-anim body, .theme-anim body * {
+  transition: background-color 300ms cubic-bezier(0.16,1,0.3,1), color 300ms cubic-bezier(0.16,1,0.3,1), border-color 300ms cubic-bezier(0.16,1,0.3,1) !important;
+}
+
 /* stage layout */
 .stage {
   display: flex;
@@ -43,7 +48,7 @@ body {
 .menu-bar {
   height: 40px;
   min-height: 40px;
-  background: color-mix(in srgb, var(--color-neutral-900) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border-neutral-700);
@@ -77,10 +82,28 @@ body {
 .menu-bar__clock { font-variant-numeric: tabular-nums; font-size: var(--text-body); color: var(--text-neutral-50); white-space: nowrap; }
 .live-dot {
   width: 8px; height: 8px; border-radius: var(--radius-pill);
-  background: var(--bg-primary-500);
+  background: var(--lime-line);
   flex-shrink: 0;
 }
 .menu-bar.is-paused .live-dot { background: var(--bg-neutral-700); }
+
+/* theme toggle in menu bar (next to the eye) */
+.theme-toggle {
+  width: 32px; height: 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-neutral-700);
+  background: var(--bg-neutral-800);
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background var(--dur-exit) var(--ease-exit), transform var(--dur-press) var(--ease-press), border-color var(--dur-exit) var(--ease-exit);
+  color: var(--text-neutral-50);
+  flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--border-neutral-600); background: var(--bg-neutral-700); }
+.theme-toggle:active { transform: scale(0.97); }
+.theme-toggle:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
+.theme-toggle svg { width: 16px; height: 16px; }
 
 /* retoma toggle in menu bar */
 .retoma-toggle {
@@ -137,15 +160,15 @@ body {
   background: radial-gradient(60% 50% at 22% 18%, var(--wall-glow), transparent 70%);
 }
 .wallpaper__glow--b {
-  background: radial-gradient(55% 55% at 82% 30%, color-mix(in srgb, var(--color-neutral-100) 12%, transparent), transparent 70%);
+  background: radial-gradient(55% 55% at 82% 30%, var(--wall-glow-b), transparent 70%);
 }
 .wallpaper__glow--c {
-  background: radial-gradient(90% 70% at 50% 110%, color-mix(in srgb, var(--color-neutral-600) 55%, transparent), transparent 75%);
+  background: radial-gradient(90% 70% at 50% 110%, var(--wall-glow-c), transparent 75%);
 }
 .grain {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  opacity: 0.04;
+  opacity: var(--grain-opacity);
   pointer-events: none;
 }
 .desktop-hint {
@@ -153,7 +176,7 @@ body {
   font-family: var(--font-mono);
   font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
   color: var(--text-neutral-400);
-  background: color-mix(in srgb, var(--color-neutral-900) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border-neutral-700); border-radius: var(--radius-pill); padding: 6px 14px;
@@ -164,14 +187,14 @@ body {
 .window {
   position: absolute;
   width: 340px;
-  background: color-mix(in srgb, var(--color-neutral-900) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border-neutral-700);
   border-radius: var(--radius-card);
   overflow: hidden;
   display: flex; flex-direction: column;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-black) 40%, transparent), 0 12px 40px color-mix(in srgb, var(--color-black) 45%, transparent), 0 32px 80px color-mix(in srgb, var(--color-black) 30%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-black) 40%, transparent), 0 12px 40px color-mix(in srgb, var(--bg-black) 45%, transparent), 0 32px 80px color-mix(in srgb, var(--bg-black) 30%, transparent);
   transform: translate3d(calc(var(--px) * -0.6px), calc(var(--py) * -0.6px), 0);
   transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), border-color var(--dur-exit) var(--ease-exit), box-shadow var(--dur-exit) var(--ease-exit);
   will-change: transform, opacity;
@@ -180,7 +203,7 @@ body {
 .window.is-minimized { opacity: 0; pointer-events: none; transform: scale(0.92) translateY(20px); }
 .window.is-focused {
   border-color: var(--border-primary-500);
-  box-shadow: 0 0 0 1px var(--border-primary-500), 0 2px 4px color-mix(in srgb, var(--color-black) 40%, transparent), 0 20px 60px color-mix(in srgb, var(--color-black) 50%, transparent);
+  box-shadow: 0 0 0 1px var(--border-primary-500), 0 2px 4px color-mix(in srgb, var(--bg-black) 40%, transparent), 0 20px 60px color-mix(in srgb, var(--bg-black) 50%, transparent);
   transform: translate3d(calc(var(--px) * -0.6px), calc(var(--py) * -0.6px - 4px), 0) scale(1.01);
   z-index: 11 !important;
 }
@@ -195,14 +218,14 @@ body {
   height: 40px;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 var(--sp-4);
-  background: color-mix(in srgb, var(--color-neutral-800) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-raised) 55%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border-neutral-700);
   cursor: pointer;
   gap: var(--sp-2);
 }
-.window.is-focused .window__bar { background: color-mix(in srgb, var(--color-neutral-800) 75%, transparent); }
+.window.is-focused .window__bar { background: color-mix(in srgb, var(--bg-raised) 75%, transparent); }
 .window__dots { display:flex; gap:6px; flex-shrink: 0; }
 .window__dot { width:10px; height:10px; border-radius: var(--radius-pill); border:1px solid var(--border-neutral-700); background: var(--bg-neutral-800); display:inline-block; }
 .window__dot--close { background: var(--bg-neutral-700); }
@@ -238,11 +261,11 @@ body {
 }
 .dock__item {
   width: 44px; height: 44px; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-neutral-900) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border-neutral-700);
-  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
+  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--text-neutral-50) 14%, transparent);
   display:flex; align-items:center; justify-content:center;
   cursor:pointer;
   transition: transform var(--dur-press) var(--ease-press), background var(--dur-exit) var(--ease-exit), border-color var(--dur-exit) var(--ease-exit);
@@ -320,7 +343,7 @@ body {
   color: var(--text-neutral-50);
 }
 .sim-panel .btn--secondary:hover,
-.sim-panel #freeMode .btn:hover { background: var(--bg-neutral-700); border-color: var(--border-neutral-600); text-decoration: underline; text-decoration-color: var(--border-primary-500); text-underline-offset: 3px; }
+.sim-panel #freeMode .btn:hover { background: var(--bg-neutral-700); border-color: var(--border-neutral-600); text-decoration: underline; text-decoration-color: var(--lime-line); text-underline-offset: 3px; }
 .sim-panel .btn--secondary:focus-visible,
 .sim-panel #freeMode .btn:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
 .sim-panel #freeMode .btn-row { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--sp-2); }
@@ -332,7 +355,7 @@ body {
   width: 100%; box-sizing: border-box;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.sim-panel .btn--destructive:hover { color: var(--text-neutral-50); background: var(--bg-neutral-800); text-decoration: underline; text-decoration-color: var(--border-primary-500); text-underline-offset: 3px; }
+.sim-panel .btn--destructive:hover { color: var(--text-neutral-50); background: var(--bg-neutral-800); text-decoration: underline; text-decoration-color: var(--lime-line); text-underline-offset: 3px; }
 .sim-panel .btn--destructive:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
 #subtitle {
   font-size: var(--text-body); color: var(--text-neutral-100); min-height: 20px; text-align: center;

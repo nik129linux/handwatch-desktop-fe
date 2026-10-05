@@ -16,18 +16,18 @@ var Story = (function () {
 
   var BEATS = [
     {
-      sub: 'Retoma ve la app en uso. Solo el nombre, nunca lo que escribes.',
+      sub: 'Retoma sees the app in use. Only the name, never what you type.',
       hold: 2200,
-      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Documento'; Retoma.state.currentTitle = 'Informe de calidad (párrafo 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Documento'); Retoma.openPanel(); }
+      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Document'); Retoma.openPanel(); }
     },
     {
-      sub: 'Te interrumpieron. Lo anota, no te juzga.',
+      sub: 'You were interrupted. It notes it, never judges.',
       hold: 2400,
       act: function () { Retoma.receiveWhatsapp(); },
       until: function () { return Retoma.state.currentApp === 'WhatsApp'; }
     },
     {
-      sub: 'Te fuiste un rato.',
+      sub: 'You stepped away for a while.',
       hold: 2600,
       act: function () {
         Retoma.goAway(25);
@@ -44,16 +44,16 @@ var Story = (function () {
       until: function () { return Retoma.state.away; }
     },
     {
-      sub: 'Al volver, te dice dónde ibas.',
+      sub: 'When you return, it shows where you left off.',
       hold: 2600,
       act: function () { Retoma.comeBack(); },
       until: function () { return document.getElementById('resumeCard') && document.getElementById('resumeCard').classList.contains('is-visible'); }
     },
     {
-      sub: 'Un toque y vuelves a tu trabajo.',
+      sub: 'One tap and you are back to work.',
       hold: 2400,
       act: function () {
-        // animate fingertip then click Retomar
+        // animate fingertip then click Resume
         setTimeout(function () {
           var btn = document.getElementById('retomarBtn');
           if (btn) {
@@ -64,16 +64,16 @@ var Story = (function () {
           }
         }, scaled(800));
       },
-      settle: function () { return Desk.isVisible('Documento') && Desk.isVisible('Navegador'); }
+      settle: function () { return Desk.isVisible('Document') && Desk.isVisible('Browser'); }
     },
     {
-      sub: 'Una propuesta simple. Tú decides.',
+      sub: 'One simple suggestion. You decide.',
       hold: 2800,
       act: function () { Retoma.showEndOfDay(); Retoma.openPanel(); },
       until: function () { return document.getElementById('proposalCard') && !document.getElementById('proposalCard').classList.contains('is-hidden'); }
     },
     {
-      sub: 'Tu historial es tuyo. Se borra en un gesto.',
+      sub: 'Your history is yours. Deleted in one gesture.',
       hold: 2600,
       act: function () {
         Retoma.openPanel();
@@ -89,7 +89,7 @@ var Story = (function () {
   ];
 
   function setControls(runningNow) {
-    if (el.storyPlay) { el.storyPlay.disabled = runningNow; el.storyPlay.textContent = runningNow ? '▶ En curso' : '▶ Turno guiado'; }
+    if (el.storyPlay) { el.storyPlay.disabled = runningNow; el.storyPlay.textContent = runningNow ? '▶ Running' : '▶ Guided tour'; }
     if (el.storyPause) el.storyPause.disabled = !runningNow;
     if (el.storySkip) el.storySkip.disabled = !runningNow;
     var freeBtns = document.querySelectorAll('#freeMode .btn');
@@ -141,7 +141,7 @@ var Story = (function () {
   function finish() {
     stop();
     setControls(false);
-    el.storyClock.textContent = 'fin';
+    el.storyClock.textContent = 'done';
     window.__storyDone = true;
   }
   function skip() {
@@ -154,17 +154,17 @@ var Story = (function () {
     Retoma.deleteAll();
     Retoma.openPanel();
     say('');
-    el.storyClock.textContent = 'fin';
+    el.storyClock.textContent = 'done';
     window.__storyDone = true;
   }
   function togglePause() {
     if (!running) return;
     paused = !paused;
-    if (el.storyPause) el.storyPause.textContent = paused ? 'Continuar' : 'Pausar';
+    if (el.storyPause) el.storyPause.textContent = paused ? 'Continue' : 'Pause';
   }
   function resetState() {
-    Retoma.state.currentApp = 'Documento';
-    Retoma.state.currentTitle = 'Informe de calidad (párrafo 3)';
+    Retoma.state.currentApp = 'Document';
+    Retoma.state.currentTitle = 'Quality report (paragraph 3)';
     Retoma.state.timeInCurrent = 0;
     Retoma.state.away = false;
     Retoma.state.awayMinutes = 0;
@@ -175,8 +175,8 @@ var Story = (function () {
     Retoma.setClock(9, 0);
     Retoma.hideResume();
     // restore windows
-    Desk.reopen(['Documento','Navegador','WhatsApp','Hoja de cálculo'], false);
-    Desk.focus('Documento');
+    Desk.reopen(['Document','Browser','WhatsApp','Spreadsheet'], false);
+    Desk.focus('Document');
     Retoma.openPanel();
     // reset toggle icon
     var btn = document.getElementById('retomaToggle');
@@ -191,7 +191,7 @@ var Story = (function () {
     var mb = document.getElementById('menuBar');
     if (mb) mb.classList.remove('is-paused');
     var sp = document.getElementById('btnPause');
-    if (sp) sp.textContent = 'Pausar';
+    if (sp) sp.textContent = 'Pause';
     // ensure ahora tab and reset rendered text
     if (Retoma.switchTab) Retoma.switchTab('ahora');
     window.__storyDone = false;
