@@ -451,3 +451,10 @@
   .resume-card__hero .w { opacity: 1 !important; filter: none !important; transform: none !important; }
   .timeline-bar__seg { transform: none !important; }
 }
+
+/* AI habit coach: plain body type, no nested scroller */
+.habit-note { font-family: var(--font-body); font-size: var(--text-body); line-height: 1.5; color: var(--text-neutral-50); margin: 0; }
+.habit-exp { font-family: var(--font-body); font-size: var(--text-body); line-height: 1.5; color: var(--text-neutral-100); margin: 0; }
+.habit-exp.is-hidden { display: none; }
+#habitAskAnswer.is-hidden { display: none; }
+.habit-ask { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
