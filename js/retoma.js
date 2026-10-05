@@ -96,6 +96,11 @@ var Retoma = (function () {
   function comeBack() {
     if (!state.away) return;
     state.away = false;
+    if (state.paused) {
+      // paused mid-away cancels the episode: no clock jump, no resume card.
+      renderAhora();
+      return;
+    }
     advanceClock(state.awayMinutes);
     if (state.awayMinutes >= 10) {
       showResume();
@@ -332,6 +337,7 @@ var Retoma = (function () {
   }
 
   function doRetomar() {
+    if (state.empty || !el.resumeCard || !el.resumeCard.classList.contains('is-visible')) return;
     Desk.reopen(state.prevWindows, true);
     hideResume();
     var app = Events.findByLabel(state.prevApp);
@@ -477,6 +483,8 @@ var Retoma = (function () {
     state.timeline = [];
     state.empty = true;
     state.aiToken++;
+    state.away = false;
+    state.awayMinutes = 0;
     hideResume();
     renderTimeline();
     dismissProposal();
@@ -535,13 +543,16 @@ var Retoma = (function () {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.add('is-open');
     el.retomaPanel.classList.remove('is-closing');
+    el.retomaPanel.setAttribute('aria-hidden', 'false');
     if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'true');
     syncDesktopLayout();
   }
   function closePanel() {
     if (!el.retomaPanel) return;
+    if (el.retomaPanel.contains(document.activeElement) && el.toggleBtn) el.toggleBtn.focus();
     el.retomaPanel.classList.remove('is-open');
     el.retomaPanel.classList.add('is-closing');
+    el.retomaPanel.setAttribute('aria-hidden', 'true');
     if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'false');
     syncDesktopLayout();
     setTimeout(function () { el.retomaPanel.classList.remove('is-closing'); }, 220);
@@ -625,9 +636,11 @@ var Retoma = (function () {
       b.addEventListener('click', function () { switchTab(b.getAttribute('data-tab')); });
     });
 
-    // Esc closes panel
+    // Esc closes the confirm dialog first, then the panel
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') closePanel();
+      if (ev.key !== 'Escape') return;
+      if (el.confirmOverlay && el.confirmOverlay.classList.contains('is-open')) { closeConfirm(); return; }
+      closePanel();
     });
     // click outside closes — ignore clicks that intentionally open the panel (Volver, endday) or inside sim-panel
     document.addEventListener('click', function (ev) {
@@ -644,9 +657,21 @@ var Retoma = (function () {
     if (el.deleteBtn) el.deleteBtn.addEventListener('click', function () { openConfirm(); });
     var privDelete = document.getElementById('privacyDelete');
     if (privDelete) privDelete.addEventListener('click', function () { openConfirm(); });
-    if (el.confirmNo) el.confirmNo.addEventListener('click', closeConfirm);
+    if (el.confirmNo) el.confirmNo.addEventListener('click', function () { closeConfirm(); });
     if (el.confirmYes) el.confirmYes.addEventListener('click', function () { closeConfirm(); deleteAll(); });
     if (el.confirmOverlay) el.confirmOverlay.addEventListener('click', function (ev) { if (ev.target === el.confirmOverlay) closeConfirm(); });
+    if (el.confirmOverlay) {
+      el.confirmOverlay.setAttribute('aria-hidden', 'true');
+      el.confirmOverlay.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') { ev.stopPropagation(); closeConfirm(); return; }
+        if (ev.key !== 'Tab') return;
+        var f = Array.from(el.confirmOverlay.querySelectorAll('button')).filter(function (b) { return !b.disabled; });
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+      });
+    }
 
     setClock(9, 0);
     state.timeline = Events.seedTimeline.slice();
@@ -707,8 +732,21 @@ var Retoma = (function () {
     window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, selectAiMode: selectAiMode, hasBridge: hasBridge };
   }
 
-  function openConfirm() { if (el.confirmOverlay) el.confirmOverlay.classList.add('is-open'); }
-  function closeConfirm() { if (el.confirmOverlay) el.confirmOverlay.classList.remove('is-open'); }
+  function openConfirm() {
+    if (!el.confirmOverlay) return;
+    el.lastFocus = document.activeElement;
+    el.confirmOverlay.classList.add('is-open');
+    el.confirmOverlay.setAttribute('aria-hidden', 'false');
+    setTimeout(function () { if (el.confirmYes) el.confirmYes.focus(); }, 60);
+  }
+  function closeConfirm() {
+    if (!el.confirmOverlay) return;
+    el.confirmOverlay.classList.remove('is-open');
+    el.confirmOverlay.setAttribute('aria-hidden', 'true');
+    var back = el.lastFocus && document.contains(el.lastFocus) ? el.lastFocus : el.deleteBtn;
+    if (back && typeof back.focus === 'function') back.focus();
+    el.lastFocus = null;
+  }
 
   return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock };
 })();

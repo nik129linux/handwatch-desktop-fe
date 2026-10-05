@@ -679,7 +679,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // check single line: height close to line-height (approx 19px), not wrapped to 2 lines (>30)
   const kickerH = kickerStyles.bottom - kickerStyles.top;
   ok(kickerH < 28, 'kicker single line', 'h '+kickerH);
-  ok(kickerStyles.color === 'rgb(111, 111, 111)' || kickerStyles.color.includes('111'), 'kicker Fog color', kickerStyles.color);
+  ok(kickerStyles.color === 'rgb(163, 163, 163)' || kickerStyles.color.includes('163'), 'kicker Fog color (AA muted)', kickerStyles.color);
   // short kickers remain uppercase tracked
   const shortKickers = await r2k.evaluate(() => {
     const els = Array.from(document.querySelectorAll('.panel-section__label, .resume-card__eyebrow'));
@@ -1018,6 +1018,146 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(d1Css.includes('@keyframes shimmer') && d1Css.includes('.skeleton-bar'), 'loading state is a shimmer skeleton');
   ok(d1Errs.length === 0, 'D1 UI has no console errors', d1Errs.join(' | '));
   await d1.close();
+
+  head('30 · D3 QA regressions (hostile-user fixes)');
+  const qa = await ctx.newPage();
+  const qaErrs = watchErrors(qa);
+  await qa.goto(INDEX, { waitUntil: 'load' });
+  await qa.waitForSelector('#deskClock');
+  await settle(qa, 400);
+
+  // 30a pause mid-away cancels the episode: no resume card while paused
+  await qa.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); Retoma.closePanel(); });
+  await qa.evaluate(() => Retoma.goAway(25));
+  await qa.evaluate(() => Retoma.togglePause());
+  await qa.evaluate(() => Retoma.comeBack());
+  await settle(qa, 400);
+  const qaPause = await qa.evaluate(() => ({
+    away: Retoma.state.away,
+    resumeVis: document.getElementById('resumeCard').classList.contains('is-visible'),
+    nowApp: document.getElementById('nowApp').textContent
+  }));
+  ok(qaPause.away === false && qaPause.resumeVis === false, 'pause mid-away: no resume card', JSON.stringify(qaPause));
+  ok(/Paused: I am not watching anything/.test(qaPause.nowApp), 'Now keeps the paused line', qaPause.nowApp);
+  await qa.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); });
+
+  // 30b delete then resume is a no-op (no phantom timeline entry, no crash)
+  await qa.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(qa, 400);
+  await qa.evaluate(() => Retoma.deleteAll());
+  await settle(qa, 200);
+  const tl0 = await qa.evaluate(() => Retoma.state.timeline.length);
+  await qa.evaluate(() => document.getElementById('retomarBtn').click());
+  await settle(qa, 300);
+  const tl1 = await qa.evaluate(() => ({ n: Retoma.state.timeline.length, empty: Retoma.state.empty }));
+  ok(tl1.n === tl0 && tl1.empty === true, 'Resume after delete-all adds nothing', JSON.stringify(tl1));
+  await qa.evaluate(() => Retoma.comeBack());
+  await settle(qa, 300);
+  ok(await qa.evaluate(() => !document.getElementById('resumeCard').classList.contains('is-visible')), 'Come back after delete-all shows no resume');
+
+  // 30c double-click Resume records exactly one entry
+  await qa.evaluate(() => { Retoma.state.empty = false; Retoma.state.timeline = [{ app: 'Document', duration: 40 }]; Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(qa, 400);
+  const n0 = await qa.evaluate(() => Retoma.state.timeline.length);
+  await qa.evaluate(() => { document.getElementById('retomarBtn').click(); document.getElementById('retomarBtn').click(); });
+  await settle(qa, 400);
+  ok((await qa.evaluate(() => Retoma.state.timeline.length)) === n0 + 1, 'double Resume is idempotent', n0 + ' -> ' + await qa.evaluate(() => Retoma.state.timeline.length));
+
+  // 30d confirm dialog: Esc closes, focus trapped while open, hidden when closed
+  await qa.evaluate(() => Retoma.closePanel());
+  await qa.click('#btnDelete');
+  await settle(qa, 300);
+  ok(await qa.evaluate(() => document.getElementById('confirmOverlay').classList.contains('is-open')), 'delete opens confirm');
+  ok(await qa.evaluate(() => document.activeElement && document.activeElement.id === 'confirmYes'), 'confirm moves focus inside', await qa.evaluate(() => document.activeElement.id));
+  await qa.keyboard.press('Tab');
+  ok(await qa.evaluate(() => document.activeElement && document.activeElement.id === 'confirmNo'), 'Tab wraps to first button (trap)');
+  await qa.keyboard.press('Escape');
+  await settle(qa, 700);
+  ok(await qa.evaluate(() => !document.getElementById('confirmOverlay').classList.contains('is-open')), 'Esc closes confirm');
+  ok(await qa.evaluate(() => document.activeElement && (document.activeElement.id === 'btnDelete' || document.activeElement.id === 'privacyDelete')), 'focus returns to delete control', await qa.evaluate(() => document.activeElement.id));
+  const ovHidden = await qa.evaluate(() => ({ vis: getComputedStyle(document.getElementById('confirmOverlay')).visibility, aria: document.getElementById('confirmOverlay').getAttribute('aria-hidden') }));
+  ok(ovHidden.vis === 'hidden' && ovHidden.aria === 'true', 'closed confirm is out of tab order + hidden from AT', JSON.stringify(ovHidden));
+  await qa.evaluate(() => Retoma.closePanel());
+  await settle(qa, 700);
+  ok(await qa.evaluate(() => getComputedStyle(document.getElementById('retomaPanel')).visibility === 'hidden'), 'closed panel is out of tab order');
+
+  // 30e theme toggle mid-story then skip: story still ends clean
+  await qa.click('#storyPlay');
+  await settle(qa, 900);
+  await qa.click('#themeToggle');
+  await settle(qa, 400);
+  await qa.click('#storySkip');
+  await settle(qa, 400);
+  ok(await qa.evaluate(() => window.__storyDone === true), 'story survives mid-run theme toggle + skip');
+  await qa.evaluate(() => Theme.apply('dark', false));
+  ok(qaErrs.length === 0, 'hostile run has no console errors', qaErrs.join(' | '));
+  await qa.close();
+
+  // 30f contrast >= 4.5 across 12 elements per theme
+  const qa2 = await ctx.newPage();
+  await qa2.goto(INDEX, { waitUntil: 'load' });
+  await qa2.waitForSelector('#deskClock');
+  const probeSrc12 = `(() => {
+    function lum(r, g, b) {
+      const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    }
+    function parse(c) {
+      const m = String(c).match(/rgba?\\(([^)]+)\\)/);
+      if (!m) return null;
+      return m[1].split(',').map((x) => parseFloat(x.trim()));
+    }
+    function opaqueBg(elm) {
+      const layers = [];
+      let n = elm;
+      while (n && n !== document.documentElement) { layers.unshift(parse(getComputedStyle(n).backgroundColor)); n = n.parentElement; }
+      layers.unshift(parse(getComputedStyle(document.body).backgroundColor));
+      let out = [0, 0, 0];
+      layers.forEach((p) => {
+        if (!p) return;
+        const a = p.length === 4 ? p[3] : 1;
+        out = [out[0] * (1 - a) + p[0] * a, out[1] * (1 - a) + p[1] * a, out[2] * (1 - a) + p[2] * a];
+      });
+      return out;
+    }
+    const sels = ['body', '.menu-bar__appname', '.menu-bar__clock', '.window__title', '.window__body p', '#nowApp', '#nowTitle', '#timelineText', '.proposal-card__text', '#proposalHow', '.resume-card__hero', '.panel-section__label'];
+    return sels.map((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { sel: sel, missing: true, ratio: 0 };
+      const fg = parse(getComputedStyle(el).color).slice(0, 3);
+      const bg = opaqueBg(el);
+      const L1 = lum(fg[0], fg[1], fg[2]), L2 = lum(bg[0], bg[1], bg[2]);
+      const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+      return { sel: sel, ratio: Math.round(ratio * 100) / 100 };
+    });
+  })()`;
+  for (const th of ['dark', 'light']) {
+    await qa2.evaluate((t) => Theme.apply(t, false), th);
+    await settle(qa2, 400);
+    const rows = await qa2.evaluate((src) => eval(src), probeSrc12);
+    const bad = rows.filter((r) => r.missing || r.ratio < 4.5);
+    ok(bad.length === 0, '[' + th + '] contrast >= 4.5 for 12 text elements', rows.map((r) => r.sel.split(' ').pop() + '=' + r.ratio).join(' | '));
+  }
+  await qa2.evaluate(() => Theme.apply('dark', false));
+  await qa2.close();
+
+  // 30g reduced motion: no stagger delays, hero readable, no parallax loop
+  const ctxRM = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const rmPage = await ctxRM.newPage();
+  await rmPage.goto(INDEX, { waitUntil: 'load' });
+  await rmPage.waitForSelector('#deskClock');
+  await rmPage.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(rmPage, 500);
+  const rmState = await rmPage.evaluate(() => ({
+    delays: Array.from(document.querySelectorAll('#resumeHero .w')).map((s) => s.style.transitionDelay),
+    opacity: getComputedStyle(document.querySelector('#resumeHero .w')).opacity,
+    px: document.getElementById('desktopWorkspace').style.getPropertyValue('--px')
+  }));
+  ok(rmState.delays.every((d) => !d), 'reduced motion: no headline stagger', JSON.stringify(rmState.delays));
+  ok(rmState.opacity === '1', 'reduced motion: headline readable', rmState.opacity);
+  ok(!rmState.px, 'reduced motion: no parallax loop', String(rmState.px));
+  await rmPage.close();
+  await ctxRM.close();
 
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {

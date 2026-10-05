@@ -21,7 +21,8 @@
   --color-neutral-700: #333333;
   --color-neutral-600: #3d3d3d;
   --color-neutral-500: #4f4f4f;
-  --color-neutral-400: #6f6f6f;
+  /* muted ink on dark cards: >= 4.5:1 on #171717 (AA body text) */
+  --color-neutral-400: #a3a3a3;
   --color-neutral-200: #f3e6d0;
   --color-neutral-100: #fdf1e1;
   --color-neutral-50: #fffaf0;
