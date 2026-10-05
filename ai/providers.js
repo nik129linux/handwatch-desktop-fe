@@ -142,13 +142,28 @@ function previewPayload(summary, mode, modelHint) {
 /* Prefer a fully on-device model; cloud-tagged entries (remote_host set,
  * e.g. gemma4:31b-cloud) are still valid Ollama models and are used when
  * they are the only ones installed. */
+/* Models (gemma included) often wrap JSON in ```json fences even with
+ * format:json. Strip the fence, or take the outermost {...}, then parse. */
+function parseModelJson(text) {
+  var t = String(text == null ? '' : text).trim();
+  var f = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(t);
+  if (f) t = f[1].trim();
+  try { return JSON.parse(t); } catch (e) {
+    var a = t.indexOf('{'), b = t.lastIndexOf('}');
+    if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
+    throw e;
+  }
+}
+
+/* Model policy: OLLAMA_MODEL env wins, otherwise a gemma model (cloud-tagged
+ * gemma4:31b-cloud is fine). Never auto-pick another local model: a big local
+ * one can freeze the PC. No gemma = null = rules. */
 function pickLocalModel(tagsJson) {
   var models = (tagsJson && tagsJson.models) || [];
+  var want = process.env.OLLAMA_MODEL;
   for (var i = 0; i < models.length; i++) {
-    if (!models[i].remote_host && models[i].name) return models[i].name;
-  }
-  for (var j = 0; j < models.length; j++) {
-    if (models[j].name) return models[j].name;
+    var n = models[i] && models[i].name;
+    if (n && (want ? n === want : /^gemma/i.test(n))) return n;
   }
   return null;
 }
@@ -172,7 +187,7 @@ function ollamaPropose(summary, opts) {
         .then(function (res) { return res.json(); })
         .then(function (gen) {
           var parsed;
-          try { parsed = JSON.parse(gen.response); } catch (e) { throw new Error('bad json'); }
+          try { parsed = parseModelJson(gen.response); } catch (e) { throw new Error('bad json'); }
           if (!validateProposal(parsed)) throw new Error('invalid shape');
           return { start: parsed.start, minutes: parsed.minutes, reason: parsed.reason, source: 'Local model \u00b7 ' + model, fallback: false };
         });
@@ -215,7 +230,7 @@ function geminiPropose(summary, opts) {
             text = parts.map(function (p) { return p.text || ''; }).join('');
           } catch (e) { throw new Error('bad shape'); }
           var parsed;
-          try { parsed = JSON.parse(text); } catch (e) { throw new Error('bad json'); }
+          try { parsed = parseModelJson(text); } catch (e) { throw new Error('bad json'); }
           if (!validateProposal(parsed)) throw new Error('invalid shape');
           return { start: parsed.start, minutes: parsed.minutes, reason: parsed.reason, source: 'Cloud \u00b7 Gemini', fallback: false };
         });
@@ -320,7 +335,7 @@ function habitsReport(metrics, opts) {
         .then(function (res) { return res.json(); })
         .then(function (gen) {
           var parsed;
-          try { parsed = JSON.parse(gen.response); } catch (e) { throw new Error('bad json'); }
+          try { parsed = parseModelJson(gen.response); } catch (e) { throw new Error('bad json'); }
           if (!habits.validateReport(parsed)) throw new Error('invalid shape');
           if (!habits.groundedReport(parsed, metrics)) throw new Error('ungrounded');
           return {
@@ -363,7 +378,7 @@ function habitsAsk(metrics, question, opts) {
         .then(function (res) { return res.json(); })
         .then(function (gen) {
           var parsed;
-          try { parsed = JSON.parse(gen.response); } catch (e) { throw new Error('bad json'); }
+          try { parsed = parseModelJson(gen.response); } catch (e) { throw new Error('bad json'); }
           var answer = typeof parsed === 'string' ? parsed : parsed.answer;
           if (!habits.validateAnswer(answer)) throw new Error('invalid shape');
           if (!habits.groundedAnswer(answer, metrics)) throw new Error('ungrounded');
@@ -403,6 +418,7 @@ module.exports = {
   buildOllamaBody: buildOllamaBody,
   promptFor: promptFor,
   pickLocalModel: pickLocalModel,
+  parseModelJson: parseModelJson,
   pickFlashModel: pickFlashModel,
   propose: propose,
   capabilities: capabilities,

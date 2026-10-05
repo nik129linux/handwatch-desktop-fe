@@ -80,10 +80,13 @@ function groundedReply(m) {
 }
 
 function main() {
-  return test('pickLocalModel: prefers on-device, accepts cloud-only', function () {
+  return test('pickLocalModel: gemma only, never another local model', function () {
     assert.strictEqual(
       providers.pickLocalModel({ models: [{ name: 'qwen:4b' }, { name: 'gemma4:31b-cloud', remote_host: 'x' }] }),
-      'qwen:4b');
+      'gemma4:31b-cloud');
+    assert.strictEqual(providers.pickLocalModel({ models: [{ name: 'qwen:4b' }] }), null);
+    assert.deepStrictEqual(providers.parseModelJson('```json\n{"a":1}\n```'), { a: 1 });
+    assert.deepStrictEqual(providers.parseModelJson('Here: {"a":2} done'), { a: 2 });
     assert.strictEqual(
       providers.pickLocalModel({ models: [{ name: 'gemma4:31b-cloud', remote_host: 'x' }] }),
       'gemma4:31b-cloud');
@@ -116,7 +119,7 @@ function main() {
       var m = demoMetrics();
       var bad = function (url) {
         if (url.indexOf('/api/tags') !== -1) {
-          return Promise.resolve({ json: function () { return Promise.resolve({ models: [{ name: 'qwen:4b' }] }); } });
+          return Promise.resolve({ json: function () { return Promise.resolve({ models: [{ name: 'gemma4:31b-cloud' }] }); } });
         }
         return Promise.resolve({ json: function () { return Promise.resolve({ response: 'not json{{' }); } });
       };
@@ -141,7 +144,7 @@ function main() {
       assert.strictEqual(habits.groundedReport(liar, m), false, 'grounding rejects 999');
       return providers.habitsReport(m, {
         mode: 'local', consent: { local: true },
-        fetchImpl: ollamaFetch([{ name: 'qwen:4b' }], liar)
+        fetchImpl: ollamaFetch([{ name: 'gemma4:31b-cloud' }], liar)
       }).then(function (rep) {
         assert.strictEqual(rep.source, 'rules');
         assert.strictEqual(rep.fallback, true);
@@ -172,7 +175,7 @@ function main() {
       var m = demoMetrics();
       var answer = 'Your longest block was Document 40 min (median 18 min).';
       assert.ok(habits.groundedAnswer(answer, m), 'fixture is grounded');
-      var impl = ollamaFetch([{ name: 'qwen:4b' }], { answer: answer });
+      var impl = ollamaFetch([{ name: 'gemma4:31b-cloud' }], { answer: answer });
       return providers.habitsAsk(m, 'longest block?', { mode: 'local', consent: { local: true }, fetchImpl: impl })
         .then(function (res) {
           assert.strictEqual(res.answer, answer);

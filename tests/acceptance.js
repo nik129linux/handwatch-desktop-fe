@@ -900,13 +900,13 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     });
   }
   const goodGen = JSON.stringify({ start: '09:00', minutes: 45, reason: 'Quiet block before the messages arrive.' });
-  const fake = await fakeOllama({ tags: { models: [{ name: 'huihui_ai/qwen3.5-abliterated:4b' }, { name: 'remote-one', remote_host: 'cloud' }] }, generate: goodGen });
+  const fake = await fakeOllama({ tags: { models: [{ name: 'qwen3.5:4b' }, { name: 'gemma4:31b-cloud', remote_host: 'cloud' }] }, generate: goodGen });
   const localRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: fake.url, timeoutMs: 5000 });
   ok(localRes.minutes === 45 && localRes.start === '09:00', 'local with consent returns validated output', JSON.stringify(localRes));
-  ok(/Local model/.test(localRes.source) && localRes.source.includes('huihui_ai/qwen3.5-abliterated:4b'), 'tag names the local model', localRes.source);
+  ok(/Local model/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the local model', localRes.source);
   const genReq = fake.requests.find(r => r.url === '/api/generate');
   const genBody = genReq ? JSON.parse(genReq.body) : {};
-  ok(genBody.model === 'huihui_ai/qwen3.5-abliterated:4b', 'picks the on-device model, skips remote_host', genBody.model);
+  ok(genBody.model === 'gemma4:31b-cloud', 'picks gemma, never another local model', genBody.model);
   ok(genBody.format === 'json' && genBody.stream === false, 'generate uses JSON mode, no stream');
   ok(!/Quality|paragraph|Ana|Tracker/i.test(genBody.prompt || ''), 'prompt has summary only, no titles');
   const previewBody = providers.previewPayload(d1Summary, 'local');
