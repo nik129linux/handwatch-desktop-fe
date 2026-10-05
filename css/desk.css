@@ -167,6 +167,14 @@ body {
 #win-whatsapp { left: 32px; top: 272px; width: 300px; }
 #win-sheet { left: 412px; top: 286px; width: 340px; }
 
+/* when panel open at desktop — windows live LEFT of panel (x 0 to panel-left -24) */
+@media (min-width: 901px) {
+  .desktop-area.has-panel-open #win-doc { left: 16px; top: 48px; width: 268px; }
+  .desktop-area.has-panel-open #win-browser { left: 300px; top: 48px; width: 268px; }
+  .desktop-area.has-panel-open #win-whatsapp { left: 16px; top: 272px; width: 268px; }
+  .desktop-area.has-panel-open #win-sheet { left: 300px; top: 286px; width: 268px; }
+}
+
 /* dock */
 .dock {
   height: 64px;
@@ -225,16 +233,23 @@ body {
 /* responsive: under 900px stack sim below, hide dock, bottom sheet */
 @media (max-width: 900px) {
   .stage { flex-direction: column; }
-  .desktop-area { flex: none; width: 100%; min-height: 480px; }
+  .desktop-area { flex: none; width: 100%; min-height: auto; }
   .sim-panel { width: 100%; min-width: 0; max-width: none; border-left: none; border-top: 1px solid var(--border-neutral-700); order: 2; }
   .dock { display: none; }
   .menu-bar { padding: 0 var(--sp-3); }
   .menu-bar__left { gap: var(--sp-2); }
   .menu-bar__appname { font-size: 13px; }
-  /* windows become stacked, non-absolute */
-  .desktop-workspace { min-height: auto; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); overflow: visible; }
-  .desktop-hint { position: static; transform: none; align-self: center; margin-bottom: var(--sp-2); }
-  .window { position: relative; left: auto !important; top: auto !important; width: 100% !important; max-width: 100%; }
+  /* windows become compact stacked list of cards between menu bar and sheet */
+  .desktop-workspace { min-height: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 12px; overflow: visible; }
+  .desktop-hint { position: static; transform: none; align-self: center; margin-bottom: 4px; font-size: 11px; }
+  .window { position: relative !important; left: auto !important; top: auto !important; width: 100% !important; max-width: 100% !important; min-height: auto !important; border-radius: 12px; }
+  .window__bar { height: 44px; padding: 0 12px; }
+  .window__title { font-size: 13px; }
+  .window__app { font-size: 11px; }
+  .window__body { display: none; }
+  .window.is-focused { border-color: var(--border-primary-500); box-shadow: 0 0 0 1px var(--border-primary-500); }
+  /* ensure no overlap with bottom sheet - workspace is above sheet with flex */
+  .desktop-area { padding-bottom: 0; }
   /* retoma panel becomes bottom sheet */
   .retoma-panel {
     position: fixed !important;

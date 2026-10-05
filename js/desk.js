@@ -78,15 +78,20 @@ var Desk = (function () {
       void el.offsetWidth;
       if (staggered) {
         el.style.setProperty('--d', delay + 'ms');
+        el.style.animationDelay = delay + 'ms';
         el.classList.add('window--entering');
         delay += 60;
       } else {
+        el.style.animationDelay = '';
         el.classList.add('window--entering');
       }
       var dock = document.querySelector('.dock__item[data-app="' + app + '"]');
       if (dock) dock.classList.remove('is-hidden-app');
     });
     if (apps.length) focus(apps[0]);
+    if (window.Retoma && window.Retoma.syncDesktopLayout) {
+      setTimeout(function () { window.Retoma.syncDesktopLayout(); }, 10);
+    }
   }
 
   function toggleMinimize(app) {

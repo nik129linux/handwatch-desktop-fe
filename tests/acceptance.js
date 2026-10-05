@@ -298,10 +298,10 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const interStyles = await fixPage.evaluate(() => {
     const el = document.getElementById('resumeInter');
     const cs = getComputedStyle(el);
-    return { size: cs.fontSize, ls: cs.letterSpacing, tt: cs.textTransform, weight: cs.fontWeight };
+    return { size: cs.fontSize, ls: cs.letterSpacing, tt: cs.textTransform, weight: cs.fontWeight, whiteSpace: cs.whiteSpace };
   });
-  ok(parseFloat(interStyles.size) <= 13, 'interruption label small', interStyles.size);
-  ok(interStyles.tt === 'uppercase', 'interruption label uppercase');
+  ok(interStyles.size === '14px', 'interruption label 14px', interStyles.size);
+  ok(interStyles.tt === 'none', 'interruption label normal-case (FIX2)', interStyles.tt);
   const chipCount2 = await fixPage.locator('.resume-chip').count();
   ok(chipCount2 === 3, 'hero chips 3');
   const retomarFull = await fixPage.evaluate(() => {
@@ -455,6 +455,205 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(/Pausado: no estoy viendo nada/.test(ahoraText), 'Ahora reads Pausado: no estoy viendo nada', ahoraText);
   await paPage.close();
 
+  head('17 · FIX2 round2-1: windows left of panel + staggered reopen');
+  const r2Page = await ctx.newPage();
+  await r2Page.goto(INDEX, { waitUntil: 'load' });
+  await r2Page.waitForSelector('#deskClock');
+  await settle(r2Page, 400);
+  // ensure windows visible and panel open
+  await r2Page.evaluate(() => { Desk.reopen(['Documento','Navegador','WhatsApp','Hoja de cálculo'], false); Desk.focus('Documento'); Retoma.closePanel(); });
+  await settle(r2Page, 200);
+  await r2Page.evaluate(() => Retoma.goAway(25));
+  await settle(r2Page, 200);
+  await r2Page.evaluate(() => Retoma.comeBack());
+  await settle(r2Page, 500);
+  // panel should be open with resume visible
+  ok(await r2Page.evaluate(() => Retoma.isPanelOpen()), 'r2: panel open after Volver');
+  const winVsPanel = await r2Page.evaluate(() => {
+    const panel = document.getElementById('retomaPanel');
+    const pRect = panel.getBoundingClientRect();
+    const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden') && getComputedStyle(e).display !== 'none');
+    const checks = wins.map(w => {
+      const r = w.getBoundingClientRect();
+      return { app: w.getAttribute('data-app'), winRight: Math.round(r.right), panelLeft: Math.round(pRect.left), ok: r.right <= pRect.left + 0.5, rect: { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) } };
+    });
+    // also check windows not overlapping each other
+    let overlap = null;
+    for (let i=0;i<checks.length;i++) for(let j=i+1;j<checks.length;j++){
+      const a = wins[i].getBoundingClientRect(), b = wins[j].getBoundingClientRect();
+      const ov = !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+      if (ov) overlap = wins[i].getAttribute('data-app') + ' overlaps ' + wins[j].getAttribute('data-app');
+    }
+    return { checks, overlap, panelLeft: Math.round(pRect.left) };
+  });
+  const allLeft = winVsPanel.checks.every(c => c.ok);
+  ok(allLeft, 'every visible window right <= panel left', JSON.stringify(winVsPanel));
+  ok(!winVsPanel.overlap, 'windows not overlapping each other with panel open', winVsPanel.overlap || '');
+  // staggered reopen after Retomar must be visible in left region
+  await r2Page.evaluate(() => document.getElementById('retomarBtn').click());
+  await settle(r2Page, 100);
+  // check that reopen animation staggered 60ms: windows have animationDelay 0,60,120
+  const stagger = await r2Page.evaluate(() => {
+    const ids = ['win-doc','win-browser','win-sheet'];
+    return ids.map(id => {
+      const el = document.getElementById(id);
+      return { id: id, delay: el.style.animationDelay || getComputedStyle(el).animationDelay, hasEnter: el.classList.contains('window--entering') };
+    });
+  });
+  const delays = stagger.map(s => s.delay);
+  ok(stagger.every(s => s.hasEnter), 'staggered reopen has entering class', JSON.stringify(stagger));
+  // check delays are 0,60,120 (allow ms string)
+  const delayVals = stagger.map(s => parseFloat(s.delay) || 0).sort((a,b)=>a-b);
+  const staggerOk = Math.abs(delayVals[0]-0) < 5 && Math.abs(delayVals[1]-60) < 5 && Math.abs(delayVals[2]-120) < 5;
+  ok(staggerOk, 'staggered 60ms delays', JSON.stringify(stagger));
+  await settle(r2Page, 500);
+  const afterRetomar = await r2Page.evaluate(() => {
+    const panel = document.getElementById('retomaPanel');
+    const pRect = panel.getBoundingClientRect();
+    const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden'));
+    return wins.map(w => { const r=w.getBoundingClientRect(); return { app: w.getAttribute('data-app'), right: Math.round(r.right), panelLeft: Math.round(pRect.left), ok: r.right <= pRect.left + 0.5 }; });
+  });
+  ok(afterRetomar.every(c=>c.ok), 'after Retomar windows still left of panel', JSON.stringify(afterRetomar));
+  await r2Page.close();
+
+  head('18 · FIX2 round2-2: 390 compact stacked list');
+  const c390b = await browser.newContext({ viewport: { width: 390, height: 900 } });
+  const p390b = await c390b.newPage();
+  await p390b.goto(INDEX, { waitUntil: 'load' });
+  await p390b.waitForSelector('#deskClock');
+  await settle(p390b, 400);
+  // ensure 4 windows as compact cards
+  const compact = await p390b.evaluate(() => {
+    const wins = Array.from(document.querySelectorAll('.window'));
+    const visible = wins.filter(w => getComputedStyle(w).display !== 'none' && !w.classList.contains('is-hidden'));
+    return visible.map(w => {
+      const cs = getComputedStyle(w);
+      const r = w.getBoundingClientRect();
+      const bar = w.querySelector('.window__bar');
+      const body = w.querySelector('.window__body');
+      const bodyHidden = body ? getComputedStyle(body).display === 'none' : true;
+      return { app: w.getAttribute('data-app'), h: Math.round(r.height), barH: bar ? Math.round(bar.getBoundingClientRect().height) : 0, bodyHidden: bodyHidden, display: cs.display, pos: cs.position };
+    });
+  });
+  ok(compact.length === 4, '390: 4 window cards visible', JSON.stringify(compact));
+  const allCompact = compact.every(c => c.h < 90 && c.bodyHidden);
+  ok(allCompact, 'compact small cards (body hidden, h<90)', JSON.stringify(compact));
+  const focusedRing390 = await p390b.evaluate(() => {
+    const el = document.querySelector('.window.is-focused');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    return { border: cs.borderColor, shadow: cs.boxShadow };
+  });
+  ok(focusedRing390 && (focusedRing390.border === 'rgb(166, 255, 0)' || (focusedRing390.shadow && focusedRing390.shadow.includes('166'))), 'focused card lime ring at 390', JSON.stringify(focusedRing390));
+  const noOverlap390 = await p390b.evaluate(() => {
+    const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-hidden') && getComputedStyle(e).display !== 'none');
+    const rects = wins.map(e => e.getBoundingClientRect());
+    for (let i=0;i<rects.length;i++) for(let j=i+1;j<rects.length;j++){
+      const a=rects[i], b=rects[j];
+      const ov = !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+      if (ov) return { overlap: i+'-'+j, rects: rects.map(r=>({l:Math.round(r.left), t:Math.round(r.top), r:Math.round(r.right), b:Math.round(r.bottom)})) };
+    }
+    return null;
+  });
+  ok(!noOverlap390, '390: no window overlap', noOverlap390 ? JSON.stringify(noOverlap390) : '');
+  const noHScroll390 = await p390b.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+  ok(noHScroll390, '390: no horizontal scroll', 'scrollWidth '+await p390b.evaluate(()=>document.documentElement.scrollWidth)+' inner '+await p390b.evaluate(()=>window.innerWidth));
+  // check windows are between menu bar and sheet (when sheet open)
+  await p390b.evaluate(() => Retoma.openPanel());
+  await settle(p390b, 300);
+  const betweenCheck = await p390b.evaluate(() => {
+    const bar = document.getElementById('menuBar').getBoundingClientRect();
+    const panel = document.getElementById('retomaPanel').getBoundingClientRect();
+    const wins = Array.from(document.querySelectorAll('.window')).map(w=>w.getBoundingClientRect());
+    return wins.every(r => r.top >= bar.bottom -1 && r.bottom <= panel.top +1) ? 'ok' : JSON.stringify({ barBottom: bar.bottom, panelTop: panel.top, wins: wins.map(r=>({top:Math.round(r.top), bottom:Math.round(r.bottom)})) });
+  });
+  ok(betweenCheck === 'ok', 'windows between menu bar and sheet at 390', betweenCheck);
+  await p390b.close();
+  await c390b.close();
+
+  head('19 · FIX2 round2-3: kicker single line normal-case');
+  const r2k = await ctx.newPage();
+  await r2k.goto(INDEX, { waitUntil: 'load' });
+  await r2k.waitForSelector('#deskClock');
+  await settle(r2k, 300);
+  await r2k.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(r2k, 400);
+  const kickerStyles = await r2k.evaluate(() => {
+    const el = document.getElementById('resumeInter');
+    const cs = getComputedStyle(el);
+    return { text: el.textContent, size: cs.fontSize, tt: cs.textTransform, ls: cs.letterSpacing, color: cs.color, whiteSpace: cs.whiteSpace, top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom };
+  });
+  ok(kickerStyles.text === 'Te interrumpió WhatsApp · 25 min', 'kicker text normal-case', kickerStyles.text);
+  ok(kickerStyles.size === '14px', 'kicker 14px', kickerStyles.size);
+  ok(kickerStyles.tt === 'none', 'kicker not uppercase', kickerStyles.tt);
+  // check single line: height close to line-height (approx 19px), not wrapped to 2 lines (>30)
+  const kickerH = kickerStyles.bottom - kickerStyles.top;
+  ok(kickerH < 28, 'kicker single line', 'h '+kickerH);
+  ok(kickerStyles.color === 'rgb(111, 111, 111)' || kickerStyles.color.includes('111'), 'kicker Fog color', kickerStyles.color);
+  // short kickers remain uppercase tracked
+  const shortKickers = await r2k.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.panel-section__label, .resume-card__eyebrow'));
+    return els.map(e=>{ const cs=getComputedStyle(e); return { text:e.textContent.trim(), tt:cs.textTransform, ls:cs.letterSpacing, size:cs.fontSize }; });
+  });
+  const allUpper = shortKickers.every(k => k.tt === 'uppercase');
+  ok(allUpper, 'short kickers uppercase', JSON.stringify(shortKickers));
+  const hasSpacing = shortKickers.every(k => parseFloat(k.ls) >= 1.8);
+  ok(hasSpacing, 'short kickers tracked .18em', JSON.stringify(shortKickers));
+  await r2k.close();
+
+  head('20 · FIX2 round2-4: proposal buttons reachable via scroll');
+  const r2p = await ctx.newPage();
+  await r2p.goto(INDEX, { waitUntil: 'load' });
+  await r2p.waitForSelector('#deskClock');
+  await settle(r2p, 300);
+  await r2p.evaluate(() => Retoma.showEndOfDay());
+  await settle(r2p, 400);
+  await r2p.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(r2p, 300);
+  const padCheck = await r2p.evaluate(() => {
+    const panel = document.getElementById('retomaPanel');
+    const cs = getComputedStyle(panel);
+    const tab = document.querySelector('.retoma-tab.is-active');
+    const tcs = tab ? getComputedStyle(tab) : null;
+    return { panelPadBottom: cs.paddingBottom, tabPadBottom: tcs ? tcs.paddingBottom : 'no-tab', panelOver: cs.overflowY, panelScrollPad: cs.scrollPaddingBottom };
+  });
+  ok(padCheck.panelPadBottom === '24px' || padCheck.tabPadBottom === '24px', 'tab/panel 24px bottom padding', JSON.stringify(padCheck));
+  ok(padCheck.panelOver === 'auto' || padCheck.panelOver === 'scroll', 'panel scrollable', padCheck.panelOver);
+  const acceptReach = await r2p.evaluate(() => {
+    const btn = document.getElementById('proposalAccept');
+    if (!btn) return { found:false };
+    btn.scrollIntoView({ block: 'nearest' });
+    const r = btn.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const inside = r.top >= 0 && r.left >=0 && r.bottom <= vh && r.right <= vw;
+    return { found:true, top: Math.round(r.top), bottom: Math.round(r.bottom), vh: vh, inside: inside, rect: {t:Math.round(r.top), b:Math.round(r.bottom), l:Math.round(r.left), r:Math.round(r.right)} };
+  });
+  ok(acceptReach.inside, 'Aceptar inside viewport after scrollIntoView', JSON.stringify(acceptReach));
+  await r2p.close();
+
+  head('21 · FIX2 round2-5: timeline legend merged');
+  const r2l = await ctx.newPage();
+  await r2l.goto(INDEX, { waitUntil: 'load' });
+  await r2l.waitForSelector('#deskClock');
+  await settle(r2l, 300);
+  // create duplicate app segments
+  await r2l.evaluate(() => {
+    Retoma.state.timeline = [{ app:'Documento', duration:40 },{ app:'Navegador', duration:12 },{ app:'Documento', duration:1 },{ app:'Hoja de cálculo', duration:10 }];
+    Retoma.state.empty = false;
+    Retoma.state.proposalDismissed = true;
+    Retoma.renderTimeline();
+  });
+  await settle(r2l, 200);
+  const legendText = await r2l.evaluate(() => document.getElementById('timelineLegend').textContent);
+  const legendItems = await r2l.locator('.timeline-legend__item').count();
+  ok(legendItems === 3, 'legend merged same-app (3 items not 4)', 'found '+legendItems+' -> '+legendText);
+  ok(/Documento.*41 min/.test(legendText), 'Documento merged 41 min', legendText);
+  // keep bar segments: should be 4 segments
+  const segCount = await r2l.locator('.timeline-bar__seg').count();
+  ok(segCount === 4, 'bar segments kept (4)', 'found '+segCount);
+  await r2l.close();
+
   // extra screenshots — final states at both viewports
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
@@ -475,6 +674,10 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     await p.evaluate(() => Retoma.comeBack());
     await settle(p, 500);
     await p.screenshot({ path: path.join(SHOTS, `${label}-${viewW}-resume.png`), fullPage: true });
+    // after Retomar — windows staggered back in left region
+    await p.evaluate(() => document.getElementById('retomarBtn').click());
+    await settle(p, 600);
+    await p.screenshot({ path: path.join(SHOTS, `${label}-${viewW}-after-retomar.png`), fullPage: true });
     // timeline
     await p.evaluate(() => Retoma.showEndOfDay());
     await settle(p, 300);

@@ -102,7 +102,7 @@ var Retoma = (function () {
     el.resumeCard.classList.remove('is-hidden');
     if (el.resumeHero) el.resumeHero.textContent = 'Estabas en: ' + state.prevApp;
     if (el.resumeSub) el.resumeSub.textContent = state.prevTitle;
-    if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió: ' + state.interruptionApp + ' · ' + state.awayMinutes + ' min';
+    if (el.resumeInter) el.resumeInter.textContent = 'Te interrumpió ' + state.interruptionApp + ' · ' + state.awayMinutes + ' min';
     if (el.resumeChips) {
       el.resumeChips.innerHTML = state.prevWindows.map(function (w) { return '<span class="chip resume-chip">' + w + '</span>'; }).join('');
     }
@@ -204,9 +204,17 @@ var Retoma = (function () {
     }).join('');
     if (el.timelineLegend) {
       el.timelineLegend.style.display = '';
-      el.timelineLegend.innerHTML = data.map(function (e, i) {
-        var c = colors[i % colors.length];
-        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + e.app + ' · ' + e.duration + ' min</span>';
+      // merge same-app segments for legend (sum minutes), keep bar segments
+      var merged = {};
+      var order = [];
+      var appFirstColor = {};
+      data.forEach(function (e, i) {
+        if (!merged.hasOwnProperty(e.app)) { merged[e.app] = 0; order.push(e.app); appFirstColor[e.app] = colors[i % colors.length]; }
+        merged[e.app] += e.duration;
+      });
+      el.timelineLegend.innerHTML = order.map(function (app) {
+        var c = appFirstColor[app];
+        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + app + ' · ' + merged[app] + ' min</span>';
       }).join('');
     }
     if (el.timelineText) el.timelineText.textContent = 'Planeado: 2 h de informe · Real: 1 h 20 min';
@@ -253,17 +261,63 @@ var Retoma = (function () {
 
   function isPanelOpen() { return el.retomaPanel && el.retomaPanel.classList.contains('is-open'); }
 
+  function syncDesktopLayout() {
+    if (window.innerWidth < 901) {
+      var da = document.querySelector('.desktop-area');
+      if (da) da.classList.remove('has-panel-open');
+      return;
+    }
+    var desktopArea = document.querySelector('.desktop-area');
+    if (!desktopArea) return;
+    var isOpen = isPanelOpen();
+    if (isOpen) desktopArea.classList.add('has-panel-open');
+    else desktopArea.classList.remove('has-panel-open');
+    if (isOpen) {
+      requestAnimationFrame(function () {
+        var panel = document.getElementById('retomaPanel');
+        var ws = document.getElementById('desktopWorkspace');
+        if (!panel || !ws) return;
+        var pLeft = panel.getBoundingClientRect().left;
+        var wsLeft = ws.getBoundingClientRect().left;
+        var avail = pLeft - wsLeft - 24;
+        if (avail < 100) return;
+        var gap = 16;
+        var inset = 16;
+        var colW = Math.floor((avail - inset * 2 - gap) / 2);
+        colW = Math.max(180, Math.min(colW, 340));
+        var map = { 'win-doc': 0, 'win-browser': 1, 'win-whatsapp': 2, 'win-sheet': 3 };
+        var lefts = [inset, inset + colW + gap, inset, inset + colW + gap];
+        var tops = [48, 48, 272, 286];
+        Object.keys(map).forEach(function (id) {
+          var e = document.getElementById(id);
+          if (!e) return;
+          var idx = map[id];
+          e.style.left = lefts[idx] + 'px';
+          e.style.width = colW + 'px';
+          e.style.top = tops[idx] + 'px';
+        });
+      });
+    } else {
+      ['win-doc','win-browser','win-whatsapp','win-sheet'].forEach(function (id) {
+        var e = document.getElementById(id);
+        if (e) { e.style.left = ''; e.style.width = ''; e.style.top = ''; }
+      });
+    }
+  }
+
   function openPanel() {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.add('is-open');
     el.retomaPanel.classList.remove('is-closing');
     if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'true');
+    syncDesktopLayout();
   }
   function closePanel() {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.remove('is-open');
     el.retomaPanel.classList.add('is-closing');
     if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'false');
+    syncDesktopLayout();
     setTimeout(function () { el.retomaPanel.classList.remove('is-closing'); }, 220);
   }
   function togglePanel() {
@@ -376,9 +430,10 @@ var Retoma = (function () {
     switchTab('ahora');
     closePanel();
     startTick();
+    window.addEventListener('resize', syncDesktopLayout);
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline };
   }
 
   function openConfirm() { if (el.confirmOverlay) el.confirmOverlay.classList.add('is-open'); }

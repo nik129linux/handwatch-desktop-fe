@@ -11,6 +11,7 @@
   border: 1px solid var(--border-neutral-700);
   border-radius: var(--radius-card);
   padding: var(--sp-4);
+  padding-bottom: 24px;
   display: flex; flex-direction: column; gap: var(--sp-4);
   z-index: 50;
   opacity: 0; pointer-events: none;
@@ -18,7 +19,10 @@
   transform-origin: top right;
   transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter);
   scrollbar-gutter: stable;
+  scroll-padding-bottom: 24px;
 }
+.retoma-tab { display: none; overflow-y: visible; }
+.retoma-tab.is-active { display: flex; flex-direction: column; gap: var(--sp-4); overflow-y: visible; padding-bottom: 24px; }
 .retoma-panel.is-open {
   opacity: 1; pointer-events: auto;
   transform: scale(1) translateY(0);
@@ -55,8 +59,6 @@
 .retoma-tabs__btn:hover { background: var(--bg-neutral-800); color: var(--text-neutral-50); }
 .retoma-tabs__btn:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
 .retoma-tabs__btn.is-active { background: var(--bg-neutral-800); color: var(--text-neutral-50); border-color: var(--border-neutral-700); }
-.retoma-tab { display: none; }
-.retoma-tab.is-active { display: flex; flex-direction: column; gap: var(--sp-4); }
 
 .panel-section {
   background: var(--bg-neutral-950);
@@ -119,13 +121,17 @@
 }
 .resume-card__inter {
   font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-neutral-400);
   margin: 0;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 .resume-card__chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip {
