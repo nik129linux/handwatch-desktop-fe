@@ -240,11 +240,27 @@
   ✓ consent box hidden until a model is picked
   ✓ Export my data button present
   ✓ rules path keeps the Simulated tag
+  ✓ fallback where a real provider ran drops Simulated
   ✓ loading state is a shimmer skeleton
   ✓ D1 UI has no console errors
 
 shots · 1440 & 390 capture
 
 summary
-  184 passed, 0 failed
+  185 passed, 0 failed
   screenshots -> shots/
+  ✓ window title is Retoma
+  ✓ 4 windows present
+  ✓ theme toggle present
+  ✓ theme toggle flips data-theme
+
+D1 · preload bridge + IPC persistence + propose
+  ✓ preload bridge window.retoma.propose present
+  ✓ cloud availability follows the key
+  ✓ disabled reason names the missing key
+  ✓ propose off returns valid shape over IPC
+  ✓ events round-trip through events.json
+  ✓ delete-all empties the store
+  ✓ resume card shows after 25 min away (notify path)
+  ✓ Smart suggestions control present in app
+  12 passed, 0 failed
