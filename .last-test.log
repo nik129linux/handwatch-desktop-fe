@@ -43,9 +43,9 @@
   ✓ story has no console errors
 
 7 · token test (BOTH themes)
-  ✓ [dark] nothing keeps rgb(166, 255, 0) (246 elements)
+  ✓ [dark] nothing keeps rgb(166, 255, 0) (256 elements)
   ✓ [dark] new primary in use
-  ✓ [light] nothing keeps rgb(166, 255, 0) (246 elements)
+  ✓ [light] nothing keeps rgb(166, 255, 0) (256 elements)
   ✓ [light] new primary in use
 
 7b · theme toggle + contrast >= 4.5 in both themes
