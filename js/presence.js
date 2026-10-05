@@ -30,15 +30,41 @@ var Presence = (function () {
     return seed / 2147483648;
   }
 
+  function parseChannel(h) {
+    return parseInt(h, 16);
+  }
+
+  function hexToRgb(hex) {
+    var h = String(hex || '').trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{3}$/.test(h)) {
+      return [parseChannel(h[0] + h[0]), parseChannel(h[1] + h[1]), parseChannel(h[2] + h[2])];
+    }
+    if (/^[0-9a-fA-F]{6}$/.test(h)) {
+      return [parseChannel(h.slice(0, 2)), parseChannel(h.slice(2, 4)), parseChannel(h.slice(4, 6))];
+    }
+    return null;
+  }
+
+  /* Tokens arrive as #hex (see css/tokens.css) or rgb(). Resolve var()
+   * chains one level so ink-derived tokens work in both themes. */
   function rgbComp(tokenName, fallback) {
     try {
       var raw = getComputedStyle(document.documentElement).getPropertyValue(tokenName);
       raw = (raw || '').trim();
-      var inner = raw.split('(');
-      if (inner.length < 2) return fallback;
-      var nums = inner[1].split(')')[0].split(',');
-      if (nums.length < 3) return fallback;
-      return [parseFloat(nums[0]) || 0, parseFloat(nums[1]) || 0, parseFloat(nums[2]) || 0];
+      if (!raw) return fallback;
+      if (raw.charAt(0) === '#') return hexToRgb(raw) || fallback;
+      var vm = /^var\((--[^)]+)\)$/.exec(raw);
+      if (vm) {
+        var inner = getComputedStyle(document.documentElement).getPropertyValue(vm[1]).trim();
+        if (!inner) return fallback;
+        if (inner.charAt(0) === '#') return hexToRgb(inner) || fallback;
+        raw = inner;
+      }
+      var nums = raw.split('(');
+      if (nums.length < 2) return fallback;
+      var parts = nums[1].split(')')[0].split(',');
+      if (parts.length < 3) return fallback;
+      return [parseFloat(parts[0]) || 0, parseFloat(parts[1]) || 0, parseFloat(parts[2]) || 0];
     } catch (e) { return fallback; }
   }
 
@@ -47,7 +73,15 @@ var Presence = (function () {
     var paper = rgbComp('--text-neutral-100', [200, 200, 200]);
     var fog = rgbComp('--text-neutral-400', [150, 150, 150]);
     var deep = rgbComp('--text-neutral-600', [110, 110, 110]);
-    palette = { lime: lime, paper: paper, fog: fog, deep: deep };
+    var light = false;
+    try { light = document.documentElement.getAttribute('data-theme') === 'light'; } catch (e) { light = false; }
+    // Ink on paper needs more alpha than light on dark to read.
+    palette = { lime: lime, paper: paper, fog: fog, deep: deep, boost: light ? 1.45 : 1 };
+    // Re-tint live particles so a theme switch recolors the field at once.
+    for (var k = 0; k < parts.length; k++) {
+      if (parts[k].ink && palette[parts[k].ink]) parts[k].col = palette[parts[k].ink];
+    }
+    window.__presencePalette = palette;
   }
 
   function solid(c) {
@@ -63,20 +97,21 @@ var Presence = (function () {
     for (i = 0; i < n; i++) {
       var roll = rand();
       var role = 'matte';
+      var ink = 'fog';
       var r = 1.6 + rand() * 3.4;
       var col = palette.fog;
-      if (roll < 0.16) { role = 'glass'; r = 5 + rand() * 9; col = palette.lime; }
-      else if (roll < 0.34) { role = 'matte'; r = 2.4 + rand() * 3.2; col = palette.lime; }
-      else if (roll < 0.62) { role = 'matte'; r = 1.6 + rand() * 2.6; col = palette.paper; }
-      else if (roll < 0.84) { role = 'matte'; r = 1.4 + rand() * 2.2; col = palette.fog; }
-      else { role = 'deep'; r = 2 + rand() * 3; col = palette.deep; }
+      if (roll < 0.16) { role = 'glass'; ink = 'lime'; r = 5 + rand() * 9; col = palette.lime; }
+      else if (roll < 0.34) { role = 'matte'; ink = 'lime'; r = 2.4 + rand() * 3.2; col = palette.lime; }
+      else if (roll < 0.62) { role = 'matte'; ink = 'paper'; r = 1.6 + rand() * 2.6; col = palette.paper; }
+      else if (roll < 0.84) { role = 'matte'; ink = 'fog'; r = 1.4 + rand() * 2.2; col = palette.fog; }
+      else { role = 'deep'; ink = 'deep'; r = 2 + rand() * 3; col = palette.deep; }
       var a = rand() * Math.PI * 2;
       var sp = 6 + rand() * 14;
       parts.push({
         x: rand() * W, y: rand() * H,
         vx: 0, vy: 0,
         dx: Math.cos(a) * sp, dy: Math.sin(a) * sp * 0.7,
-        r: r, role: role, col: col,
+        r: r, role: role, ink: ink, col: col,
         ph: rand() * Math.PI * 2,
         tw: 0.5 + rand() * 0.5
       });
@@ -189,30 +224,35 @@ var Presence = (function () {
   function draw(dim) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    var boost = (palette && palette.boost) || 1;
+    function alpha(a) {
+      var v = a * boost;
+      return v > 1 ? 1 : v;
+    }
     var t = (window.__presenceFrames || 0) / 60;
     for (var i = 0; i < parts.length; i++) {
       var p = parts[i];
       var glow = 0.55 + 0.45 * Math.sin(t * p.tw + p.ph);
       if (p.role === 'glass') {
-        ctx.globalAlpha = 0.30 * dim * glow + 0.10;
+        ctx.globalAlpha = alpha(0.30 * dim * glow + 0.10);
         ctx.strokeStyle = solid(p.col);
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.2832);
         ctx.stroke();
-        ctx.globalAlpha = 0.10 * dim;
+        ctx.globalAlpha = alpha(0.10 * dim);
         ctx.fillStyle = solid(p.col);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.2832);
         ctx.fill();
       } else if (p.role === 'deep') {
-        ctx.globalAlpha = 0.35 * dim;
+        ctx.globalAlpha = alpha(0.35 * dim);
         ctx.fillStyle = solid(p.col);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.2832);
         ctx.fill();
       } else {
-        ctx.globalAlpha = (p.col === palette.lime ? 0.5 : 0.42) * dim * glow + 0.08;
+        ctx.globalAlpha = alpha((p.col === palette.lime ? 0.5 : 0.42) * dim * glow + 0.08);
         ctx.fillStyle = solid(p.col);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 6.2832);

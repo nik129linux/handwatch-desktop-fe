@@ -22,9 +22,18 @@ function ok(cond, label, detail) {
   const app = await _electron.launch({ executablePath: electronPath, args: ['.', '--no-sandbox'], cwd: ROOT });
   const window = await app.firstWindow();
   await window.waitForSelector('#deskClock', { timeout: 15000 });
+  // screenshots and state checks start only once the entrance choreography is done
+  await window.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 15000 });
 
   ok((await window.title()) === 'Retoma', 'window title is Retoma', await window.title());
   ok((await window.locator('.window').count()) === 4, '4 windows present');
+  const entered = await window.evaluate(() => Array.from(document.querySelectorAll('.window')).map(e => ({
+    app: e.getAttribute('data-app'),
+    min: e.classList.contains('is-minimized'),
+    hid: e.classList.contains('is-hidden'),
+    op: parseFloat(getComputedStyle(e).opacity)
+  })));
+  ok(entered.length === 4 && entered.every(w => !w.min && !w.hid && w.op > 0.9), 'all 4 windows visible after the entrance', JSON.stringify(entered));
   ok((await window.locator('#themeToggle[aria-label="Switch theme"]').count()) === 1, 'theme toggle present');
 
   const before = await window.evaluate(() => document.documentElement.getAttribute('data-theme'));
@@ -33,10 +42,16 @@ function ok(cond, label, detail) {
   const after = await window.evaluate(() => document.documentElement.getAttribute('data-theme'));
   ok(before !== after, 'theme toggle flips data-theme', before + ' -> ' + after);
 
-  // app window in DARK and LIGHT: resume card + timeline
+  // app window in DARK and LIGHT: resume card + timeline + privacy.
+  // Document is back on the desk in both themes (comeBack restores it).
   for (const th of ['dark', 'light']) {    await window.evaluate((t) => Theme.apply(t, false), th);
     await window.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
     await window.waitForTimeout(600);
+    const resumeWins = await window.evaluate(() => Array.from(document.querySelectorAll('.window')).map(e => ({
+      app: e.getAttribute('data-app'),
+      vis: !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden')
+    })));
+    ok(resumeWins.length === 4 && resumeWins.every(w => w.vis), '[' + th + '] Document present in resume state', JSON.stringify(resumeWins));
     await window.screenshot({ path: path.join(SHOTS, 'app-' + th + '-resume.png') });
     await window.evaluate(() => { document.getElementById('retomarBtn').click(); Retoma.showEndOfDay(); });
     await window.waitForTimeout(500);
@@ -47,6 +62,9 @@ function ok(cond, label, detail) {
     });
     await window.waitForTimeout(400);
     await window.screenshot({ path: path.join(SHOTS, 'app-' + th + '-timeline.png') });
+    await window.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('priv'); });
+    await window.waitForTimeout(400);
+    await window.screenshot({ path: path.join(SHOTS, 'app-' + th + '-privacy.png') });
   }
 
   console.log('\nD1 · preload bridge + IPC persistence + propose');

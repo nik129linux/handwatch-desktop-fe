@@ -321,6 +321,13 @@ var Visual = (function () {
       };
     }
     window.addEventListener('resize', placeInk);
+    // the panel scales while opening; re-seat the ink once it lands.
+    var panel = document.getElementById('retomaPanel');
+    if (panel) {
+      panel.addEventListener('transitionend', function (ev) {
+        if (ev && ev.propertyName === 'transform') placeInk();
+      });
+    }
     setTimeout(placeInk, 300);
     setTimeout(placeInk, 900);
   }

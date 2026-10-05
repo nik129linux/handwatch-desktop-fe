@@ -97,6 +97,17 @@
 .now-app { font-family: var(--font-display); font-size: var(--text-display); line-height: var(--leading-display); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); color: var(--text-paper); }
 .now-time { font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--text-neutral-400); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* D4: while the resume card is up, Now collapses to one line ("Document · 1 min").
+   The full Now section returns when the card is dismissed. Only the tab body
+   may scroll — nothing else in the panel keeps its own scroller. */
+.retoma-panel.has-resume #retomaTabAhora .panel-section__label,
+.retoma-panel.has-resume #nowTitle,
+.retoma-panel.has-resume #nowDesc { display: none; }
+.retoma-panel.has-resume #retomaTabAhora .panel-section { border-top: none; padding: 0 0 var(--sp-2); }
+.retoma-panel.has-resume .now-row { flex-direction: row; align-items: baseline; gap: var(--sp-2); }
+.retoma-panel.has-resume .now-app { font-family: var(--font-body); font-size: var(--text-body); line-height: 1.5; letter-spacing: 0; }
+.retoma-panel.has-resume .now-app::after { content: '·'; color: var(--text-neutral-400); margin-left: var(--sp-2); }
+
 /* Resume card — full-bleed hero, no border, no chips-as-pills (Space blur-in) */
 .resume-card {
   order: 1;
@@ -263,7 +274,7 @@
 #aiModeReason.is-hidden { display: none; }
 .ai-consent { display: flex; flex-direction: column; gap: var(--sp-2); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: var(--sp-3); }
 .ai-consent.is-hidden { display: none; }
-.ai-payload { font-family: var(--font-mono); font-size: var(--text-micro); line-height: 1.5; color: var(--text-neutral-100); background: var(--bg-screen); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--sp-3); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; margin: 0; }
+.ai-payload { font-family: var(--font-mono); font-size: var(--text-micro); line-height: 1.5; color: var(--text-neutral-100); background: var(--bg-screen); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--sp-3); white-space: pre-wrap; word-break: break-word; margin: 0; }
 #privacyExport { background: transparent; border: none; border-radius: 0; padding: 8px 0; text-align: left; font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--text-neutral-400); min-height: 40px; }
 #privacyExport:hover { color: var(--text-neutral-50); background: transparent; text-decoration: underline; text-underline-offset: 4px; }
 

@@ -35,6 +35,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const errs = watchErrors(page);
   await page.goto(INDEX, { waitUntil: 'load' });
   await page.waitForSelector('#deskClock');
+  // screenshots and state checks start only once the entrance choreography is done
+  await page.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
 
   head('1 · loads with zero console errors');
   await settle(page, 600);
@@ -117,8 +119,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(/Tomorrow: \d+ min/.test(propText), 'proposal text computed with real minutes', propText.slice(0,100));
   ok(/before the messages arrive/.test(propText), 'proposal has window hours', propText.slice(0,120));
   const simTag = await page.locator('#proposalTag').textContent().catch(() => '');
-  ok(/Simulated/.test(simTag), 'Simulated tag visible', simTag);
-  ok(await page.locator('#proposalTag').isVisible().catch(() => false), 'Simulated tag is visible');
+  ok(/On-device rules/.test(simTag), 'proposal tag names the real source (On-device rules)', simTag);
+  ok(await page.locator('#proposalTag').isVisible().catch(() => false), 'source tag is visible');
   const howText = await page.locator('#proposalHow').textContent().catch(() => '');
   ok(/How I decided:/.test(howText), 'proposal shows how it was decided', howText.slice(0,120));
   // proposal changes when timeline data changes
@@ -1003,7 +1005,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(await d1.locator('#privacyExport').count() === 1, 'Export my data button present');
   await d1.evaluate(() => Retoma.showEndOfDay());
   await settle(d1, 400);
-  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('Simulated'), 'rules path keeps the Simulated tag');
+  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('On-device rules'), 'rules path names its source (On-device rules)');
   await d1.evaluate(() => {
     window.retoma = {
       propose: () => Promise.resolve({ start: '09:00', minutes: 45, reason: 'Quiet block before the messages arrive.', source: 'rules', fallback: true, note: 'Model unavailable, used on-device rules' })
@@ -1013,7 +1015,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     Retoma.showEndOfDay();
   });
   await settle(d1, 400);
-  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('On-device rules'), 'fallback where a real provider ran drops Simulated', await d1.locator('#proposalTag').textContent().catch(() => ''));
+  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('On-device rules'), 'fallback where a real provider ran names On-device rules', await d1.locator('#proposalTag').textContent().catch(() => ''));
   const d1Css = fs.readFileSync(path.join(ROOT, 'css', 'retoma.css'), 'utf8');
   ok(d1Css.includes('@keyframes shimmer') && d1Css.includes('.skeleton-bar'), 'loading state is a shimmer skeleton');
   ok(d1Errs.length === 0, 'D1 UI has no console errors', d1Errs.join(' | '));
@@ -1159,12 +1161,117 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await rmPage.close();
   await ctxRM.close();
 
+  head('31 · D4 polish: collapsed Now, source tags, entrance, particles');
+  const d4 = await ctx.newPage();
+  await d4.goto(INDEX, { waitUntil: 'load' });
+  await d4.waitForSelector('#deskClock');
+  // 31a entrance finishes with all 4 windows visible (Document included)
+  await d4.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  const afterEntrance = await d4.evaluate(() => Array.from(document.querySelectorAll('.window')).map((e) => ({
+    app: e.getAttribute('data-app'),
+    min: e.classList.contains('is-minimized'),
+    hid: e.classList.contains('is-hidden'),
+    op: parseFloat(getComputedStyle(e).opacity)
+  })));
+  ok(afterEntrance.length === 4 && afterEntrance.every((w) => !w.min && !w.hid && w.op > 0.9),
+    'all 4 windows visible after the entrance', JSON.stringify(afterEntrance));
+  ok(afterEntrance.some((w) => w.app === 'Document' && !w.min && !w.hid && w.op > 0.9), 'Document present after the entrance');
+  // 31b resume state collapses Now to a single line
+  await d4.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); Retoma.closePanel(); });
+  await d4.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await d4.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
+  await settle(d4, 400);
+  ok(await d4.evaluate(() => document.getElementById('retomaPanel').classList.contains('has-resume')), 'panel carries has-resume while the card is up');
+  const nowLine = await d4.evaluate(() => {
+    const row = document.querySelector('#retomaTabAhora .now-row');
+    const r = row.getBoundingClientRect();
+    const titleHidden = getComputedStyle(document.getElementById('nowTitle')).display === 'none';
+    const descHidden = getComputedStyle(document.getElementById('nowDesc')).display === 'none';
+    const sep = getComputedStyle(document.querySelector('#retomaTabAhora .now-app'), '::after').getPropertyValue('content');
+    return { h: Math.round(r.height), text: row.textContent.trim().replace(/\s+/g, ' '), sep: sep, titleHidden: titleHidden, descHidden: descHidden };
+  });
+  ok(nowLine.titleHidden && nowLine.descHidden, 'full Now detail hidden while resume is up');
+  ok(nowLine.h < 32 && /·/.test(nowLine.sep) && /Document/.test(nowLine.text), 'Now collapsed to a single line', nowLine.h + 'px -> ' + nowLine.text);
+  // Document is back on the desk in the resume state too
+  ok(await d4.evaluate(() => Desk.isVisible('Document')), 'Document visible in resume state');
+  // sliding ink sits under the active tab after an internal switch (comeBack)
+  const inkOk = await d4.evaluate(() => {
+    const inkEl = document.querySelector('.retoma-tabs__ink');
+    const tabs = document.querySelector('.retoma-tabs');
+    const active = document.querySelector('.retoma-tabs__btn.is-active');
+    const tr = tabs.getBoundingClientRect();
+    const ar = active.getBoundingClientRect();
+    const m = /translateX\((-?\d+)px\)/.exec(inkEl.style.transform || '');
+    return { x: m ? parseInt(m[1], 10) : null, expect: Math.round(ar.left - tr.left), tab: active.getAttribute('data-tab') };
+  });
+  ok(inkOk.x !== null && Math.abs(inkOk.x - inkOk.expect) <= 2, 'sliding ink under the active tab', JSON.stringify(inkOk));
+  // 31c only the tab body may scroll inside the panel (resume + timeline + long consent payload)
+  const nestedSrc = `(() => {
+    const panel = document.getElementById('retomaPanel');
+    const bad = [];
+    panel.querySelectorAll('*').forEach((elm) => {
+      if (elm.classList.contains('retoma-tab')) return;
+      const cs = getComputedStyle(elm);
+      if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && elm.scrollHeight > elm.clientHeight + 1) {
+        bad.push(elm.id ? '#' + elm.id : elm.tagName + '.' + String(elm.className).split(' ')[0]);
+      }
+    });
+    return bad;
+  })()`;
+  ok((await d4.evaluate((src) => eval(src), nestedSrc)).length === 0, 'no nested scroller in resume state',
+    JSON.stringify(await d4.evaluate((src) => eval(src), nestedSrc)));
+  await d4.evaluate(() => { Retoma.showEndOfDay(); Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(d4, 300);
+  ok((await d4.evaluate((src) => eval(src), nestedSrc)).length === 0, 'no nested scroller in timeline state',
+    JSON.stringify(await d4.evaluate((src) => eval(src), nestedSrc)));
+  await d4.evaluate(() => {
+    const pre = document.getElementById('aiPayload');
+    if (pre) pre.textContent = new Array(200).join('{"model":"x","prompt":"long payload "} ');
+    document.getElementById('aiConsent').classList.remove('is-hidden');
+    Retoma.openPanel(); Retoma.switchTab('priv');
+  });
+  await settle(d4, 300);
+  ok(await d4.evaluate(() => getComputedStyle(document.getElementById('aiPayload')).overflowY === 'visible'),
+    'consent payload never keeps its own scroller', await d4.evaluate(() => getComputedStyle(document.getElementById('aiPayload')).overflowY));
+  ok((await d4.evaluate((src) => eval(src), nestedSrc)).length === 0, 'no nested scroller with a long consent payload',
+    JSON.stringify(await d4.evaluate((src) => eval(src), nestedSrc)));
+  // 31d tags: resume card carries none, proposal names the real source
+  await d4.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await d4.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
+  const eyebrow = await d4.locator('.resume-card__eyebrow').textContent();
+  ok(!/simulated/i.test(eyebrow), 'resume card has no AI tag', eyebrow.trim());
+  await d4.evaluate(() => { Retoma.showEndOfDay(); Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(d4, 300);
+  const d4Tag = (await d4.locator('#proposalTag').textContent()) || '';
+  ok(/On-device rules|Local model ·|Cloud · Gemini/.test(d4Tag), 'proposal tag names the real source', d4Tag);
+  ok(/On-device rules/.test(d4Tag), 'off-mode proposal reads On-device rules', d4Tag);
+  // 31e particle field is ink-derived and animating in both themes
+  for (const th of ['dark', 'light']) {
+    await d4.evaluate((t) => Theme.apply(t, false), th);
+    await settle(d4, 600);
+    const field = await d4.evaluate(() => ({
+      canvas: !!document.getElementById('presenceField'),
+      frames: window.__presenceFrames || 0,
+      pal: window.__presencePalette || null
+    }));
+    ok(field.canvas && field.frames > 0, '[' + th + '] particle field present and animating', 'frames ' + field.frames);
+    const lum = (c) => Math.round((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * 10) / 10;
+    if (th === 'light') {
+      ok(field.pal && lum(field.pal.paper) < 120, '[light] particles tinted with dark ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
+    } else {
+      ok(field.pal && lum(field.pal.paper) > 200, '[dark] particles tinted with light ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
+    }
+  }
+  await d4.evaluate(() => Theme.apply('dark', false));
+  await d4.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });
     const p = await c.newPage();
     await p.goto(INDEX, { waitUntil: 'load' });
     await p.waitForSelector('#deskClock');
+    await p.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
     await settle(p, 400);
     // load
     await p.screenshot({ path: path.join(SHOTS, `${label}-${viewW}-load.png`), fullPage: true });

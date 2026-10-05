@@ -102,6 +102,9 @@ var Retoma = (function () {
       return;
     }
     advanceClock(state.awayMinutes);
+    // The desk is whole again on return: Document is back in both themes,
+    // with or without a resume card. Resume only refocuses from here.
+    if (window.Desk && Desk.restore) Desk.restore('Document');
     if (state.awayMinutes >= 10) {
       showResume();
       openPanel();
@@ -115,6 +118,7 @@ var Retoma = (function () {
 
   function showResume() {
     if (!el.resumeCard) return;
+    if (el.retomaPanel) el.retomaPanel.classList.add('has-resume');
     el.resumeCard.classList.remove('is-hidden');
     if (el.resumeHero) {
       el.resumeHero.textContent = 'You were in ' + state.prevApp;
@@ -185,7 +189,7 @@ var Retoma = (function () {
       var p = computeProposal(data);
       if (textEl) textEl.textContent = p.text;
       if (howEl) howEl.textContent = p.how;
-      if (tagEl) tagEl.textContent = 'Simulated';
+      if (tagEl) tagEl.textContent = 'On-device rules';
       if (card) card.classList.remove('is-loading');
       return p;
     }
@@ -209,7 +213,7 @@ var Retoma = (function () {
       var f = Ai.formatProposal(res);
       if (textEl) textEl.textContent = f.text;
       if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
-      if (tagEl) tagEl.textContent = res.fallback ? 'On-device rules' : (res.source || 'Simulated');
+      if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
     }, function () {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
@@ -220,6 +224,14 @@ var Retoma = (function () {
       if (tagEl) tagEl.textContent = 'On-device rules';
     });
     return null;
+  }
+
+  /* The proposal tag names the real source. The resume card is not AI
+   * and carries no tag. Rules output is always "On-device rules". */
+  function sourceLabel(source, fallback) {
+    if (fallback) return 'On-device rules';
+    if (!source || source === 'rules') return 'On-device rules';
+    return source;
   }
 
   function hasBridge() {
@@ -330,6 +342,7 @@ var Retoma = (function () {
 
   function hideResume() {
     if (!el.resumeCard) return;
+    if (el.retomaPanel) el.retomaPanel.classList.remove('has-resume');
     el.resumeCard.classList.remove('is-visible');
     setTimeout(function () {
       if (!el.resumeCard.classList.contains('is-visible')) el.resumeCard.classList.add('is-hidden');
@@ -574,6 +587,11 @@ var Retoma = (function () {
       var target = idMap[name];
       if (p.id === target) p.classList.add('is-active'); else p.classList.remove('is-active');
     });
+    // keep the sliding tab ink under the active tab on every path
+    // (button clicks and internal calls, not only the wrapped global).
+    if (window.Visual && window.Visual.placeInk) {
+      requestAnimationFrame(function () { window.Visual.placeInk(); });
+    }
   }
 
   function startTick() {
