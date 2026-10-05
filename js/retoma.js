@@ -198,13 +198,13 @@ var Retoma = (function () {
         var fb = computeProposal(data);
         if (textEl) textEl.textContent = fb.text;
         if (howEl) howEl.textContent = fb.how;
-        if (tagEl) tagEl.textContent = 'Simulated';
+        if (tagEl) tagEl.textContent = 'On-device rules';
         return;
       }
       var f = Ai.formatProposal(res);
       if (textEl) textEl.textContent = f.text;
-      if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' \u00b7 ' + res.note : f.how;
-      if (tagEl) tagEl.textContent = res.fallback ? 'Simulated' : (res.source || 'Simulated');
+      if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
+      if (tagEl) tagEl.textContent = res.fallback ? 'On-device rules' : (res.source || 'Simulated');
     }, function () {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
@@ -212,7 +212,7 @@ var Retoma = (function () {
       var fb2 = computeProposal(data);
       if (textEl) textEl.textContent = fb2.text;
       if (howEl) howEl.textContent = fb2.how;
-      if (tagEl) tagEl.textContent = 'Simulated';
+      if (tagEl) tagEl.textContent = 'On-device rules';
     });
     return null;
   }

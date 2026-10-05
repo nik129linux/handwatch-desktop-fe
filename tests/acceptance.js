@@ -1004,6 +1004,16 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await d1.evaluate(() => Retoma.showEndOfDay());
   await settle(d1, 400);
   ok(((await d1.locator('#proposalTag').textContent()) || '').includes('Simulated'), 'rules path keeps the Simulated tag');
+  await d1.evaluate(() => {
+    window.retoma = {
+      propose: () => Promise.resolve({ start: '09:00', minutes: 45, reason: 'Quiet block before the messages arrive.', source: 'rules', fallback: true, note: 'Model unavailable, used on-device rules' })
+    };
+    Retoma.state.aiMode = 'local';
+    Retoma.state.aiConsent.local = true;
+    Retoma.showEndOfDay();
+  });
+  await settle(d1, 400);
+  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('On-device rules'), 'fallback where a real provider ran drops Simulated', await d1.locator('#proposalTag').textContent().catch(() => ''));
   const d1Css = fs.readFileSync(path.join(ROOT, 'css', 'retoma.css'), 'utf8');
   ok(d1Css.includes('@keyframes shimmer') && d1Css.includes('.skeleton-bar'), 'loading state is a shimmer skeleton');
   ok(d1Errs.length === 0, 'D1 UI has no console errors', d1Errs.join(' | '));

@@ -3,3 +3,7 @@ node_modules/
 .playwright-cli/
 
 dist/
+.stage/
+.brief-run.md
+.last-test.log
+FIX-AUTO.md
