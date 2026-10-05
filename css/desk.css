@@ -550,6 +550,134 @@ body.is-launch .sim-panel .btn { animation: fadeUp 500ms var(--ease-enter) both;
 /* tactile press helper (guided story presses Resume) */
 .btn.is-press { transform: scale(0.97); }
 
+/* ==========================================================================
+   L2 live mode — mode switch, live view crossfade, status chip.
+   Tokens only (var / color-mix); no raw colors here.
+   ========================================================================== */
+.mode-switch {
+  position: relative;
+  display: inline-flex;
+  background: var(--bg-neutral-800);
+  border: 1px solid var(--border-neutral-700);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  flex-shrink: 0;
+}
+.mode-switch__btn {
+  position: relative;
+  z-index: 1;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-neutral-400);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  padding: 6px 12px;
+  min-height: 0;
+  cursor: pointer;
+  transition: color var(--dur-exit) var(--ease-exit);
+  font-variant-numeric: tabular-nums;
+}
+.mode-switch__btn:hover { color: var(--text-neutral-50); }
+.mode-switch__btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.mode-switch__btn.is-active { color: var(--text-inverse); }
+.mode-switch__ink {
+  position: absolute;
+  top: 2px; bottom: 2px; left: 0;
+  width: 0;
+  background: var(--bg-primary-500);
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  transition: transform var(--dur-enter) var(--ease-enter), width var(--dur-enter) var(--ease-enter), opacity var(--dur-exit) var(--ease-exit);
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .menu-bar .mode-switch__btn:not(.is-active) { display: none; }
+}
+
+/* live view replaces the fake windows; the presence field stays behind */
+.live-view {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-6);
+  z-index: 5;
+  overflow-y: auto;
+}
+.live-view.is-hidden { display: none; }
+.live-view__inner {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  max-width: 560px; width: 100%;
+  text-align: center;
+}
+.live-view:not(.is-hidden) .live-view__inner { animation: liveIn var(--dur-enter) var(--ease-enter) both; }
+@keyframes liveIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* crossfade: fake windows leave while the live view enters */
+body.is-live .window {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: scale(0.96);
+  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), visibility 0s linear var(--dur-enter);
+}
+@media (max-width: 900px) {
+  body.is-live .window { display: none; }
+}
+
+.status-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-mono); font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro); text-transform: uppercase;
+  color: var(--text-neutral-100);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-neutral-700);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-variant-numeric: tabular-nums;
+}
+.status-chip__pulse {
+  width: 8px; height: 8px; border-radius: var(--radius-pill);
+  background: var(--lime-line);
+  flex-shrink: 0;
+}
+.status-chip[data-status="ready"] .status-chip__pulse { animation: chipPulse 2s var(--ease-enter) infinite; }
+.status-chip[data-status="waiting"] .status-chip__pulse { background: var(--border-neutral-400); animation: none; }
+.status-chip[data-status="paused"] .status-chip__pulse { background: var(--bg-neutral-700); animation: none; }
+@keyframes chipPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.55; }
+}
+.live-now {
+  font-family: var(--font-display); font-weight: var(--weight-regular);
+  font-size: clamp(40px, 4vw, 64px);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--text-paper);
+  margin: 0;
+  text-wrap: balance;
+}
+.live-today {
+  font-family: var(--font-mono); font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro); text-transform: uppercase;
+  color: var(--text-neutral-400);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+#liveBar { width: 100%; max-width: 480px; }
+.live-bar__seg {
+  height: 100%;
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: barIn var(--dur-enter) var(--ease-enter) forwards;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
 /* timeline scrub rule + readout */
 #timelineBar { position: relative; overflow: visible; }
 .timeline-scrub {

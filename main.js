@@ -8,15 +8,112 @@ const fs = require('fs');
 const providers = require('./ai/providers');
 const store = require('./ai/store');
 const native = require('./ai/native');
+const settingsStore = require('./ai/settings');
+const installer = require('./live/installer');
+const liveManager = require('./live/live-manager');
+const focusSourceMod = require('./live/focus-source');
+const idleSourceMod = require('./live/idle-source');
 
 let win = null;
 let tray = null;
 let paused = false;
 let storeFile = null;
+let settingsFile = null;
+let liveMgr = null;
+let liveClock = null;
 
 function eventsFile() {
   if (!storeFile) storeFile = store.eventsPath(app.getPath('userData'));
   return storeFile;
+}
+
+function settingsFilePath() {
+  if (!settingsFile) settingsFile = settingsStore.settingsPath(app.getPath('userData'));
+  return settingsFile;
+}
+
+function currentSettings() {
+  return settingsStore.loadSettingsFile(fs, settingsFilePath());
+}
+
+function persistSettings(patch) {
+  return settingsStore.saveSettingsFile(fs, settingsFilePath(), patch);
+}
+
+/* Live pipeline: real D-Bus sources, or the scripted fake file when
+ * RETOMA_LIVE_FAKE=path.json (tests). Episodes append to events.json,
+ * returns fire the same native notification as the demo path. */
+function setupLive() {
+  var initial = currentSettings();
+  persisted = initial;
+  var fakePath = process.env.RETOMA_LIVE_FAKE;
+  var fakeSamples = null;
+  if (fakePath) {
+    try {
+      fakeSamples = liveManager.loadFakeFile(fs, fakePath);
+    } catch (e) {
+      fakeSamples = null;
+    }
+  }
+  if (fakeSamples) {
+    liveClock = {
+      t: Date.now(),
+      now: function () { return this.t; },
+      advance: function (ms) { this.t += ms; }
+    };
+  }
+  var focusSrc = null;
+  var idleSrc = null;
+  if (!fakeSamples) {
+    focusSrc = focusSourceMod.createFocusSource({});
+    idleSrc = idleSourceMod.createIdleSource({});
+  }
+  liveMgr = liveManager.createLiveManager({
+    focusSource: focusSrc,
+    idleSource: idleSrc,
+    clock: liveClock,
+    fakeSamples: fakeSamples,
+    settings: {
+      storeTitles: initial.storeTitles,
+      awayAfterMin: initial.awayAfterMin,
+      blocklist: initial.blocklist,
+      paused: initial.paused
+    },
+    send: function (evt) {
+      if (win && !win.isDestroyed()) win.webContents.send('retoma:live:event', evt);
+    },
+    sendStatus: function (status) {
+      if (win && !win.isDestroyed()) win.webContents.send('retoma:live:status', status);
+    },
+    saveEpisode: function (entry) {
+      var loaded = store.loadEventsFile(fs, eventsFile());
+      loaded.events.push({ app: entry.app, duration: entry.duration, ts: new Date().toISOString() });
+      store.saveEventsFile(fs, eventsFile(), loaded.events);
+    },
+    notify: function (info) {
+      showReturnNotification(info);
+    }
+  });
+  paused = !!initial.paused;
+  if (initial.mode === 'live') liveMgr.start();
+  refreshTray();
+}
+
+var persisted = null;
+
+function applyLiveSettings(next) {
+  persisted = next;
+  if (!liveMgr) return;
+  liveMgr.updateSettings({
+    storeTitles: next.storeTitles,
+    awayAfterMin: next.awayAfterMin,
+    blocklist: next.blocklist,
+    paused: next.paused
+  });
+  paused = !!next.paused;
+  if (next.mode === 'live') liveMgr.start();
+  else liveMgr.stop();
+  refreshTray();
 }
 
 function createWindow() {
@@ -159,7 +256,57 @@ function setupIpc() {
   ipcMain.on('retoma:notify-return', (ev, info) => showReturnNotification(info));
   ipcMain.on('retoma:paused', (ev, isPaused) => {
     paused = !!isPaused;
+    try {
+      var next = persistSettings({ paused: paused });
+      if (liveMgr) liveMgr.setPaused(paused);
+      void next;
+    } catch (e) { /* settings stay in memory */ }
     refreshTray();
+  });
+  ipcMain.handle('retoma:settings:load', () => {
+    var loaded = currentSettings();
+    persistSettings({});
+    return loaded;
+  });
+  ipcMain.handle('retoma:settings:save', (ev, patch) => {
+    var next = persistSettings(patch || {});
+    applyLiveSettings(next);
+    if (win && !win.isDestroyed()) win.webContents.send('retoma:settings', next);
+    return next;
+  });
+  ipcMain.handle('retoma:live:status', () => (liveMgr ? liveMgr.status() : 'error'));
+  ipcMain.handle('retoma:live:replay', () => (liveMgr ? liveMgr.replay() : false));
+  ipcMain.handle('retoma:live:ready', () => (liveMgr ? liveMgr.ready() : false));
+  ipcMain.handle('retoma:helper:describe', () => installer.describeInstall());
+  ipcMain.handle('retoma:helper:check', () => ({
+    status: liveMgr ? liveMgr.status() : 'error',
+    installed: installer.isInstalled(fs),
+    installedFiles: installer.installedFiles(fs),
+    enableCommand: installer.ENABLE_COMMAND,
+    dest: installer.destDir()
+  }));
+  ipcMain.handle('retoma:helper:install', async (ev, opts) => {
+    var meta = installer.describeInstall();
+    var confirmed;
+    if (opts && opts.skipDialog === true) {
+      confirmed = !!opts.confirm;
+    } else {
+      var res = await dialog.showMessageBox(win, {
+        type: 'question',
+        title: 'Install helper extension',
+        message: 'Copy the Retoma focus helper into your GNOME extensions folder?',
+        detail: 'This copies exactly 2 files:\n' +
+          meta.files.map(function (f) { return '  ' + f; }).join('\n') +
+          '\nFrom: ' + meta.from + '\nTo: ' + meta.to + '\n\nNothing else is copied. GNOME loads new extensions at login.',
+        buttons: ['Cancel', 'Install helper'],
+        defaultId: 0,
+        cancelId: 0
+      });
+      confirmed = res.response === 1;
+    }
+    if (!confirmed) return { copied: false, dest: meta.to, files: [] };
+    var done = installer.installHelper({ fs: fs, confirm: true });
+    return done;
   });
 }
 
@@ -187,6 +334,7 @@ if (!gotLock) {
     setupTray();
     setupShortcut();
     enforceRetention();
+    setupLive();
     setInterval(enforceRetention, 3600 * 1000);
   });
 }

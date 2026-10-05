@@ -20,6 +20,11 @@
       </div>
       <div class="menu-bar__right">
         <span id="deskClock" class="menu-bar__clock tabular">09:00</span>
+        <div class="mode-switch" role="group" aria-label="Demo or Live mode">
+          <span class="mode-switch__ink" aria-hidden="true"></span>
+          <button class="mode-switch__btn is-active" data-mode="demo" aria-pressed="true">Demo</button>
+          <button class="mode-switch__btn" data-mode="live" aria-pressed="false">Live</button>
+        </div>
         <button id="themeToggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme" aria-pressed="false">
           <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -51,7 +56,7 @@
         <div class="wallpaper__glow wallpaper__glow--c"></div>
       </div>
       <svg class="grain" aria-hidden="true"><filter id="grainF"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#grainF)"/></svg>
-      <div class="desktop-hint">Simulation — drag focus between windows</div>
+      <div class="desktop-hint" id="desktopHint">Simulation — drag focus between windows</div>
       <div id="win-doc" class="window is-focused" data-app="Document">
         <div class="window__bar">
           <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
@@ -96,6 +101,38 @@
           <p class="muted">Only the title, not the cells</p>
         </div>
       </div>
+      <div id="liveView" class="live-view is-hidden" aria-live="polite" aria-label="Live tracking on this PC">
+        <div class="live-view__inner">
+          <div id="liveStatus" class="status-chip" data-status="waiting">
+            <span class="status-chip__pulse" aria-hidden="true"></span>
+            <span id="liveStatusText">Waiting for helper</span>
+          </div>
+          <h2 id="liveNow" class="live-now">Now: this PC</h2>
+          <p id="liveToday" class="live-today tabular">Today: nothing yet</p>
+          <div id="liveBar" class="timeline-bar" aria-hidden="true"></div>
+          <div id="helperCard" class="helper-card is-hidden" aria-label="Helper setup">
+            <h3 class="helper-card__title">Track this PC</h3>
+            <ol class="helper-card__steps">
+              <li class="helper-card__step">
+                <span class="helper-card__text">Install the focus helper</span>
+                <button id="helperInstall" class="btn btn--primary">Install helper</button>
+              </li>
+              <li class="helper-card__step">
+                <span class="helper-card__text">Log out and back in</span>
+              </li>
+              <li class="helper-card__step">
+                <span class="helper-card__text">Turn it on, then check</span>
+                <span class="helper-card__row">
+                  <button id="helperCheck" class="btn">Check again</button>
+                  <button id="enableCopy" class="btn is-hidden">Copy</button>
+                </span>
+                <code id="enableCmd" class="helper-cmd is-hidden">gnome-extensions enable retoma-focus@retoma.local</code>
+              </li>
+            </ol>
+            <p id="helperNote" class="helper-card__note is-hidden"></p>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="dock" role="toolbar" aria-label="Dock">
       <button class="dock__item is-active" data-app="Document" aria-label="Document">
@@ -119,6 +156,7 @@
         <h3 id="resumeHero" class="resume-card__hero">You were in Document</h3>
         <p id="resumeSub" class="resume-card__sub">Quality report (paragraph 3)</p>
         <p id="resumeInter" class="resume-card__inter">WhatsApp interrupted you · 25 min</p>
+        <p id="resumeHonest" class="resume-card__honest is-hidden">Retoma can't reopen windows here; it reminds you where you were.</p>
         <p id="resumeChips" class="resume-card__files">
           <span class="resume-chip">Document</span><span class="resume-chip__sep"> · </span><span class="resume-chip">Browser</span><span class="resume-chip__sep"> · </span><span class="resume-chip">Spreadsheet</span>
         </p>
@@ -172,14 +210,14 @@
           <div class="privacy-grid">
             <div class="privacy-col">
               <h4>What I see</h4>
-              <ul>
+              <ul id="privacySee">
                 <li>App name and window title</li>
                 <li>How much time</li>
               </ul>
             </div>
             <div class="privacy-col">
               <h4>What I never see</h4>
-              <ul>
+              <ul id="privacyNever">
                 <li>What you type</li>
                 <li>Screen content</li>
                 <li>Your camera</li>
@@ -188,6 +226,15 @@
             </div>
           </div>
           <p class="privacy-foot">Everything stays on this device. <strong>7 days, then it is deleted.</strong></p>
+          <div class="mode-row">
+            <div class="panel-section__label">Mode</div>
+            <div class="mode-switch mode-switch--panel" role="group" aria-label="Demo or Live mode">
+              <span class="mode-switch__ink" aria-hidden="true"></span>
+              <button class="mode-switch__btn is-active" data-mode="demo" aria-pressed="true">Demo</button>
+              <button class="mode-switch__btn" data-mode="live" aria-pressed="false">Live</button>
+            </div>
+            <p id="modeNote" class="panel-section__text--muted">Demo mode: tracks the windows inside this demo</p>
+          </div>
           <div class="ai-mode">
             <div class="panel-section__label">Smart suggestions</div>
             <div class="seg" role="group" aria-label="Smart suggestions mode">
@@ -196,7 +243,6 @@
               <button class="seg__btn" data-ai-mode="cloud">Cloud model</button>
             </div>
             <p id="aiModeReason" class="panel-section__text--muted is-hidden"></p>
-            <p class="privacy-foot">Demo mode: tracks the windows inside this demo</p>
             <div id="aiConsent" class="ai-consent is-hidden">
               <p class="panel-section__text--muted">This exact payload is sent. Nothing else leaves this device.</p>
               <pre id="aiPayload" class="ai-payload"></pre>
@@ -205,6 +251,28 @@
                 <button id="aiCancel" class="btn btn--ghost">Not now</button>
               </div>
             </div>
+          </div>
+          <div class="live-settings">
+            <div class="panel-section__label">Live tracking</div>
+            <div class="seg" role="group" aria-label="Minutes before Away">
+              <button class="seg__btn" data-away="2">2 min</button>
+              <button class="seg__btn is-active" data-away="5">5 min</button>
+              <button class="seg__btn" data-away="10">10 min</button>
+            </div>
+            <label class="titles-row" for="titlesToggle">
+              <input type="checkbox" id="titlesToggle">
+              <span>Include window titles</span>
+            </label>
+            <p class="panel-section__text--muted">Off records app names only. Tab titles can reveal bank pages or private docs.</p>
+            <div class="blocklist">
+              <div class="panel-section__label">Blocked apps</div>
+              <ul id="blockList" class="blocklist__list"></ul>
+              <div class="blocklist__row">
+                <input id="blockInput" type="text" placeholder="App name" aria-label="App name to block">
+                <button id="blockAdd" class="btn">Add</button>
+              </div>
+            </div>
+            <button id="livePause" class="btn">Pause tracking</button>
           </div>
           <div class="privacy-actions">
             <button id="privacyExport" class="btn btn--secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M4 19h16"></path></svg>Export my data</button>
@@ -266,6 +334,7 @@
 <script src="js/persist.js"></script>
 <script src="js/desk.js"></script>
 <script src="js/retoma.js"></script>
+<script src="js/live.js"></script>
 <script src="js/story.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/presence.js"></script>
@@ -274,6 +343,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     Desk.mount();
     Retoma.mount();
+    Live.mount();
     Story.mount();
     Theme.mount();
     Presence.mount();

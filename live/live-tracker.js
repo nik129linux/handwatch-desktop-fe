@@ -151,6 +151,7 @@ function createLiveTracker(opts) {
     var norm = {app: pending.app};
     if (Object.prototype.hasOwnProperty.call(pending, 'title')) norm.title = pending.title;
     pending = null;
+    awayApp = current.app;
     send(focusEvent(norm, current.since));
   }
 

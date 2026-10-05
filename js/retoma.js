@@ -118,6 +118,7 @@ var Retoma = (function () {
 
   function showResume() {
     if (!el.resumeCard) return;
+    var live = window.Live && Live.isLive && Live.isLive();
     if (el.retomaPanel) el.retomaPanel.classList.add('has-resume');
     el.resumeCard.classList.remove('is-hidden');
     if (el.resumeHero) {
@@ -125,7 +126,14 @@ var Retoma = (function () {
       splitHeroWords(el.resumeHero);
     }
     if (el.resumeSub) el.resumeSub.textContent = state.prevTitle;
-    if (el.resumeInter) el.resumeInter.textContent = state.interruptionApp + ' interrupted you · ' + state.awayMinutes + ' min';
+    if (el.resumeInter) {
+      el.resumeInter.textContent = live
+        ? 'Away ' + state.awayMinutes + ' min · back now'
+        : state.interruptionApp + ' interrupted you · ' + state.awayMinutes + ' min';
+    }
+    var honest = document.getElementById('resumeHonest');
+    if (honest) honest.classList.toggle('is-hidden', !live);
+    if (el.retomarBtn) el.retomarBtn.textContent = live ? 'Got it' : 'Resume';
     if (el.resumeChips) {
       el.resumeChips.innerHTML = state.prevWindows.map(function (w) { return '<span class="chip resume-chip">' + w + '</span>'; }).join('');
     }
@@ -351,6 +359,11 @@ var Retoma = (function () {
 
   function doRetomar() {
     if (state.empty || !el.resumeCard || !el.resumeCard.classList.contains('is-visible')) return;
+    if (window.Live && Live.isLive && Live.isLive()) {
+      // Live on Wayland cannot reopen windows: the card only reminds.
+      hideResume();
+      return;
+    }
     Desk.reopen(state.prevWindows, true);
     hideResume();
     var app = Events.findByLabel(state.prevApp);
@@ -380,7 +393,11 @@ var Retoma = (function () {
     el.nowApp.textContent = state.currentApp;
     if (el.nowTitle) el.nowTitle.textContent = state.currentTitle;
     if (el.nowTime) el.nowTime.textContent = state.timeInCurrent + ' min here';
-    if (el.nowDesc) el.nowDesc.textContent = 'Only the app name and the title. Never what you type.';
+    if (el.nowDesc) {
+      el.nowDesc.textContent = (window.Live && Live.isLive && Live.isLive())
+        ? ((Live.titlesOn && Live.titlesOn()) ? 'App name and title. Never what you type.' : 'Only the app name. Never what you type.')
+        : 'Only the app name and the title. Never what you type.';
+    }
   }
 
   function renderAhoraAway() {
@@ -747,7 +764,7 @@ var Retoma = (function () {
     window.addEventListener('resize', syncDesktopLayout);
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, selectAiMode: selectAiMode, hasBridge: hasBridge };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge };
   }
 
   function openConfirm() {

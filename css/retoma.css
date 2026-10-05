@@ -333,9 +333,103 @@
 .privacy-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .privacy-actions #privacyExport, .privacy-actions #privacyDelete { flex: 1 1 0; min-width: 140px; }
 
+/* ==========================================================================
+   L2 live mode — helper card, live settings, resume honesty line.
+   Tokens only (var / color-mix); no raw colors here.
+   ========================================================================== */
+.resume-card__honest {
+  font-size: var(--text-body);
+  color: var(--text-neutral-400);
+  margin: 0;
+  line-height: 1.4;
+}
+.resume-card__honest.is-hidden { display: none; }
+
+.helper-card {
+  width: 100%;
+  text-align: left;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-neutral-700);
+  border-radius: var(--radius-card);
+  padding: var(--sp-4) var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.helper-card.is-hidden { display: none; }
+.helper-card__title {
+  font-family: var(--font-display); font-weight: var(--weight-regular);
+  font-size: 28px; line-height: 1.1; letter-spacing: var(--tracking-display);
+  color: var(--text-paper);
+  margin: 0;
+}
+.helper-card__steps {
+  margin: 0; padding-left: 20px;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  font-size: var(--text-body); color: var(--text-neutral-100); line-height: 1.5;
+}
+.helper-card__step { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
+.helper-card__step::marker {
+  font-family: var(--font-mono); font-size: var(--text-micro);
+  color: var(--text-neutral-400);
+}
+.helper-card__text { display: block; }
+.helper-card__row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.helper-card__row .btn { flex: 0 0 auto; min-width: 0; }
+.helper-cmd {
+  font-family: var(--font-mono); font-size: var(--text-micro); line-height: 1.5;
+  color: var(--text-neutral-100);
+  background: var(--bg-screen);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  word-break: break-all;
+  max-width: 100%;
+}
+.helper-cmd.is-hidden { display: none; }
+#enableCopy.is-hidden { display: none; }
+.helper-card__note { font-size: var(--text-body); color: var(--text-neutral-400); margin: 0; line-height: 1.4; }
+.helper-card__note.is-hidden { display: none; }
+
+.mode-row { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.mode-row .mode-switch { align-self: flex-start; }
+.live-settings { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.titles-row {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--text-body); color: var(--text-neutral-100);
+  cursor: pointer; min-height: 40px;
+}
+.titles-row input { width: 20px; height: 20px; accent-color: var(--bg-primary-500); flex-shrink: 0; }
+.blocklist__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.blocklist__item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  font-size: var(--text-body); color: var(--text-neutral-100);
+}
+.blocklist__remove {
+  appearance: none; background: transparent; border: none;
+  color: var(--text-neutral-400);
+  font-family: var(--font-mono); font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro); text-transform: uppercase;
+  cursor: pointer; padding: 8px 4px;
+}
+.blocklist__remove:hover { color: var(--text-neutral-50); text-decoration: underline; text-underline-offset: 3px; }
+.blocklist__remove:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.blocklist__row { display: flex; gap: var(--sp-2); }
+.blocklist__row input {
+  flex: 1; min-width: 0; min-height: 40px;
+  background: var(--bg-screen);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  color: var(--text-neutral-100);
+  padding: 0 var(--sp-3);
+  font-size: var(--text-body); font-family: var(--font-body);
+}
+.blocklist__row input:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.blocklist__row .btn { flex: 0 0 auto; min-width: 0; }
+#livePause { width: 100%; }
+
 /* confirm modal */
-.confirm-overlay {
-  position: fixed; inset: 0; background: color-mix(in srgb, var(--bg-black) 50%, transparent);
+.confirm-overlay {  position: fixed; inset: 0; background: color-mix(in srgb, var(--bg-black) 50%, transparent);
   display: flex; align-items: center; justify-content: center; z-index: 100;
   opacity: 0; pointer-events: none; visibility: hidden;
   transition: opacity var(--dur-enter) var(--ease-enter), visibility 0s linear var(--dur-enter);

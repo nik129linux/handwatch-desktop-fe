@@ -13,5 +13,16 @@ contextBridge.exposeInMainWorld('retoma', {
   exportEvents: () => ipcRenderer.invoke('retoma:events:export'),
   notifyReturn: (info) => ipcRenderer.send('retoma:notify-return', info),
   setPaused: (paused) => ipcRenderer.send('retoma:paused', paused),
-  onFocusResume: (fn) => ipcRenderer.on('retoma:focus-resume', () => fn())
+  onFocusResume: (fn) => ipcRenderer.on('retoma:focus-resume', () => fn()),
+  loadSettings: () => ipcRenderer.invoke('retoma:settings:load'),
+  saveSettings: (patch) => ipcRenderer.invoke('retoma:settings:save', patch),
+  onSettings: (fn) => ipcRenderer.on('retoma:settings', (ev, data) => fn(data)),
+  liveStatus: () => ipcRenderer.invoke('retoma:live:status'),
+  liveReplay: () => ipcRenderer.invoke('retoma:live:replay'),
+  liveReady: () => ipcRenderer.invoke('retoma:live:ready'),
+  onLiveEvent: (fn) => ipcRenderer.on('retoma:live:event', (ev, data) => fn(data)),
+  onLiveStatus: (fn) => ipcRenderer.on('retoma:live:status', (ev, status) => fn(status)),
+  helperDescribe: () => ipcRenderer.invoke('retoma:helper:describe'),
+  helperCheck: () => ipcRenderer.invoke('retoma:helper:check'),
+  helperInstall: (opts) => ipcRenderer.invoke('retoma:helper:install', opts || {})
 });
