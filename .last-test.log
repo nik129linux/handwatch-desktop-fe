@@ -150,7 +150,7 @@
   ✓ kicker 15px body
   ✓ kicker not uppercase
   ✓ kicker single line
-  ✓ kicker Fog color
+  ✓ kicker Fog color (AA muted)
   ✓ short kickers uppercase
   ✓ short kickers tracked mono
 
@@ -244,10 +244,31 @@
   ✓ loading state is a shimmer skeleton
   ✓ D1 UI has no console errors
 
+30 · D3 QA regressions (hostile-user fixes)
+  ✓ pause mid-away: no resume card
+  ✓ Now keeps the paused line
+  ✓ Resume after delete-all adds nothing
+  ✓ Come back after delete-all shows no resume
+  ✓ double Resume is idempotent
+  ✓ delete opens confirm
+  ✓ confirm moves focus inside
+  ✓ Tab wraps to first button (trap)
+  ✓ Esc closes confirm
+  ✓ focus returns to delete control
+  ✓ closed confirm is out of tab order + hidden from AT
+  ✓ closed panel is out of tab order
+  ✓ story survives mid-run theme toggle + skip
+  ✓ hostile run has no console errors
+  ✓ [dark] contrast >= 4.5 for 12 text elements
+  ✓ [light] contrast >= 4.5 for 12 text elements
+  ✓ reduced motion: no headline stagger
+  ✓ reduced motion: headline readable
+  ✓ reduced motion: no parallax loop
+
 shots · 1440 & 390 capture
 
 summary
-  185 passed, 0 failed
+  204 passed, 0 failed
   screenshots -> shots/
   ✓ window title is Retoma
   ✓ 4 windows present
