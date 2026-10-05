@@ -1,0 +1,140 @@
+/* ==========================================================================
+   tokens.css — THE ONLY FILE WITH RAW COLOR VALUES
+   Stryds adapted to desktop. Naming pattern-color-weight.
+   Base palette then semantic tokens. Change --color-primary-500 and all follows.
+   ========================================================================== */
+:root {
+  /* --- Base palette (raw values live only here) ------------------------- */
+  --color-primary-500: #a6ff00;
+  --color-primary-300: #c4ff59;
+  --color-primary-200: #e0ffb3;
+
+  --color-spectrum-teal: #1fe0c8;
+  --color-spectrum-blue: #2b6bff;
+  --color-spectrum-violet: #8b3bff;
+  --color-spectrum-pink: #ff3ba7;
+  --color-spectrum-orange: #ff8a1f;
+
+  --color-neutral-950: #101010;
+  --color-neutral-900: #171717;
+  --color-neutral-800: #222222;
+  --color-neutral-700: #333333;
+  --color-neutral-600: #3d3d3d;
+  --color-neutral-500: #4f4f4f;
+  --color-neutral-400: #6f6f6f;
+  --color-neutral-100: #e8e8e8;
+  --color-neutral-50: #fdfdfd;
+  --color-black: #000000;
+
+  /* --- Semantic surfaces (pattern-color-weight) ------------------------- */
+  --bg-primary-500: var(--color-primary-500);
+  --bg-primary-300: var(--color-primary-300);
+  --bg-primary-200: var(--color-primary-200);
+  --bg-neutral-950: var(--color-neutral-950);
+  --bg-neutral-900: var(--color-neutral-900);
+  --bg-neutral-800: var(--color-neutral-800);
+  --bg-neutral-700: var(--color-neutral-700);
+  --bg-neutral-600: var(--color-neutral-600);
+  --bg-neutral-50: var(--color-neutral-50);
+  --bg-black: var(--color-black);
+
+  --text-primary-500: var(--color-primary-500);
+  --text-neutral-50: var(--color-neutral-50);
+  --text-neutral-100: var(--color-neutral-100);
+  --text-neutral-400: var(--color-neutral-400);
+  --text-neutral-600: var(--color-neutral-600);
+  --text-black: var(--color-black);
+  --text-inverse: var(--color-neutral-950);
+
+  --border-primary-500: var(--color-primary-500);
+  --border-neutral-700: var(--color-neutral-700);
+  --border-neutral-600: var(--color-neutral-600);
+  --border-neutral-400: var(--color-neutral-400);
+  --border-neutral-50: var(--color-neutral-50);
+
+  /* legacy semantic for desk/retoma */
+  --bg-stage: var(--color-neutral-950);
+  --bg-card: var(--color-neutral-900);
+  --bg-raised: var(--color-neutral-800);
+  --bg-screen: var(--color-black);
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-400);
+  --text-tertiary: var(--color-neutral-600);
+  --border-card: var(--color-neutral-700);
+  --border-subtle: var(--color-neutral-800);
+  --border-strong: var(--color-neutral-600);
+  --border-focus: var(--color-primary-500);
+
+  /* --- Derived tints (follow primary via color-mix) --------------------- */
+  --tint-primary-90: color-mix(in srgb, var(--color-primary-500) 90%, var(--color-neutral-900));
+  --tint-primary-70: color-mix(in srgb, var(--color-primary-500) 70%, var(--color-neutral-900));
+  --tint-primary-45: color-mix(in srgb, var(--color-primary-500) 45%, var(--color-neutral-900));
+  --tint-primary-30: color-mix(in srgb, var(--color-primary-500) 30%, var(--color-neutral-900));
+  --tint-primary-18: color-mix(in srgb, var(--color-primary-500) 18%, var(--color-neutral-900));
+  --state-primary-press: color-mix(in srgb, var(--color-primary-500) 82%, var(--color-black));
+  --state-primary-dim: color-mix(in srgb, var(--color-primary-500) 34%, var(--color-neutral-900));
+  --heat-1: color-mix(in srgb, var(--color-neutral-900) 92%, var(--color-primary-500));
+  --heat-2: color-mix(in srgb, var(--color-primary-500) 20%, var(--color-neutral-900));
+  --heat-3: color-mix(in srgb, var(--color-primary-500) 42%, var(--color-neutral-900));
+  --heat-4: color-mix(in srgb, var(--color-primary-500) 66%, var(--color-neutral-900));
+  --heat-5: var(--color-primary-500);
+
+  /* --- Spectrum ring stops (stop 1 == primary) -------------------------- */
+  --ring-spectrum-1: var(--color-primary-500);
+  --ring-spectrum-2: var(--color-spectrum-teal);
+  --ring-spectrum-3: var(--color-spectrum-blue);
+  --ring-spectrum-4: var(--color-spectrum-violet);
+  --ring-spectrum-5: var(--color-spectrum-pink);
+  --ring-spectrum-6: var(--color-spectrum-orange);
+  --ring-track: color-mix(in srgb, var(--color-primary-500) 18%, var(--color-neutral-900));
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-caption: 14px;
+  --leading-caption: 1.43;
+  --tracking-caption: -0.02em;
+  --text-body: 16px;
+  --leading-body: 1.4;
+  --tracking-body: 0;
+  --text-subheading: 21px;
+  --leading-subheading: 1.25;
+  --tracking-subheading: -0.01em;
+  --text-heading-sm: 36px;
+  --leading-heading-sm: 1.2;
+  --tracking-heading-sm: -0.01em;
+  --text-heading: 44px;
+  --leading-heading: 1.1;
+  --tracking-heading: -0.02em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+
+  --radius-pill: 100px;
+  --radius-card: 24px;
+  --radius-card-lg: 40px;
+  --radius-sm: 12px;
+
+  /* --- Motion (Family Values — exactly 3 easings) ----------------------- */
+  --ease-enter: cubic-bezier(0.16,1,0.3,1);
+  --ease-exit: cubic-bezier(0.4,0,1,1);
+  --ease-press: cubic-bezier(0.4,0,1,1);
+  --dur-enter: 360ms;
+  --dur-exit: 200ms;
+  --dur-press: 120ms;
+  --dur-stagger: 60ms;
+}

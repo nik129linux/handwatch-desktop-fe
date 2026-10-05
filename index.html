@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retoma — Desktop</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Inter+Tight:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/desk.css">
+<link rel="stylesheet" href="css/retoma.css">
+</head>
+<body>
+<div class="stage">
+  <div class="desktop-area">
+    <div class="menu-bar" role="banner">
+      <div class="menu-bar__left">
+        <span class="menu-bar__dot"></span><span class="menu-bar__dot"></span><span class="menu-bar__dot"></span>
+        <span class="menu-bar__appname">Retoma</span>
+      </div>
+      <div class="menu-bar__right">
+        <span id="deskClock" class="menu-bar__clock tabular">09:00</span>
+        <button id="retomaToggle" class="retoma-toggle" aria-label="Pausar Retoma" aria-pressed="false" title="Pausar 30 min">
+          <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+            <circle cx="12" cy="12" r="3.2"></circle>
+          </svg>
+          <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+            <path d="M1 12s4-7 11-7c2.4 0 4.6.7 6.5 1.8"></path>
+            <path d="M23 12s-4 7-11 7c-2.4 0-4.6-.7-6.5-1.8"></path>
+            <path d="M3 3l18 18"></path>
+          </svg>
+          <span class="retoma-toggle__tooltip">Pausado: no estoy viendo nada</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="desktop-workspace" id="desktopWorkspace">
+      <div class="desktop-hint">Simulación — arrastra el foco entre ventanas</div>
+      <div id="win-doc" class="window is-focused" data-app="Documento">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Informe de calidad</span><span class="window__app">Documento</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Informe de calidad — párrafo 3</strong></p>
+          <p>Avance del informe trimestral. Aquí estabas escribiendo antes de la interrupción.</p>
+          <p class="muted">Última edición hace 2 min · Solo el título es visible para Retoma</p>
+        </div>
+      </div>
+      <div id="win-browser" class="window" data-app="Navegador">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Brightspace · Curso 4B</span><span class="window__app">Navegador</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Brightspace</strong></p>
+          <p>Material del curso y entregas. Ventana abierta en segundo plano.</p>
+          <p class="muted">brightspace.example.edu</p>
+        </div>
+      </div>
+      <div id="win-whatsapp" class="window" data-app="WhatsApp">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Mensajes · Ana</span><span class="window__app">WhatsApp</span>
+        </div>
+        <div class="window__body">
+          <p><strong>WhatsApp</strong></p>
+          <p>Hola, ¿tienes un momento?</p>
+          <p class="muted">Solo el título de la ventana, nunca el contenido</p>
+        </div>
+      </div>
+      <div id="win-sheet" class="window" data-app="Hoja de cálculo">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Datos · Seguimiento</span><span class="window__app">Hoja de cálculo</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Seguimiento</strong></p>
+          <p>Tabla con datos del informe. Abierta junto al documento.</p>
+          <p class="muted">Solo el título, no las celdas</p>
+        </div>
+      </div>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Dock">
+      <button class="dock__item is-active" data-app="Documento" aria-label="Documento">📄</button>
+      <button class="dock__item" data-app="Navegador" aria-label="Navegador">🌐</button>
+      <button class="dock__item" data-app="WhatsApp" aria-label="WhatsApp">💬</button>
+      <button class="dock__item" data-app="Hoja de cálculo" aria-label="Hoja de cálculo">📊</button>
+    </div>
+    <div id="subtitle" aria-live="polite"></div>
+    <div id="retomaPanel" class="retoma-panel" role="dialog" aria-label="Panel Retoma">
+      <section class="panel-section" aria-label="Ahora">
+        <div class="panel-section__label">Ahora</div>
+        <div class="now-row">
+          <span id="nowApp" class="now-app">Documento</span>
+          <span id="nowTime" class="now-time tabular">0 min aquí</span>
+        </div>
+        <p id="nowTitle" class="panel-section__text">Informe de calidad (párrafo 3)</p>
+        <p class="panel-section__text--muted">Solo el nombre de la app y el título. Nunca lo que escribes.</p>
+      </section>
+
+      <div id="resumeCard" class="resume-card is-hidden" aria-live="polite">
+        <div class="resume-card__eyebrow">Retoma</div>
+        <p id="resumePrev" class="resume-card__line"><strong>Estabas en:</strong> Documento · Informe de calidad (párrafo 3)</p>
+        <p id="resumeInter" class="resume-card__line">Te interrumpió: WhatsApp, 25 min</p>
+        <div id="resumeChips" class="resume-card__chips">
+          <span class="chip resume-chip">Documento</span><span class="chip resume-chip">Navegador</span><span class="chip resume-chip">Hoja de cálculo</span>
+        </div>
+        <div class="resume-actions">
+          <button id="retomarBtn" class="btn btn--primary">Retomar</button>
+          <button id="startFreshBtn" class="btn btn--ghost">Empezar de cero</button>
+        </div>
+      </div>
+
+      <section id="timeline" class="panel-section timeline" aria-label="Hoy">
+        <div class="panel-section__label">Hoy</div>
+        <div id="timelineBar" class="timeline-bar"></div>
+        <p id="timelineText" class="planned-real tabular">Planeado: 2 h de informe · Real: 1 h 20 min</p>
+        <div id="proposalCard" class="proposal-card">
+          <p class="proposal-card__text">Mañana: 90 min para el informe, 9:00 a 10:30, antes de que lleguen los mensajes.</p>
+          <div class="proposal-actions">
+            <button id="proposalAccept" class="btn btn--primary">Aceptar</button>
+            <button id="proposalDecline" class="btn btn--ghost">No, gracias</button>
+          </div>
+        </div>
+        <div id="emptyState" class="empty-state is-hidden">No hay historial. Todo fue borrado.</div>
+      </section>
+
+      <section class="panel-section" aria-label="Privacidad">
+        <div class="panel-section__label">Privacidad</div>
+        <div class="privacy-grid">
+          <div class="privacy-col">
+            <h4>Qué veo</h4>
+            <ul>
+              <li>Nombre de la app y título de la ventana</li>
+              <li>Cuánto tiempo</li>
+            </ul>
+          </div>
+          <div class="privacy-col">
+            <h4>Qué nunca veo</h4>
+            <ul>
+              <li>Lo que escribes</li>
+              <li>El contenido de la pantalla</li>
+              <li>Tu cámara</li>
+              <li>Tu micrófono</li>
+            </ul>
+          </div>
+        </div>
+        <p class="privacy-foot">Todo se guarda solo en este equipo. <strong>7 días, luego se borra.</strong></p>
+        <button id="privacyDelete" class="btn btn--destructive">Borrar todo</button>
+      </section>
+    </div>
+  </div>
+
+  <aside class="sim-panel" aria-label="Simulador">
+    <h2 class="sim-title">Retoma — simulador</h2>
+    <section class="sim-section" aria-label="Turno guiado">
+      <div class="sim-label">Turno guiado · 60 s</div>
+      <div class="story-controls">
+        <button id="storyPlay" class="btn btn--primary">▶ Turno guiado</button>
+        <button id="storyPause" class="btn" disabled>Pausar</button>
+      </div>
+      <div class="btn-row">
+        <button id="storySkip" class="btn" disabled>Saltar al final</button>
+        <button id="storyRestart" class="btn">Reiniciar</button>
+      </div>
+      <div class="panel-section__text--muted tabular">Estado: <span id="storyClock">listo</span></div>
+    </section>
+
+    <section id="freeMode" class="sim-section" aria-label="Modo libre">
+      <div class="sim-label">Modo libre</div>
+      <div class="btn-row">
+        <button class="btn" data-act="switch">Cambiar de app</button>
+        <button class="btn" data-act="whatsapp">Llega un WhatsApp</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" data-act="away">Alejarme 25 min</button>
+        <button class="btn" data-act="return">Volver</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" data-act="endday">Terminar el día</button>
+        <button class="btn" data-act="pause" id="btnPause">Pausar</button>
+      </div>
+      <button class="btn btn--destructive" data-act="delete" id="btnDelete">Borrar todo</button>
+    </section>
+    <p class="panel-section__text--muted">Todo queda en este equipo. Pausa cuando quieras.</p>
+  </aside>
+</div>
+
+<div id="confirmOverlay" class="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirmar borrado">
+  <div class="confirm-box">
+    <h3>¿Borrar todo?</h3>
+    <p>Se borrará el historial de hoy y las tarjetas. Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button id="confirmNo" class="btn">Cancelar</button>
+      <button id="confirmYes" class="btn btn--primary">Borrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/events.js"></script>
+<script src="js/desk.js"></script>
+<script src="js/retoma.js"></script>
+<script src="js/story.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    Desk.mount();
+    Retoma.mount();
+    Story.mount();
+  });
+</script>
+</body>
+</html>
