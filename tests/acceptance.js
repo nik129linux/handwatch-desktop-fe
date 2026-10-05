@@ -900,13 +900,13 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     });
   }
   const goodGen = JSON.stringify({ start: '09:00', minutes: 45, reason: 'Quiet block before the messages arrive.' });
-  const fake = await fakeOllama({ tags: { models: [{ name: 'huihui_ai/qwen3.5-abliterated:4b' }, { name: 'remote-one', remote_host: 'cloud' }] }, generate: goodGen });
+  const fake = await fakeOllama({ tags: { models: [{ name: 'qwen3.5:4b' }, { name: 'gemma4:31b-cloud', remote_host: 'cloud' }] }, generate: goodGen });
   const localRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: fake.url, timeoutMs: 5000 });
   ok(localRes.minutes === 45 && localRes.start === '09:00', 'local with consent returns validated output', JSON.stringify(localRes));
-  ok(/Local model/.test(localRes.source) && localRes.source.includes('huihui_ai/qwen3.5-abliterated:4b'), 'tag names the local model', localRes.source);
+  ok(/Local model/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the local model', localRes.source);
   const genReq = fake.requests.find(r => r.url === '/api/generate');
   const genBody = genReq ? JSON.parse(genReq.body) : {};
-  ok(genBody.model === 'huihui_ai/qwen3.5-abliterated:4b', 'picks the on-device model, skips remote_host', genBody.model);
+  ok(genBody.model === 'gemma4:31b-cloud', 'picks gemma, never another local model', genBody.model);
   ok(genBody.format === 'json' && genBody.stream === false, 'generate uses JSON mode, no stream');
   ok(!/Quality|paragraph|Ana|Tracker/i.test(genBody.prompt || ''), 'prompt has summary only, no titles');
   const previewBody = providers.previewPayload(d1Summary, 'local');
@@ -1264,6 +1264,150 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   }
   await d4.evaluate(() => Theme.apply('dark', false));
   await d4.close();
+
+  head('32 · L3 live honesty (browser, helper missing)');
+  const l3 = await ctx.newPage();
+  const l3Errs = watchErrors(l3);
+  await l3.goto(INDEX, { waitUntil: 'load' });
+  await l3.waitForSelector('#deskClock');
+  await l3.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  await l3.evaluate(() => { try { window.localStorage.clear(); } catch (e) { /* noop */ } });
+  await l3.reload({ waitUntil: 'load' });
+  await l3.waitForSelector('#deskClock');
+  await l3.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  const DEMO_STRINGS = ['Quality report', 'Brightspace', '40 min'];
+  // demo sanity first: the seed proposal is the demo's own history
+  await l3.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(l3, 300);
+  ok(/Tomorrow: 40 min/.test(await l3.locator('#proposalText').textContent()), 'L3 demo shows its own seed proposal');
+  await l3.evaluate(() => Retoma.closePanel());
+  await settle(l3, 300);
+  // enter Live with no live events: crossfade must settle before asserting
+  await l3.click('.menu-bar [data-mode="live"]');
+  await l3.waitForFunction(() => document.body.classList.contains('is-live'), { timeout: 5000 });
+  await settle(l3, 700);
+  ok(((await l3.locator('#liveNow').textContent()) || '').trim() === 'Now: waiting for activity', 'L3 empty Live Now waits for activity');
+  ok(((await l3.locator('#liveToday').textContent()) || '').trim() === 'Nothing tracked yet', 'L3 empty Live Today is an empty state');
+  ok(await l3.locator('#liveBar .live-bar__seg').count() === 0, 'L3 empty Live has no timeline bar');
+  ok(await l3.evaluate(() => getComputedStyle(document.getElementById('liveBar')).display === 'none'), 'L3 live bar removed from layout when empty');
+  ok(await l3.locator('#proposalCard.is-hidden').count() === 1, 'L3 empty Live has no AI proposal');
+  ok(await l3.locator('#emptyState:not(.is-hidden)').count() === 1, 'L3 empty state visible in Live');
+  // exactly one of Demo/Live views is visible at settle (no mid-transition ghosts)
+  const xor = await l3.evaluate(() => {
+    const liveVis = !document.getElementById('liveView').classList.contains('is-hidden');
+    const winsVis = Array.from(document.querySelectorAll('.window')).filter(w => getComputedStyle(w).display !== 'none');
+    return { liveVis: liveVis, winsVis: winsVis.length };
+  });
+  ok(xor.liveVis === true && xor.winsVis === 0, 'L3 exactly the Live view is visible at settle', JSON.stringify(xor));
+  const inertWins = await l3.evaluate(() => Array.from(document.querySelectorAll('.window')).map(w => ({
+    app: w.getAttribute('data-app'),
+    display: getComputedStyle(w).display,
+    inert: w.hasAttribute('inert'),
+    hidden: w.getAttribute('aria-hidden')
+  })));
+  ok(inertWins.every(w => w.display === 'none' && w.inert && w.hidden === 'true'), 'L3 demo windows display:none + inert in Live', JSON.stringify(inertWins));
+  // visible text (innerText skips display:none) carries no demo seed
+  const visText = await l3.evaluate(() => document.body.innerText);
+  const leaked = DEMO_STRINGS.filter(s => visText.includes(s));
+  ok(leaked.length === 0, 'L3 no demo seed in visible Live text', leaked.join('|') || visText.slice(0, 160));
+  // setup card: numbered steps, exact command visible + copyable from the start
+  ok(await l3.evaluate(() => document.querySelectorAll('#helperCard .helper-card__step').length === 3), 'L3 setup card has 3 numbered steps');
+  ok(await l3.evaluate(() => !!document.querySelector('#helperCard ol.helper-card__steps')), 'L3 steps are a numbered list');
+  ok(((await l3.locator('#enableCmd').textContent()) || '').trim() === 'gnome-extensions enable retoma-focus@retoma.local', 'L3 enable command text is exact');
+  ok(await l3.evaluate(() => !document.getElementById('enableCmd').classList.contains('is-hidden') && !document.getElementById('enableCopy').classList.contains('is-hidden')), 'L3 command visible and copyable from the start');
+  // helper card contrast >= 4.5 in both themes
+  const l3probe = `(() => {
+    function lum(r, g, b) {
+      const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    }
+    function parse(c) {
+      const m = String(c).match(/rgba?\\(([^)]+)\\)/);
+      if (!m) return null;
+      return m[1].split(',').map((x) => parseFloat(x.trim()));
+    }
+    function opaqueBg(elm) {
+      const layers = [];
+      let n = elm;
+      while (n && n !== document.documentElement) { layers.unshift(parse(getComputedStyle(n).backgroundColor)); n = n.parentElement; }
+      layers.unshift(parse(getComputedStyle(document.body).backgroundColor));
+      let out = [0, 0, 0];
+      layers.forEach((p) => {
+        if (!p) return;
+        const a = p.length === 4 ? p[3] : 1;
+        out = [out[0] * (1 - a) + p[0] * a, out[1] * (1 - a) + p[1] * a, out[2] * (1 - a) + p[2] * a];
+      });
+      return out;
+    }
+    return ['.helper-card__title', '.helper-card__text', '.helper-cmd', '.helper-card__note'].map((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { sel: sel, missing: true, ratio: 0 };
+      const fg = parse(getComputedStyle(el).color).slice(0, 3);
+      const bg = opaqueBg(el);
+      const L1 = lum(fg[0], fg[1], fg[2]), L2 = lum(bg[0], bg[1], bg[2]);
+      return { sel: sel, ratio: Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100 };
+    });
+  })()`;
+  for (const th of ['dark', 'light']) {
+    await l3.evaluate((t) => Theme.apply(t, false), th);
+    await settle(l3, 400);
+    const rows = await l3.evaluate((src) => eval(src), l3probe);
+    const bad = rows.filter((r) => r.missing || r.ratio < 4.5);
+    ok(bad.length === 0, '[L3 ' + th + '] helper card contrast >= 4.5', rows.map((r) => r.sel.split('__').pop() + '=' + r.ratio).join(' | '));
+  }
+  await l3.evaluate(() => Theme.apply('dark', false));
+  // Live with live-only events shows only those
+  await l3.evaluate(() => {
+    Retoma.state.liveTimeline = [{ app: 'Terminal', duration: 5 }, { app: 'Firefox', duration: 7 }];
+    Retoma.state.liveEmpty = false;
+    try { Persist.save(Retoma.state.liveTimeline, 'live'); } catch (e) { /* in-memory */ }
+    Retoma.renderTimeline();
+    Live.renderLiveToday();
+  });
+  await settle(l3, 300);
+  const liveTodayTxt = await l3.locator('#liveToday').textContent();
+  ok(/Terminal/.test(liveTodayTxt) && /Firefox/.test(liveTodayTxt), 'L3 Live Today lists only live apps', liveTodayTxt);
+  ok(await l3.locator('#liveBar .live-bar__seg').count() === 2, 'L3 live bar built from live events only');
+  const liveVis2 = await l3.evaluate(() => document.getElementById('liveView').innerText);
+  ok(DEMO_STRINGS.every(s => !liveVis2.includes(s)), 'L3 live view has no demo strings with live events', liveVis2.slice(0, 160));
+  await l3.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(l3, 300);
+  ok(/Tracked today:/.test(await l3.locator('#timelineText').textContent()), 'L3 panel Today counts live minutes, not Planned', await l3.locator('#timelineText').textContent());
+  await l3.evaluate(() => Retoma.closePanel());
+  await settle(l3, 300);
+  // Demo -> Live -> Demo keeps both histories separate
+  await l3.click('.menu-bar [data-mode="demo"]');
+  await l3.waitForFunction(() => !document.body.classList.contains('is-live'), { timeout: 5000 });
+  await settle(l3, 700);
+  await l3.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(l3, 300);
+  ok(/Tomorrow: 40 min/.test(await l3.locator('#proposalText').textContent()), 'L3 demo history intact after Live round-trip');
+  ok(await l3.locator('.timeline-bar__seg').count() === 4, 'L3 demo bar still has its 4 seed segments');
+  await l3.evaluate(() => Retoma.closePanel());
+  await settle(l3, 300);
+  await l3.click('.menu-bar [data-mode="live"]');
+  await l3.waitForFunction(() => document.body.classList.contains('is-live'), { timeout: 5000 });
+  await settle(l3, 700);
+  ok(/Terminal/.test(await l3.locator('#liveToday').textContent()), 'L3 live history intact after Demo round-trip');
+  // Delete everything in Live deletes only the live store (and says so)
+  await l3.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('priv'); });
+  await settle(l3, 300);
+  await l3.click('#privacyDelete');
+  await settle(l3, 300);
+  ok(/Only the Live history/.test(await l3.locator('#confirmText').textContent()), 'L3 confirm says Live-only in Live mode');
+  await l3.click('#confirmNo');
+  await settle(l3, 300);
+  await l3.evaluate(() => { Retoma.closePanel(); Retoma.deleteAll(); });
+  await settle(l3, 400);
+  ok(((await l3.locator('#liveToday').textContent()) || '').trim() === 'Nothing tracked yet', 'L3 Live empty again after delete');
+  await l3.click('.menu-bar [data-mode="demo"]');
+  await l3.waitForFunction(() => !document.body.classList.contains('is-live'), { timeout: 5000 });
+  await settle(l3, 700);
+  await l3.evaluate(() => { Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(l3, 300);
+  ok(/Tomorrow: 40 min/.test(await l3.locator('#proposalText').textContent()), 'L3 Live delete kept the demo store');
+  ok(l3Errs.length === 0, 'L3 run has no console errors', l3Errs.join(' | '));
+  await l3.close();
 
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {

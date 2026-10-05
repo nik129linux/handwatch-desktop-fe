@@ -515,6 +515,7 @@ var Retoma = (function () {
         if (el.timelineLegend) el.timelineLegend.innerHTML = '';
         if (el.timelineText) el.timelineText.textContent = '';
         if (el.proposalCard) { el.proposalCard.classList.add('is-hidden'); el.proposalCard.classList.remove('is-loading'); }
+        if (window.HabitsUI && HabitsUI.hide) { try { HabitsUI.hide(); } catch (e) { /* noop */ } }
         if (el.timeline) el.timeline.classList.remove('is-hidden');
         el.timelineBar.style.display = 'none';
         if (el.timelineLegend) el.timelineLegend.style.display = 'none';
@@ -534,6 +535,7 @@ var Retoma = (function () {
       if (el.timelineLegend) el.timelineLegend.innerHTML = '';
       if (el.timelineText) el.timelineText.textContent = '';
       if (el.proposalCard) el.proposalCard.classList.add('is-hidden');
+      if (window.HabitsUI && HabitsUI.hide) { try { HabitsUI.hide(); } catch (e) { /* noop */ } }
       if (el.timeline) el.timeline.classList.remove('is-hidden');
       el.timelineBar.style.display = 'none';
       if (el.timelineLegend) el.timelineLegend.style.display = 'none';
@@ -592,6 +594,9 @@ var Retoma = (function () {
     } else if (state.proposalDismissed && el.proposalCard) {
       el.proposalCard.classList.add('is-hidden');
     }
+    if (window.HabitsUI && HabitsUI.refresh) {
+      try { HabitsUI.refresh(); } catch (e) { /* coach card keeps last state */ }
+    }
   }
 
   function showEndOfDay() {
@@ -639,6 +644,7 @@ var Retoma = (function () {
       if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
       if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
       Persist.removeAll('live');
+      try { window.localStorage.removeItem('retoma-exp-live'); } catch (e) { /* noop */ }
       return;
     }
     state.timeline = [];
@@ -650,6 +656,7 @@ var Retoma = (function () {
     renderTimeline();
     dismissProposal();
     Persist.removeAll('demo');
+    try { window.localStorage.removeItem('retoma-exp-demo'); } catch (e) { /* noop */ }
   }
 
   function hasTimelineEntries() {

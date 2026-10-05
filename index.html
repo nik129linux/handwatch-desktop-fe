@@ -201,6 +201,24 @@
             </div>
           </div>
           <div id="emptyState" class="empty-state is-hidden">No history. Everything was deleted.</div>
+          <div id="habitCard" class="proposal-card is-hidden">
+            <div class="proposal-card__label">Habit coach · <span id="habitTag" class="proposal-tag">On-device rules</span></div>
+            <p id="habitEval" class="habit-exp is-hidden"></p>
+            <p id="habitNote" class="habit-note"></p>
+            <p id="habitExperiment" class="habit-exp"></p>
+            <div class="proposal-actions">
+              <button id="habitAccept" class="btn btn--primary">Try it</button>
+              <button id="habitRefresh" class="btn btn--ghost">New note</button>
+            </div>
+            <div class="habit-ask">
+              <div class="panel-section__label">Ask your day</div>
+              <div class="blocklist__row">
+                <input id="habitAskInput" type="text" maxlength="200" placeholder="Ask about your day" aria-label="Ask about your day">
+                <button id="habitAskBtn" class="btn">Ask</button>
+              </div>
+              <p id="habitAskAnswer" class="habit-exp is-hidden"></p>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -243,6 +261,7 @@
               <button class="seg__btn" data-ai-mode="cloud">Cloud model</button>
             </div>
             <p id="aiModeReason" class="panel-section__text--muted is-hidden"></p>
+            <p id="aiStatus" class="panel-section__text--muted">Local model: off</p>
             <div id="aiConsent" class="ai-consent is-hidden">
               <p class="panel-section__text--muted">This exact payload is sent. Nothing else leaves this device.</p>
               <pre id="aiPayload" class="ai-payload"></pre>
@@ -331,10 +350,12 @@
 
 <script src="js/events.js"></script>
 <script src="js/ai.js"></script>
+<script src="ai/habits.js"></script>
 <script src="js/persist.js"></script>
 <script src="js/desk.js"></script>
 <script src="js/retoma.js"></script>
 <script src="js/live.js"></script>
+<script src="js/habits.js"></script>
 <script src="js/story.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/presence.js"></script>
@@ -344,6 +365,7 @@
     Desk.mount();
     Retoma.mount();
     Live.mount();
+    if (window.HabitsUI && HabitsUI.mount) HabitsUI.mount();
     Story.mount();
     Theme.mount();
     Presence.mount();
