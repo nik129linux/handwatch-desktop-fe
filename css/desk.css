@@ -1,5 +1,12 @@
 /* desk.css — simulated desktop: wallpaper, glass windows, quiet sim strip */
 * { box-sizing: border-box; }
+/* quiet scrollbars in both themes — tokens only (no raw colors) */
+* { scrollbar-width: thin; scrollbar-color: var(--border-neutral-600) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-neutral-600); border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--border-neutral-400); border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
 html, body { margin: 0; min-height: 100%; }
 body {
   background: var(--bg-neutral-950);
