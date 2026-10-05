@@ -850,6 +850,165 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(trioRow.oneRow, 'Pause/Skip/Restart on one row', JSON.stringify(trioRow));
   await f3.close();
 
+  head('24 · D1: propose() off-mode is valid with zero network');
+  const providers = require(path.join(ROOT, 'ai', 'providers'));
+  const mainStore = require(path.join(ROOT, 'ai', 'store'));
+  const nativeH = require(path.join(ROOT, 'ai', 'native'));
+  const http = require('http');
+  const os = require('os');
+  const d1Summary = providers.buildSummary(Events_seed());
+  function Events_seed() {
+    return [{ app: 'Document', duration: 40 }, { app: 'Browser', duration: 12 }, { app: 'WhatsApp', duration: 18 }, { app: 'Spreadsheet', duration: 10 }];
+  }
+  ok(d1Summary.longest.app === 'Document' && d1Summary.longest.minutes === 40, 'summary has longest block, no titles', JSON.stringify(d1Summary));
+  ok(!/Quality|paragraph|Ana|Tracker/i.test(JSON.stringify(d1Summary)), 'summary carries no window titles');
+  let offHits = 0;
+  const countingFetch = () => { offHits++; return Promise.reject(new Error('must not be called')); };
+  const offRes = await providers.propose(d1Summary, { mode: 'off', consent: { local: true }, fetchImpl: countingFetch, ollamaUrl: 'http://127.0.0.1:9' });
+  ok(/^\d{1,2}:[0-5]\d$/.test(offRes.start) && Number.isInteger(offRes.minutes) && offRes.minutes >= 15 && offRes.minutes <= 180, 'off returns valid shape', JSON.stringify(offRes));
+  ok(typeof offRes.reason === 'string' && offRes.reason.length >= 1 && offRes.reason.length <= 140, 'off reason <= 140 chars');
+  ok(offHits === 0, 'off-mode makes zero network requests', offHits + ' hits');
+  const noConsentRes = await providers.propose(d1Summary, { mode: 'local', consent: {}, fetchImpl: countingFetch, ollamaUrl: 'http://127.0.0.1:9' });
+  ok(offHits === 0 && noConsentRes.source === 'rules', 'local without consent sends zero requests', JSON.stringify(noConsentRes).slice(0, 120));
+
+  head('25 · D1: fake Ollama proves local chain');
+  function fakeOllama(behavior) {
+    const requests = [];
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        requests.push({ url: req.url, method: req.method, body: body });
+        const respond = () => {
+          if (req.url === '/api/tags') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(behavior.tags));
+          } else if (req.url === '/api/generate') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ response: behavior.generate }));
+          } else { res.writeHead(404); res.end(); }
+        };
+        if (behavior.delayMs) setTimeout(respond, behavior.delayMs); else respond();
+      });
+    });
+    return new Promise(resolve => {
+      server.listen(0, '127.0.0.1', () => {
+        resolve({ url: 'http://127.0.0.1:' + server.address().port, requests: requests, close: () => new Promise(r => server.close(r)) });
+      });
+    });
+  }
+  const goodGen = JSON.stringify({ start: '09:00', minutes: 45, reason: 'Quiet block before the messages arrive.' });
+  const fake = await fakeOllama({ tags: { models: [{ name: 'huihui_ai/qwen3.5-abliterated:4b' }, { name: 'remote-one', remote_host: 'cloud' }] }, generate: goodGen });
+  const localRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: fake.url, timeoutMs: 5000 });
+  ok(localRes.minutes === 45 && localRes.start === '09:00', 'local with consent returns validated output', JSON.stringify(localRes));
+  ok(/Local model/.test(localRes.source) && localRes.source.includes('huihui_ai/qwen3.5-abliterated:4b'), 'tag names the local model', localRes.source);
+  const genReq = fake.requests.find(r => r.url === '/api/generate');
+  const genBody = genReq ? JSON.parse(genReq.body) : {};
+  ok(genBody.model === 'huihui_ai/qwen3.5-abliterated:4b', 'picks the on-device model, skips remote_host', genBody.model);
+  ok(genBody.format === 'json' && genBody.stream === false, 'generate uses JSON mode, no stream');
+  ok(!/Quality|paragraph|Ana|Tracker/i.test(genBody.prompt || ''), 'prompt has summary only, no titles');
+  const previewBody = providers.previewPayload(d1Summary, 'local');
+  ok(providers.promptFor(d1Summary) === providers.buildOllamaBody(d1Summary, 'x').prompt, 'consent preview prompt matches what is sent');
+  ok(previewBody.format === 'json' && previewBody.stream === false, 'consent preview is the exact payload shape');
+  await fake.close();
+  const badFake = await fakeOllama({ tags: { models: [{ name: 'huihui_ai/qwen3.5-abliterated:4b' }] }, generate: 'not json{{{' });
+  const garbageRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: badFake.url, timeoutMs: 5000 });
+  ok(garbageRes.source === 'rules' && garbageRes.fallback === true, 'garbage output falls back to rules', JSON.stringify(garbageRes).slice(0, 140));
+  ok(/Model unavailable/.test(garbageRes.note || ''), 'fallback surfaces the unavailable note', garbageRes.note);
+  await badFake.close();
+  const slowFake = await fakeOllama({ tags: { models: [{ name: 'huihui_ai/qwen3.5-abliterated:4b' }] }, generate: goodGen, delayMs: 400 });
+  const slowRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: slowFake.url, timeoutMs: 90 });
+  ok(slowRes.source === 'rules' && slowRes.fallback === true, 'timeout falls back to rules', JSON.stringify(slowRes).slice(0, 140));
+  await slowFake.close();
+  // cloud via stubbed transport (no real network): flash picked, then garbage falls back
+  function stubGemini(listJson, contentText, seen) {
+    return (url, opts) => {
+      seen.push({ url: String(url), body: (opts && opts.body) || '' });
+      const payload = String(url).includes(':generateContent')
+        ? { candidates: [{ content: { parts: [{ text: contentText }] } }] }
+        : listJson;
+      return Promise.resolve({ json: () => Promise.resolve(payload) });
+    };
+  }
+  const cloudSeen = [];
+  const cloudRes = await providers.propose(d1Summary, {
+    mode: 'cloud', consent: { cloud: true }, geminiKey: 'test-key',
+    fetchImpl: stubGemini({ models: [{ name: 'models/gemini-2.5-pro' }, { name: 'models/gemini-2.5-flash' }] }, goodGen, cloudSeen)
+  });
+  ok(cloudRes.source === 'Cloud \u00b7 Gemini' && cloudRes.minutes === 45, 'cloud returns validated output', JSON.stringify(cloudRes));
+  ok(cloudSeen.some(r => r.url.includes('gemini-2.5-flash')), 'flash model picked from ListModels', cloudSeen.map(r => r.url).join(' | '));
+  const cloudBad = await providers.propose(d1Summary, {
+    mode: 'cloud', consent: { cloud: true }, geminiKey: 'test-key',
+    fetchImpl: stubGemini({ models: [{ name: 'models/gemini-2.5-flash' }] }, 'garbage{{{', [])
+  });
+  ok(cloudBad.source === 'rules' && cloudBad.fallback === true, 'cloud garbage falls back to rules');
+  const cloudOff = await providers.propose(d1Summary, { mode: 'cloud', consent: { cloud: true }, geminiKey: '' });
+  ok(cloudOff.source === 'rules' && /GEMINI_API_KEY/.test(cloudOff.note || ''), 'cloud without key is disabled with reason', cloudOff.note);
+
+  head('26 · D1: retention prunes, delete-all removes the file');
+  const nowMs = Date.now();
+  const aged = [
+    { app: 'Document', duration: 40, ts: new Date(nowMs - 8 * 864e5).toISOString() },
+    { app: 'Browser', duration: 5, ts: new Date(nowMs - 1 * 864e5).toISOString() }
+  ];
+  const pruned = mainStore.pruneEvents(aged, nowMs);
+  ok(pruned.length === 1 && pruned[0].app === 'Browser', '8-day-old event pruned on load', JSON.stringify(pruned));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'retoma-'));
+  const tmpFile = path.join(tmpDir, 'events.json');
+  mainStore.saveEventsFile(fs, tmpFile, aged, nowMs);
+  const reloaded = mainStore.loadEventsFile(fs, tmpFile, nowMs);
+  ok(reloaded.events.length === 1, 'prune enforced through save/load round-trip');
+  mainStore.deleteEventsFile(fs, tmpFile);
+  ok(!fs.existsSync(tmpFile), 'delete-all removes events.json', tmpFile);
+  const exported = mainStore.serialize(reloaded.events);
+  ok(JSON.parse(exported).events.length === 1, 'export serializes the stored events');
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+
+  head('27 · D1: no key material outside main-process files');
+  const rendererFiles = ['index.html', 'js/events.js', 'js/desk.js', 'js/retoma.js', 'js/story.js', 'js/theme.js', 'js/ai.js', 'js/persist.js', 'css/desk.css', 'css/retoma.css'];
+  const keyHits = [];
+  rendererFiles.forEach(f => {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    ['GEMINI', 'generativelanguage', 'api/tags', 'generateContent'].forEach(needle => {
+      if (src.includes(needle)) keyHits.push(f + ' contains ' + needle);
+    });
+  });
+  ok(keyHits.length === 0, 'renderer bundle has no keys or provider URLs', keyHits.join(' | '));
+  const provSrc = fs.readFileSync(path.join(ROOT, 'ai', 'providers.js'), 'utf8');
+  ok(provSrc.includes('process.env.GEMINI_API_KEY'), 'key read only in main process');
+  const logLeak = provSrc.split('\n').filter(line => /console/.test(line) && /KEY|key/i.test(line));
+  ok(logLeak.length === 0, 'key never logged', logLeak.join(' | '));
+
+  head('28 · D1: tray + notification handlers (unit, headless)');
+  ok(nativeH.shouldNotify(9) === false, 'no notification under 10 min away');
+  ok(nativeH.shouldNotify(10) === true && nativeH.shouldNotify(25) === true, 'notification at >= 10 min away');
+  const note = nativeH.resumeNotification('WhatsApp');
+  ok(note.body === 'Pick up where you left off: WhatsApp', 'notification names the app', note.body);
+  ok(nativeH.trayMenuLabels(false).join('|') === 'Open Retoma|Pause tracking|Quit', 'tray menu when active');
+  ok(nativeH.trayMenuLabels(true).join('|') === 'Open Retoma|Resume tracking|Quit', 'tray menu reflects paused state');
+  ok(nativeH.trayIconName(false) === 'tray-active' && nativeH.trayIconName(true) === 'tray-paused', 'tray icon reflects state');
+  ok(fs.existsSync(path.join(ROOT, 'build', 'tray-active.png')) && fs.existsSync(path.join(ROOT, 'build', 'tray-paused.png')), 'tray icons shipped');
+
+  head('29 · D1: Smart suggestions UI in Privacy tab');
+  const d1 = await ctx.newPage();
+  const d1Errs = watchErrors(d1);
+  await d1.goto(INDEX, { waitUntil: 'load' });
+  await d1.waitForSelector('#deskClock');
+  await settle(d1, 500);
+  ok(await d1.locator('[data-ai-mode]').count() === 3, 'segmented control Off / Local / Cloud');
+  ok((await d1.locator('[data-ai-mode="off"].is-active').count()) === 1, 'default mode is Off');
+  const demoNote = await d1.locator('#retomaTabPriv').textContent();
+  ok(/Demo mode: tracks the windows inside this demo/.test(demoNote), 'demo-mode note in Privacy tab');
+  ok(await d1.locator('#aiConsent.is-hidden').count() === 1, 'consent box hidden until a model is picked');
+  ok(await d1.locator('#privacyExport').count() === 1, 'Export my data button present');
+  await d1.evaluate(() => Retoma.showEndOfDay());
+  await settle(d1, 400);
+  ok(((await d1.locator('#proposalTag').textContent()) || '').includes('Simulated'), 'rules path keeps the Simulated tag');
+  const d1Css = fs.readFileSync(path.join(ROOT, 'css', 'retoma.css'), 'utf8');
+  ok(d1Css.includes('@keyframes shimmer') && d1Css.includes('.skeleton-bar'), 'loading state is a shimmer skeleton');
+  ok(d1Errs.length === 0, 'D1 UI has no console errors', d1Errs.join(' | '));
+  await d1.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });

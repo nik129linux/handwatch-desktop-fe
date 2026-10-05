@@ -17,7 +17,14 @@ var Retoma = (function () {
     interruptionApp: 'WhatsApp',
     timeline: [],
     empty: false,
-    proposalDismissed: false
+    proposalDismissed: false,
+    aiMode: 'off',
+    aiConsent: { local: false, cloud: false },
+    aiBusy: false,
+    aiToken: 0,
+    cloudAvailable: false,
+    cloudReason: '',
+    pendingMode: null
   };
 
   var el = {};
@@ -61,6 +68,7 @@ var Retoma = (function () {
     Desk.focus(next.label);
     renderAhora();
     renderTimeline();
+    persistTimeline();
     Events.emit('app:switch', next);
   }
 
@@ -93,6 +101,9 @@ var Retoma = (function () {
       showResume();
       openPanel();
       switchTab('ahora');
+      if (window.retoma && window.retoma.notifyReturn) {
+        try { window.retoma.notifyReturn({ awayMinutes: state.awayMinutes, app: state.prevApp }); } catch (e) { /* demo keeps going */ }
+      }
     }
     renderAhora();
   }
@@ -160,12 +171,156 @@ var Retoma = (function () {
   }
 
   function renderProposal(data) {
-    var p = computeProposal(data);
     var textEl = document.getElementById('proposalText');
     var howEl = document.getElementById('proposalHow');
-    if (textEl) textEl.textContent = p.text;
-    if (howEl) howEl.textContent = p.how;
-    return p;
+    var tagEl = document.getElementById('proposalTag');
+    var card = document.getElementById('proposalCard');
+    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'cloud') && state.aiConsent[state.aiMode];
+    if (!useProvider) {
+      var p = computeProposal(data);
+      if (textEl) textEl.textContent = p.text;
+      if (howEl) howEl.textContent = p.how;
+      if (tagEl) tagEl.textContent = 'Simulated';
+      if (card) card.classList.remove('is-loading');
+      return p;
+    }
+    var summary = Ai.buildSummary(data && data.length ? data : Events.seedTimeline);
+    var token = ++state.aiToken;
+    state.aiBusy = true;
+    if (card) card.classList.add('is-loading');
+    if (textEl) textEl.innerHTML = '<span class="skeleton-bar"></span><span class="skeleton-bar skeleton-bar--short"></span>';
+    if (howEl) howEl.textContent = '';
+    window.retoma.propose(summary, { mode: state.aiMode, consent: state.aiConsent }).then(function (res) {
+      if (token !== state.aiToken) return;
+      state.aiBusy = false;
+      if (card) card.classList.remove('is-loading');
+      if (!res || !Ai.validProposal(res)) {
+        var fb = computeProposal(data);
+        if (textEl) textEl.textContent = fb.text;
+        if (howEl) howEl.textContent = fb.how;
+        if (tagEl) tagEl.textContent = 'Simulated';
+        return;
+      }
+      var f = Ai.formatProposal(res);
+      if (textEl) textEl.textContent = f.text;
+      if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' \u00b7 ' + res.note : f.how;
+      if (tagEl) tagEl.textContent = res.fallback ? 'Simulated' : (res.source || 'Simulated');
+    }, function () {
+      if (token !== state.aiToken) return;
+      state.aiBusy = false;
+      if (card) card.classList.remove('is-loading');
+      var fb2 = computeProposal(data);
+      if (textEl) textEl.textContent = fb2.text;
+      if (howEl) howEl.textContent = fb2.how;
+      if (tagEl) tagEl.textContent = 'Simulated';
+    });
+    return null;
+  }
+
+  function hasBridge() {
+    return !!(window.retoma && window.retoma.propose);
+  }
+
+  function loadAiPrefs() {
+    try {
+      var m = window.localStorage.getItem('retoma-ai-mode');
+      if (m === 'off' || m === 'local' || m === 'cloud') state.aiMode = m;
+      var c = JSON.parse(window.localStorage.getItem('retoma-ai-consent') || '{}');
+      if (c) { state.aiConsent.local = !!c.local; state.aiConsent.cloud = !!c.cloud; }
+    } catch (e) { /* prefs stay default */ }
+  }
+
+  function saveAiPrefs() {
+    try {
+      window.localStorage.setItem('retoma-ai-mode', state.aiMode);
+      window.localStorage.setItem('retoma-ai-consent', JSON.stringify(state.aiConsent));
+    } catch (e) { /* noop */ }
+  }
+
+  function paintAiMode() {
+    var btns = document.querySelectorAll('[data-ai-mode]');
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      var m = b.getAttribute('data-ai-mode');
+      b.classList.toggle('is-active', m === state.aiMode);
+      if (m === 'cloud') {
+        b.disabled = !state.cloudAvailable;
+        b.title = state.cloudAvailable ? '' : state.cloudReason;
+      } else if (m === 'local') {
+        b.disabled = !hasBridge();
+        b.title = hasBridge() ? '' : 'Local model needs the desktop app';
+      }
+    }
+    var reason = document.getElementById('aiModeReason');
+    if (reason) {
+      var msg = '';
+      if (state.aiMode === 'cloud' && !state.cloudAvailable) msg = state.cloudReason;
+      if (state.aiMode === 'local' && !hasBridge()) msg = 'Local model needs the desktop app';
+      reason.textContent = msg;
+      reason.classList.toggle('is-hidden', !msg);
+    }
+  }
+
+  function refreshCapabilities() {
+    if (!hasBridge()) {
+      state.cloudAvailable = false;
+      state.cloudReason = 'Cloud model needs the desktop app';
+      if (state.aiMode !== 'off') state.aiMode = 'off';
+      paintAiMode();
+      return;
+    }
+    window.retoma.capabilities().then(function (caps) {
+      state.cloudAvailable = !!(caps && caps.cloudAvailable);
+      state.cloudReason = (caps && caps.cloudReason) || '';
+      if (state.aiMode === 'cloud' && !state.cloudAvailable) state.aiMode = 'off';
+      if (state.aiMode === 'local' && !hasBridge()) state.aiMode = 'off';
+      paintAiMode();
+    }, function () { paintAiMode(); });
+  }
+
+  function hideConsent() {
+    var box = document.getElementById('aiConsent');
+    if (box) box.classList.add('is-hidden');
+  }
+
+  function showConsent(mode) {
+    var box = document.getElementById('aiConsent');
+    var pre = document.getElementById('aiPayload');
+    if (!box || !pre) return;
+    var summary = Ai.buildSummary(state.timeline.length ? state.timeline : Events.seedTimeline);
+    paintAiMode();
+    var paint = function (payload) {
+      pre.textContent = JSON.stringify(payload, null, 2);
+      box.classList.remove('is-hidden');
+    };
+    if (hasBridge()) {
+      window.retoma.previewPayload(summary, mode).then(paint, function () { paint(Ai.previewLocal(summary)); });
+    } else {
+      paint(Ai.previewLocal(summary));
+    }
+  }
+
+  function selectAiMode(mode) {
+    if (mode !== 'off' && mode !== 'local' && mode !== 'cloud') return;
+    if (mode === 'cloud' && !state.cloudAvailable) { paintAiMode(); return; }
+    if (mode === 'local' && !hasBridge()) { paintAiMode(); return; }
+    if ((mode === 'local' || mode === 'cloud') && !state.aiConsent[mode]) {
+      state.pendingMode = mode;
+      showConsent(mode);
+      return;
+    }
+    state.pendingMode = null;
+    state.aiToken++;
+    state.aiMode = mode;
+    saveAiPrefs();
+    hideConsent();
+    paintAiMode();
+    renderTimeline();
+  }
+
+  function persistTimeline() {
+    if (state.empty) return;
+    Persist.save(state.timeline);
   }
 
   function hideResume() {
@@ -218,6 +373,9 @@ var Retoma = (function () {
 
   function togglePause() {
     state.paused = !state.paused;
+    if (window.retoma && window.retoma.setPaused) {
+      try { window.retoma.setPaused(state.paused); } catch (e) { /* demo keeps going */ }
+    }
     var btn = el.toggleBtn;
     if (btn) {
       btn.classList.toggle('is-paused', state.paused);
@@ -299,6 +457,7 @@ var Retoma = (function () {
     }
     state.proposalDismissed = false;
     renderTimeline();
+    persistTimeline();
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.proposalCard) el.proposalCard.classList.remove('is-hidden');
     openPanel();
@@ -317,9 +476,11 @@ var Retoma = (function () {
   function deleteAll() {
     state.timeline = [];
     state.empty = true;
+    state.aiToken++;
     hideResume();
     renderTimeline();
     dismissProposal();
+    Persist.removeAll();
   }
 
   function hasTimelineEntries() { return !state.empty && state.timeline.length > 0; }
@@ -489,6 +650,51 @@ var Retoma = (function () {
 
     setClock(9, 0);
     state.timeline = Events.seedTimeline.slice();
+    loadAiPrefs();
+    paintAiMode();
+    refreshCapabilities();
+    document.querySelectorAll('[data-ai-mode]').forEach(function (b) {
+      b.addEventListener('click', function () { selectAiMode(b.getAttribute('data-ai-mode')); });
+    });
+    var aiAllow = document.getElementById('aiAllow');
+    if (aiAllow) aiAllow.addEventListener('click', function () {
+      if (!state.pendingMode) return;
+      state.aiConsent[state.pendingMode] = true;
+      var m = state.pendingMode;
+      state.pendingMode = null;
+      state.aiToken++;
+      state.aiMode = m;
+      saveAiPrefs();
+      hideConsent();
+      paintAiMode();
+      renderTimeline();
+    });
+    var aiCancel = document.getElementById('aiCancel');
+    if (aiCancel) aiCancel.addEventListener('click', function () { state.pendingMode = null; hideConsent(); paintAiMode(); });
+    var privExport = document.getElementById('privacyExport');
+    if (privExport) privExport.addEventListener('click', function () { Persist.exportData(state.timeline); });
+    if (window.retoma && window.retoma.onFocusResume) {
+      try {
+        window.retoma.onFocusResume(function () {
+          openPanel();
+          switchTab('ahora');
+          showResume();
+          var resumeBtn = document.getElementById('retomarBtn');
+          if (resumeBtn) resumeBtn.focus();
+        });
+      } catch (e) { /* demo keeps going */ }
+    }
+    Persist.load().then(function (events) {
+      if (events && events.length) {
+        state.timeline = events.slice(-12).map(function (e) { return { app: e.app, duration: e.duration }; });
+        state.empty = false;
+        renderTimeline();
+        persistTimeline();
+      }
+    });
+    setInterval(function () {
+      Persist.load().then(function (events) { Persist.save(events || []); });
+    }, 3600 * 1000);
     renderAhora();
     renderTimeline();
     hideResume();
@@ -498,7 +704,7 @@ var Retoma = (function () {
     window.addEventListener('resize', syncDesktopLayout);
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, selectAiMode: selectAiMode, hasBridge: hasBridge };
   }
 
   function openConfirm() { if (el.confirmOverlay) el.confirmOverlay.classList.add('is-open'); }

@@ -1,0 +1,250 @@
+
+1 · loads with zero console errors
+  ✓ index.html has no console errors
+  ✓ Retoma status icon visible
+  ✓ 4 windows present
+
+2 · free mode: Switch app, Step away/Come back, Resume
+  ✓ Switch app changes Now
+  ✓ Step away 25 min + Come back shows resume card
+  ✓ resume card has You were in
+  ✓ resume card has interrupted line
+  ✓ resume card has 3 chips
+  ✓ Resume reopens windows (Document visible)
+  ✓ Start fresh hides resume card
+
+3 · Pause prevents timeline entry
+  ✓ status icon shows paused
+  ✓ paused state has is-paused class
+  ✓ Switch app while paused creates NO timeline entry
+
+4 · End the day shows timeline and proposal
+  ✓ timeline bar present
+  ✓ Planned/Actual line present
+  ✓ timeline shows Planned and Actual
+  ✓ AI proposal visible
+  ✓ proposal text computed with real minutes
+  ✓ proposal has window hours
+  ✓ Simulated tag visible
+  ✓ Simulated tag is visible
+  ✓ proposal shows how it was decided
+  ✓ proposal text changes with timeline data
+  ✓ Accept closes proposal
+  ✓ No, thanks closes proposal
+
+5 · Delete everything requires confirm then empty state
+  ✓ Delete everything opens confirm
+  ✓ empty state visible after delete
+  ✓ timeline empty state shown
+
+6 · guided story runs to end
+  ✓ guided story reached end
+  ✓ story ends with deleted state
+  ✓ story has no console errors
+
+7 · token test (BOTH themes)
+  ✓ [dark] nothing keeps rgb(166, 255, 0) (240 elements)
+  ✓ [dark] new primary in use
+  ✓ [light] nothing keeps rgb(166, 255, 0) (240 elements)
+  ✓ [light] new primary in use
+
+7b · theme toggle + contrast >= 4.5 in both themes
+  ✓ theme toggle present next to eye icon
+  ✓ toggle has aria-label Switch theme
+  ✓ sun/moon inline SVGs present
+  ✓ toggle flips data-theme
+  ✓ toggle flips back
+  ✓ theme persisted in localStorage
+  ✓ [dark] contrast >= 4.5 for 6 text elements
+  ✓ [light] contrast >= 4.5 for 6 text elements
+
+8 · source rules
+  ✓ no hex/rgb outside css/tokens.css
+  ✓ no Spanish stopwords in UI strings
+  ✓ no productivity/distracted/score/lazy/wasted
+
+9 · reduced-motion block
+  ✓ desk.css has prefers-reduced-motion
+  ✓ retoma.css has prefers-reduced-motion
+  ✓ covers transitions
+  ✓ covers animations
+
+10 · FIX 1: dropdown panel behavior
+  ✓ panel closed by default
+  ✓ panel max-height uses viewport -56px
+  ✓ panel max-height clears dock (≈ viewport -186px)
+  ✓ active tab body has own scroll
+  ✓ click eye opens panel
+  ✓ only one tab section visible
+  ✓ 3 tabs present
+  ✓ resume card NOT inside tab (is hero)
+  ✓ Esc closes panel
+  ✓ reopened for click-outside test
+  ✓ click outside closes panel
+  ✓ Come back auto-opens panel with resume card
+  ✓ resume card is first and largest element in panel
+
+11 · FIX 2: resume hero type
+  ✓ hero uses serif display (Instrument Serif/Fraunces)
+  ✓ hero weight 400 (serif)
+  ✓ hero poster scale 48-110px
+  ✓ hero has You were in
+  ✓ doc title under hero in Fog (not primary text)
+  ✓ interruption label 15px body
+  ✓ interruption label normal-case (FIX2)
+  ✓ hero chips 3
+  ✓ Resume full width
+  ✓ Resume lime
+
+12 · FIX 3: desktop no overlap + focused ring + dock SVG
+  ✓ no window overlap at 1440x900
+  ✓ focused window lime ring
+  ✓ dock icons are SVG
+  ✓ dock icons not emoji
+
+13 · FIX 4: timeline legend + tints + gaps
+  ✓ legend has dot + app + minutes
+  ✓ legend tabular-nums
+  ✓ segments 2px gap
+  ✓ segment tints distinguishable
+  ✓ not 4 near-identical greens
+
+14 · FIX 5: label tier + tabular
+  ✓ kicker 11px mono micro
+  ✓ kicker 400/500
+  ✓ kicker uppercase
+  ✓ kicker JetBrains Mono
+  ✓ kicker letter-spacing .14em
+  ✓ numbers tabular-nums everywhere
+
+15 · FIX 6: responsive 390 no horizontal scroll
+  ✓ scrollWidth <= innerWidth at 390
+  ✓ menu bar title not colliding with clock at 390
+  ✓ dock hidden under 900px
+  ✓ simulator panel stacked below stage
+  ✓ Retoma dropdown is bottom sheet at 390
+
+16 · FIX 7: pause state visible
+  ✓ menu bar 2px dashed underline when paused
+  ✓ eye icon struck when paused
+  ✓ Now reads Paused line
+
+17 · FIX2 round2-1: windows left of panel + staggered reopen
+  ✓ r2: panel open after Come back
+  ✓ every visible window right <= panel left
+  ✓ windows not overlapping each other with panel open
+  ✓ staggered reopen has entering class
+  ✓ staggered 60ms delays
+  ✓ after Resume windows still left of panel
+
+18 · FIX2 round2-2: 390 compact stacked list
+  ✓ 390: 4 window cards visible
+  ✓ compact small cards (body hidden, h<90)
+  ✓ focused card lime ring at 390
+  ✓ 390: no window overlap
+  ✓ 390: no horizontal scroll
+  ✓ windows between menu bar and sheet at 390
+
+19 · FIX2 round2-3: kicker single line normal-case
+  ✓ kicker text normal-case
+  ✓ kicker 15px body
+  ✓ kicker not uppercase
+  ✓ kicker single line
+  ✓ kicker Fog color
+  ✓ short kickers uppercase
+  ✓ short kickers tracked mono
+
+20 · FIX2 round2-4: proposal buttons reachable via scroll
+  ✓ tab/panel 24px bottom padding
+  ✓ tab body scrollable (FIXES-3)
+  ✓ Accept inside viewport after scrollIntoView
+
+21 · FIX2 round2-5: timeline legend merged
+  ✓ legend merged same-app (3 items not 4)
+  ✓ Document merged 41 min
+  ✓ bar segments kept (4)
+
+22 · DESIGN PASS: motion with intent (headline blur-in, parallax, fly-in, timeline draw)
+  ✓ headline split word by word
+  ✓ headline 100ms word stagger
+  ✓ cursor parallax var --px on workspace
+  ✓ Resume fly-in from dock positions (--fx/--fy)
+  ✓ timeline draws left to right with segment stagger
+  ✓ master ease cubic-bezier(0.16,1,0.3,1) for entrances
+
+23 · FIXES-3: dock clearance, numbers agree, sim hit targets
+  ✓ dock visible with panel open
+  ✓ dock rect not intersecting panel rect
+  ✓ panel bottom <= dock top - 12px
+  ✓ legend labels longest block distinctly
+  ✓ proposal states minutes
+  ✓ legend bloque mayor == proposal minutes, no mismatch
+  ✓ How I decided consistent with longest block
+  ✓ proposed window start rounded to 15 min
+  ✓ seed proposal window is 9:00-9:40
+  ✓ sim buttons present
+  ✓ sim hit height >= 40
+  ✓ sim sentence-case mono 12px
+  ✓ sim buttons NOT caps
+  ✓ Guided tour is one clear primary pill
+  ✓ Pause/Skip/Restart on one row
+
+24 · D1: propose() off-mode is valid with zero network
+  ✓ summary has longest block, no titles
+  ✓ summary carries no window titles
+  ✓ off returns valid shape
+  ✓ off reason <= 140 chars
+  ✓ off-mode makes zero network requests
+  ✓ local without consent sends zero requests
+
+25 · D1: fake Ollama proves local chain
+  ✓ local with consent returns validated output
+  ✓ tag names the local model
+  ✓ picks the on-device model, skips remote_host
+  ✓ generate uses JSON mode, no stream
+  ✓ prompt has summary only, no titles
+  ✓ consent preview prompt matches what is sent
+  ✓ consent preview is the exact payload shape
+  ✓ garbage output falls back to rules
+  ✓ fallback surfaces the unavailable note
+  ✓ timeout falls back to rules
+  ✓ cloud returns validated output
+  ✓ flash model picked from ListModels
+  ✓ cloud garbage falls back to rules
+  ✓ cloud without key is disabled with reason
+
+26 · D1: retention prunes, delete-all removes the file
+  ✓ 8-day-old event pruned on load
+  ✓ prune enforced through save/load round-trip
+  ✓ delete-all removes events.json
+  ✓ export serializes the stored events
+
+27 · D1: no key material outside main-process files
+  ✓ renderer bundle has no keys or provider URLs
+  ✓ key read only in main process
+  ✓ key never logged
+
+28 · D1: tray + notification handlers (unit, headless)
+  ✓ no notification under 10 min away
+  ✓ notification at >= 10 min away
+  ✓ notification names the app
+  ✓ tray menu when active
+  ✓ tray menu reflects paused state
+  ✓ tray icon reflects state
+  ✓ tray icons shipped
+
+29 · D1: Smart suggestions UI in Privacy tab
+  ✓ segmented control Off / Local / Cloud
+  ✓ default mode is Off
+  ✓ demo-mode note in Privacy tab
+  ✓ consent box hidden until a model is picked
+  ✓ Export my data button present
+  ✓ rules path keeps the Simulated tag
+  ✓ loading state is a shimmer skeleton
+  ✓ D1 UI has no console errors
+
+shots · 1440 & 390 capture
+
+summary
+  184 passed, 0 failed
+  screenshots -> shots/

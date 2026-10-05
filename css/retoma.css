@@ -248,9 +248,26 @@
 .proposal-actions .btn { background: transparent; border: none; border-radius: 0; padding: 8px 0; min-height: 0; font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--text-neutral-100); }
 .proposal-actions .btn:hover { background: transparent; text-decoration: underline; text-underline-offset: 4px; }
 
-/* privacy */
-.privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
-.privacy-col h4 { font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; font-weight: var(--weight-regular); color: var(--text-neutral-100); margin: 0 0 6px; }
+/* smart suggestions */
+.ai-mode { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-4); }
+.seg { display: flex; gap: var(--sp-1); background: var(--bg-raised); border: 1px solid var(--border-card); border-radius: var(--radius-pill); padding: var(--sp-1); }
+.seg__btn { flex: 1; min-height: 40px; border: none; border-radius: var(--radius-pill); background: transparent; color: var(--text-neutral-100); font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); cursor: pointer; }
+.seg__btn:hover { background: var(--state-primary-dim); }
+.seg__btn.is-active { background: var(--bg-primary-500); color: var(--text-inverse); }
+.seg__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.seg__btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+#aiModeReason.is-hidden { display: none; }
+.ai-consent { display: flex; flex-direction: column; gap: var(--sp-2); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: var(--sp-3); }
+.ai-consent.is-hidden { display: none; }
+.ai-payload { font-family: var(--font-mono); font-size: var(--text-micro); line-height: 1.5; color: var(--text-neutral-100); background: var(--bg-screen); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--sp-3); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; margin: 0; }
+#privacyExport { background: transparent; border: none; border-radius: 0; padding: 8px 0; text-align: left; font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--text-neutral-400); min-height: 40px; }
+#privacyExport:hover { color: var(--text-neutral-50); background: transparent; text-decoration: underline; text-underline-offset: 4px; }
+
+/* proposal loading skeleton */
+.skeleton-bar { display: block; height: 30px; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--state-primary-dim) 25%, var(--bg-raised) 50%, var(--state-primary-dim) 75%); background-size: 200% 100%; animation: shimmer 1.2s var(--ease-enter) infinite; }
+.skeleton-bar--short { width: 62%; margin-top: var(--sp-2); }
+.proposal-card.is-loading .proposal-card__text { font-size: 0; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }.privacy-col h4 { font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; font-weight: var(--weight-regular); color: var(--text-neutral-100); margin: 0 0 6px; }
 .privacy-col ul { margin: 0; padding-left: 16px; font-size: var(--text-body); color: var(--text-neutral-100); line-height: 1.6; }
 .privacy-col ul li { margin-bottom: 2px; }
 .privacy-foot { font-size: var(--text-body); color: var(--text-neutral-400); line-height: 1.5; }
@@ -279,7 +296,7 @@
 .confirm-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }
 
 @media (prefers-reduced-motion: reduce) {
-  .retoma-panel, .retoma-panel.is-closing, .resume-card, .resume-card__hero .w, .confirm-overlay, .confirm-box, .timeline-bar__seg { transition: none !important; animation: none !important; }
+  .retoma-panel, .retoma-panel.is-closing, .resume-card, .resume-card__hero .w, .confirm-overlay, .confirm-box, .timeline-bar__seg, .skeleton-bar { transition: none !important; animation: none !important; }
   .resume-card__hero .w { opacity: 1 !important; filter: none !important; transform: none !important; }
   .timeline-bar__seg { transform: none !important; }
 }

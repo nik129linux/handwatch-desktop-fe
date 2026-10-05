@@ -188,6 +188,25 @@
             </div>
           </div>
           <p class="privacy-foot">Everything stays on this device. <strong>7 days, then it is deleted.</strong></p>
+          <div class="ai-mode">
+            <div class="panel-section__label">Smart suggestions</div>
+            <div class="seg" role="group" aria-label="Smart suggestions mode">
+              <button class="seg__btn is-active" data-ai-mode="off">Off</button>
+              <button class="seg__btn" data-ai-mode="local">Local model</button>
+              <button class="seg__btn" data-ai-mode="cloud">Cloud model</button>
+            </div>
+            <p id="aiModeReason" class="panel-section__text--muted is-hidden"></p>
+            <p class="privacy-foot">Demo mode: tracks the windows inside this demo</p>
+            <div id="aiConsent" class="ai-consent is-hidden">
+              <p class="panel-section__text--muted">This exact payload is sent. Nothing else leaves this device.</p>
+              <pre id="aiPayload" class="ai-payload"></pre>
+              <div class="proposal-actions">
+                <button id="aiAllow" class="btn btn--primary">Allow</button>
+                <button id="aiCancel" class="btn btn--ghost">Not now</button>
+              </div>
+            </div>
+          </div>
+          <button id="privacyExport" class="btn btn--ghost">Export my data</button>
           <button id="privacyDelete" class="btn btn--destructive">Delete everything</button>
         </section>
       </div>
@@ -241,6 +260,8 @@
 </div>
 
 <script src="js/events.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/persist.js"></script>
 <script src="js/desk.js"></script>
 <script src="js/retoma.js"></script>
 <script src="js/story.js"></script>

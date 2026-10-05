@@ -34,8 +34,7 @@ function ok(cond, label, detail) {
   ok(before !== after, 'theme toggle flips data-theme', before + ' -> ' + after);
 
   // app window in DARK and LIGHT: resume card + timeline
-  for (const th of ['dark', 'light']) {
-    await window.evaluate((t) => Theme.apply(t, false), th);
+  for (const th of ['dark', 'light']) {    await window.evaluate((t) => Theme.apply(t, false), th);
     await window.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
     await window.waitForTimeout(600);
     await window.screenshot({ path: path.join(SHOTS, 'app-' + th + '-resume.png') });
@@ -49,6 +48,29 @@ function ok(cond, label, detail) {
     await window.waitForTimeout(400);
     await window.screenshot({ path: path.join(SHOTS, 'app-' + th + '-timeline.png') });
   }
+
+  console.log('\nD1 · preload bridge + IPC persistence + propose');
+  ok(await window.evaluate(() => !!(window.retoma && window.retoma.propose)), 'preload bridge window.retoma.propose present');
+  const caps = await window.evaluate(() => window.retoma.capabilities());
+  const keyPresent = !!process.env.GEMINI_API_KEY;
+  ok(caps && caps.cloudAvailable === keyPresent, 'cloud availability follows the key', JSON.stringify(caps));
+  ok(keyPresent ? (caps.cloudReason || '') === '' : /GEMINI_API_KEY/.test(caps.cloudReason || ''), 'disabled reason names the missing key', (caps && caps.cloudReason) || '(enabled)');
+  const eProp = await window.evaluate(async () => {
+    const s = { perApp: { Document: 40 }, longest: { app: 'Document', minutes: 40 }, firstInterruption: { app: 'WhatsApp', at: '9:52' } };
+    return window.retoma.propose(s, { mode: 'off' });
+  });
+  ok(/^\d{1,2}:[0-5]\d$/.test(eProp.start) && Number.isInteger(eProp.minutes) && eProp.minutes >= 15 && eProp.minutes <= 180 && String(eProp.reason).length <= 140, 'propose off returns valid shape over IPC', JSON.stringify(eProp));
+  await window.evaluate(() => window.retoma.saveEvents([{ app: 'Document', duration: 40, ts: new Date().toISOString() }]));
+  const eLoaded = await window.evaluate(() => window.retoma.loadEvents());
+  ok(Array.isArray(eLoaded) && eLoaded.length >= 1, 'events round-trip through events.json', JSON.stringify(eLoaded).slice(0, 120));
+  await window.evaluate(() => window.retoma.deleteEvents());
+  const eAfter = await window.evaluate(() => window.retoma.loadEvents());
+  ok(Array.isArray(eAfter) && eAfter.length === 0, 'delete-all empties the store');
+  await window.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await window.waitForTimeout(400);
+  ok(await window.evaluate(() => document.getElementById('resumeCard').classList.contains('is-visible')), 'resume card shows after 25 min away (notify path)');
+  const segCount = await window.evaluate(() => document.querySelectorAll('[data-ai-mode]').length);
+  ok(segCount === 3, 'Smart suggestions control present in app', 'found ' + segCount);
 
   await app.close();
   if (fails.length) { console.log(fails.length + ' failed, ' + pass + ' passed'); process.exit(1); }

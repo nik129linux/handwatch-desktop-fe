@@ -10,7 +10,7 @@
   "build": {
     "appId": "com.retoma.desktop",
     "productName": "Retoma",
-    "files": ["index.html", "main.js", "css/", "js/", "fonts/", "build/icon.svg", "package.json"],
+    "files": ["index.html", "main.js", "preload.js", "ai/", "css/", "js/", "fonts/", "build/icon.svg", "build/tray-active.png", "build/tray-paused.png", "package.json"],
     "linux": { "target": ["dir"], "icon": "build/icon.svg", "category": "Utility" }
   },
   "devDependencies": {
