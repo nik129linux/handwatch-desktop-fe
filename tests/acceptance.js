@@ -247,16 +247,16 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return cs.maxHeight;
   });
   ok(/calc\(.*100.*vh.*-.*56px\)/.test(panelMaxH) || /calc\(.*100.*dvh.*-.*56px\)/.test(panelMaxH) || panelMaxH === panelMaxH, 'panel max-height uses viewport -56px', panelMaxH);
-  // numeric check: maxHeight <= viewport -48 approx
+  // numeric check: panel clears dock (FIXES-3: bottom <= dock top - 12)
   const panelVHOk = await fixPage.evaluate(() => {
     const p = document.getElementById('retomaPanel');
     const mh = parseFloat(getComputedStyle(p).maxHeight);
-    return mh <= window.innerHeight - 40 && mh >= window.innerHeight - 80;
+    return mh <= window.innerHeight - 150 && mh >= window.innerHeight - 260;
   });
-  ok(panelVHOk, 'panel max-height ≈ viewport -56px');
-  // overflow scroll
-  const overflow = await fixPage.evaluate(() => getComputedStyle(document.getElementById('retomaPanel')).overflowY);
-  ok(overflow === 'auto' || overflow === 'scroll', 'panel has own scroll', overflow);
+  ok(panelVHOk, 'panel max-height clears dock (≈ viewport -186px)');
+  // overflow: tab body scrolls (FIXES-3), panel itself clips
+  const overflow = await fixPage.evaluate(() => getComputedStyle(document.querySelector('.retoma-tab.is-active')).overflowY);
+  ok(overflow === 'auto' || overflow === 'scroll', 'active tab body has own scroll', overflow);
   // click eye opens
   await fixPage.click('#retomaToggle');
   await settle(fixPage, 300);
@@ -632,10 +632,10 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(panel);
     const tab = document.querySelector('.retoma-tab.is-active');
     const tcs = tab ? getComputedStyle(tab) : null;
-    return { panelPadBottom: cs.paddingBottom, tabPadBottom: tcs ? tcs.paddingBottom : 'no-tab', panelOver: cs.overflowY, panelScrollPad: cs.scrollPaddingBottom };
+    return { panelPadBottom: cs.paddingBottom, tabPadBottom: tcs ? tcs.paddingBottom : 'no-tab', panelOver: cs.overflowY, tabOver: tcs ? tcs.overflowY : 'no-tab', panelScrollPad: cs.scrollPaddingBottom };
   });
   ok(padCheck.panelPadBottom === '24px' || padCheck.tabPadBottom === '24px', 'tab/panel 24px bottom padding', JSON.stringify(padCheck));
-  ok(padCheck.panelOver === 'auto' || padCheck.panelOver === 'scroll', 'panel scrollable', padCheck.panelOver);
+  ok(padCheck.tabOver === 'auto' || padCheck.tabOver === 'scroll', 'tab body scrollable (FIXES-3)', JSON.stringify(padCheck));
   const acceptReach = await r2p.evaluate(() => {
     const btn = document.getElementById('proposalAccept');
     if (!btn) return { found:false };
@@ -707,6 +707,75 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(segDelays.length >= 3 && new Set(segDelays).size >= 2, 'timeline draws left to right with segment stagger', segDelays.join(','));
   ok(true, 'master ease cubic-bezier(0.16,1,0.3,1) for entrances');
   await moPage.close();
+
+  head('23 · FIXES-3: dock clearance, numbers agree, sim hit targets');
+  const f3 = await ctx.newPage();
+  await f3.goto(INDEX, { waitUntil: 'load' });
+  await f3.waitForSelector('#deskClock');
+  await settle(f3, 400);
+  // FIX 1: open Retoma panel (resume state) must not cover dock
+  await f3.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); Retoma.closePanel(); });
+  await settle(f3, 200);
+  await f3.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
+  await settle(f3, 500);
+  const dockClear = await f3.evaluate(() => {
+    const panel = document.getElementById('retomaPanel');
+    const dock = document.querySelector('.dock');
+    const p = panel.getBoundingClientRect();
+    const d = dock.getBoundingClientRect();
+    const dockVisible = getComputedStyle(dock).display !== 'none';
+    const inter = !(p.right <= d.left || d.right <= p.left || p.bottom <= d.top || d.bottom <= p.top);
+    return { panelBottom: Math.round(p.bottom), dockTop: Math.round(d.top), gap: Math.round(d.top - p.bottom), dockVisible: dockVisible, intersect: inter };
+  });
+  ok(dockClear.dockVisible, 'dock visible with panel open');
+  ok(!dockClear.intersect, 'dock rect not intersecting panel rect', JSON.stringify(dockClear));
+  ok(dockClear.gap >= 12, 'panel bottom <= dock top - 12px', JSON.stringify(dockClear));
+  // FIX 2: legend sub-line matches proposal longest block
+  await f3.evaluate(() => { Retoma.showEndOfDay(); Retoma.openPanel(); Retoma.switchTab('hoy'); });
+  await settle(f3, 300);
+  const nums = await f3.evaluate(() => ({
+    legend: document.getElementById('timelineLegend').textContent,
+    proposal: document.getElementById('proposalText').textContent,
+    how: document.getElementById('proposalHow').textContent
+  }));
+  const majorM = nums.legend.match(/bloque mayor (\d+) min/);
+  const propM = nums.proposal.match(/Mañana: (\d+) min/);
+  ok(!!majorM, 'legend labels longest block distinctly (bloque mayor)', nums.legend.slice(0, 140));
+  ok(!!propM, 'proposal states minutes', nums.proposal.slice(0, 100));
+  ok(majorM && propM && majorM[1] === propM[1], 'legend bloque mayor == proposal minutes, no mismatch', 'legend ' + (majorM && majorM[1]) + ' vs proposal ' + (propM && propM[1]));
+  ok(/bloque mayor \S+ \d+ min/.test(nums.how), 'Cómo lo decidí consistent with longest block', nums.how.slice(0, 140));
+  // FIX 3: proposed window start rounded to 15 min
+  const winM = nums.proposal.match(/(\d{1,2}):(\d{2}) a (\d{1,2}):(\d{2})/);
+  const startMin = winM ? (parseInt(winM[1], 10) * 60 + parseInt(winM[2], 10)) : -1;
+  ok(!!winM && startMin % 15 === 0, 'proposed window start rounded to 15 min', nums.proposal.slice(0, 100));
+  ok(/9:00 a 9:40/.test(nums.proposal), 'seed proposal window is 9:00-9:40', nums.proposal.slice(0, 100));
+  // FIX 4: sim buttons readable + hittable
+  const simBtns = await f3.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.sim-panel .btn'));
+    return els.map(e => {
+      const cs = getComputedStyle(e);
+      const r = e.getBoundingClientRect();
+      return { id: e.id || e.textContent.trim().slice(0, 18), h: Math.round(r.height), size: cs.fontSize, tt: cs.textTransform, ls: cs.letterSpacing, family: cs.fontFamily };
+    });
+  });
+  ok(simBtns.length >= 7, 'sim buttons present', 'found ' + simBtns.length);
+  ok(simBtns.every(b => b.h >= 40), 'sim hit height >= 40', JSON.stringify(simBtns));
+  ok(simBtns.every(b => b.size === '12px'), 'sim sentence-case mono 12px', JSON.stringify(simBtns));
+  ok(simBtns.every(b => b.tt === 'none'), 'sim buttons NOT caps', JSON.stringify(simBtns.map(b => b.tt)));
+  const heroPill = await f3.evaluate(() => {
+    const el = document.getElementById('storyPlay');
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return { bg: cs.backgroundColor, radius: cs.borderRadius, w: Math.round(r.width), text: el.textContent.trim() };
+  });
+  ok(/Turno guiado/.test(heroPill.text) && heroPill.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(heroPill.radius) > 10, 'Turno guiado is one clear primary pill', JSON.stringify(heroPill));
+  const trioRow = await f3.evaluate(() => {
+    const ids = ['storyPause', 'storySkip', 'storyRestart'];
+    const tops = ids.map(id => Math.round(document.getElementById(id).getBoundingClientRect().top));
+    return { tops: tops, oneRow: Math.max.apply(null, tops) - Math.min.apply(null, tops) < 12 };
+  });
+  ok(trioRow.oneRow, 'Pausar/Saltar/Reiniciar on one row', JSON.stringify(trioRow));
+  await f3.close();
 
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {

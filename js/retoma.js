@@ -145,7 +145,8 @@ var Retoma = (function () {
     if (ix === -1) ix = entries.length > 1 ? 1 : 0;
     var startMin = 9 * 60;
     for (var j = 0; j < ix; j++) startMin += entries[j].duration;
-    var winStart = Math.max(6 * 60, startMin - 60);
+    var rawStart = Math.max(6 * 60, startMin - 60);
+    var winStart = Math.ceil(rawStart / 15) * 15;
     var winEnd = winStart + longest.duration;
     return {
       longest: longest,
@@ -268,9 +269,16 @@ var Retoma = (function () {
         if (!merged.hasOwnProperty(e.app)) { merged[e.app] = 0; order.push(e.app); appFirstColor[e.app] = colors[i % colors.length]; }
         merged[e.app] += e.duration;
       });
+      // longest uninterrupted (single) block explains proposal minutes
+      var longestSingle = data[0] || { app: 'Documento', duration: 40 };
+      data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
       el.timelineLegend.innerHTML = order.map(function (app) {
         var c = appFirstColor[app];
-        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + app + ' · ' + merged[app] + ' min</span>';
+        var label = app + ' · ' + merged[app] + ' min';
+        if (app === longestSingle.app) {
+          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span>' + label + '<span class="timeline-legend__sub">bloque mayor ' + longestSingle.duration + ' min</span></span></span>';
+        }
+        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
       }).join('');
     }
     if (el.timelineText) el.timelineText.textContent = 'Planeado: 2 h de informe · Real: 1 h 20 min';

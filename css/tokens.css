@@ -77,10 +77,10 @@
   --state-primary-press: color-mix(in srgb, var(--color-primary-500) 82%, var(--color-black));
   --state-primary-dim: color-mix(in srgb, var(--color-primary-500) 34%, var(--color-neutral-900));
   --heat-1: color-mix(in srgb, var(--color-neutral-900) 92%, var(--color-primary-500));
-  --heat-2: color-mix(in srgb, var(--color-primary-500) 20%, var(--color-neutral-900));
-  --heat-3: color-mix(in srgb, var(--color-primary-500) 42%, var(--color-neutral-900));
+  --heat-2: color-mix(in srgb, var(--color-primary-500) 20%, var(--color-neutral-900));  --heat-3: color-mix(in srgb, var(--color-primary-500) 42%, var(--color-neutral-900));
   --heat-4: color-mix(in srgb, var(--color-primary-500) 66%, var(--color-neutral-900));
   --heat-5: var(--color-primary-500);
+  --wall-glow: color-mix(in srgb, var(--color-primary-500) 10%, var(--color-neutral-950));
 
   /* --- Spectrum ring stops (stop 1 == primary) -------------------------- */
   --ring-spectrum-1: var(--color-primary-500);

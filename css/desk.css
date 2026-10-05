@@ -134,7 +134,7 @@ body {
 }
 .wallpaper__glow { position: absolute; inset: 0; }
 .wallpaper__glow--a {
-  background: radial-gradient(60% 50% at 22% 18%, color-mix(in srgb, var(--color-primary-500) 14%, transparent), transparent 70%);
+  background: radial-gradient(60% 50% at 22% 18%, var(--wall-glow), transparent 70%);
 }
 .wallpaper__glow--b {
   background: radial-gradient(55% 55% at 82% 30%, color-mix(in srgb, var(--color-neutral-100) 12%, transparent), transparent 70%);
@@ -293,28 +293,47 @@ body {
 .btn-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .btn-row .btn { flex: 1; min-width: 120px; }
 
-/* quiet text buttons inside the sim strip only */
-.sim-panel .story-controls { display: flex; gap: var(--sp-3); align-items: baseline; }
-.sim-panel .btn-row { display: flex; flex-direction: column; gap: 0; }
-.sim-panel .btn-row .btn, .sim-panel .story-controls .btn {
-  flex: none; min-width: 0; min-height: 0;
-  background: transparent; border: none; border-radius: 0;
-  padding: 8px 0; text-align: left;
-  font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
-  color: var(--text-neutral-100);
+/* sim controls — readable sentence-case mono, hero pill + secondary row */
+.sim-panel .story-controls { display: flex; }
+.sim-panel #storyPlay.btn--hero {
+  width: 100%; box-sizing: border-box;
+  min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-primary-500); color: var(--text-black); border: 1px solid var(--border-primary-500);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: none;
+  font-weight: var(--weight-medium);
+  padding: 12px 20px;
 }
-.sim-panel .btn-row .btn:hover, .sim-panel .story-controls .btn:hover { background: transparent; color: var(--text-neutral-50); text-decoration: underline; text-underline-offset: 4px; }
-.sim-panel .btn--primary {
-  background: transparent; border: none; color: var(--text-neutral-50);
-  font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
-  text-align: left; padding: 8px 0;
+.sim-panel #storyPlay.btn--hero:hover { background: var(--state-primary-press); text-decoration: underline; text-decoration-color: var(--text-black); text-underline-offset: 3px; }
+.sim-panel #storyPlay.btn--hero:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
+.sim-panel .btn-row--trio { display: flex; flex-direction: row; gap: var(--sp-2); }
+.sim-panel .btn-row--trio .btn { flex: 1 1 0; min-width: 0; }
+.sim-panel .btn--secondary,
+.sim-panel #freeMode .btn {
+  min-height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-neutral-800); border: 1px solid var(--border-neutral-700); border-radius: var(--radius-pill);
+  padding: 10px 12px; text-align: center;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: none;
+  font-weight: var(--weight-regular);
+  color: var(--text-neutral-50);
 }
-.sim-panel .btn--primary:hover { background: transparent; text-decoration: underline; text-underline-offset: 4px; }
+.sim-panel .btn--secondary:hover,
+.sim-panel #freeMode .btn:hover { background: var(--bg-neutral-700); border-color: var(--border-neutral-600); text-decoration: underline; text-decoration-color: var(--border-primary-500); text-underline-offset: 3px; }
+.sim-panel .btn--secondary:focus-visible,
+.sim-panel #freeMode .btn:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
+.sim-panel #freeMode .btn-row { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--sp-2); }
+.sim-panel #freeMode .btn-row .btn { flex: 1 1 0; min-width: 120px; }
 .sim-panel .btn--destructive {
-  background: transparent; border: none; color: var(--text-neutral-400);
-  font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
-  text-align: left; padding: 8px 0;
+  background: transparent; border: 1px solid var(--border-neutral-700); border-radius: var(--radius-pill);
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: none;
+  color: var(--text-neutral-400); text-align: center; padding: 10px 12px; min-height: 40px;
+  width: 100%; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.sim-panel .btn--destructive:hover { color: var(--text-neutral-50); background: var(--bg-neutral-800); text-decoration: underline; text-decoration-color: var(--border-primary-500); text-underline-offset: 3px; }
+.sim-panel .btn--destructive:focus-visible { outline: 2px solid var(--border-primary-500); outline-offset: 2px; }
 #subtitle {
   font-size: var(--text-body); color: var(--text-neutral-100); min-height: 20px; text-align: center;
   padding: var(--sp-3) var(--sp-4); background: var(--bg-neutral-900); border-top: 1px solid var(--border-neutral-700);

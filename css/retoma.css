@@ -2,10 +2,11 @@
 .retoma-panel {
   position: absolute;
   top: 36px; right: 16px;
+  bottom: 150px;
   width: 400px;
-  max-height: calc(100vh - 56px);
-  max-height: calc(100dvh - 56px);
-  overflow-y: auto;
+  max-height: calc(100% - 36px - 150px);
+  max-height: calc(100dvh - 36px - 150px);
+  overflow: hidden;
   overflow-x: hidden;
   background: color-mix(in srgb, var(--color-neutral-950) 88%, transparent);
   backdrop-filter: blur(18px);
@@ -23,8 +24,8 @@
   scrollbar-gutter: stable;
   scroll-padding-bottom: 24px;
 }
-.retoma-tab { display: none; overflow-y: visible; }
-.retoma-tab.is-active { display: flex; flex-direction: column; gap: 0; overflow-y: visible; padding-bottom: 24px; }
+.retoma-tab { display: none; overflow: hidden; min-height: 0; }
+.retoma-tab.is-active { display: flex; flex-direction: column; gap: 0; overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1 1 auto; padding-bottom: 24px; }
 .retoma-panel.is-open {
   opacity: 1; pointer-events: auto;
   transform: scale(1) translateY(0);
@@ -95,6 +96,7 @@
 /* Resume card — full-bleed hero, no border, no chips-as-pills (Space blur-in) */
 .resume-card {
   order: 1;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -199,9 +201,20 @@
   padding-top: var(--sp-1);
 }
 .timeline-legend__item {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: flex-start; gap: 6px;
   font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
   color: var(--text-neutral-400);
+  font-variant-numeric: tabular-nums;
+}
+.timeline-legend__item--major { color: var(--text-neutral-100); }
+.timeline-legend__sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: none;
+  color: var(--text-neutral-400);
+  margin-top: 2px;
   font-variant-numeric: tabular-nums;
 }
 .timeline-legend__dot {
