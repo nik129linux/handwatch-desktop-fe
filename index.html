@@ -154,7 +154,9 @@
       <div id="resumeCard" class="resume-card is-hidden" aria-live="polite" aria-atomic="true">
         <div class="resume-card__eyebrow">Retoma</div>
         <h3 id="resumeHero" class="resume-card__hero">You were in Document</h3>
+        <p id="resumeAi" class="resume-card__ai is-hidden"></p>
         <p id="resumeSub" class="resume-card__sub">Quality report (paragraph 3)</p>
+        <p id="resumeNote" class="resume-card__note is-hidden"></p>
         <p id="resumeInter" class="resume-card__inter">WhatsApp interrupted you · 25 min</p>
         <p id="resumeHonest" class="resume-card__honest is-hidden">Retoma can't reopen windows here; it reminds you where you were.</p>
         <p id="resumeChips" class="resume-card__files">
@@ -181,6 +183,10 @@
           </div>
           <p id="nowTitle" class="panel-section__text">Quality report (paragraph 3)</p>
           <p id="nowDesc" class="panel-section__text--muted">Only the app name and the title. Never what you type.</p>
+          <div class="leave-note">
+            <label for="leaveNote">Next step (one line)</label>
+            <input id="leaveNote" type="text" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note">
+          </div>
         </section>
       </div>
 

@@ -64,6 +64,10 @@ function installHelper(opts) {
   return { copied: true, dest: to, files: FILES.slice() };
 }
 
+function needsHelper(platform) {
+  return platform !== 'win32';
+}
+
 module.exports = {
   UUID: UUID,
   FILES: FILES.slice(),
@@ -74,5 +78,6 @@ module.exports = {
   describeInstall: describeInstall,
   installedFiles: installedFiles,
   isInstalled: isInstalled,
-  installHelper: installHelper
+  installHelper: installHelper,
+  needsHelper: needsHelper
 };

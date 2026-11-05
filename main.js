@@ -14,6 +14,7 @@ const installer = require('./live/installer');
 const liveManager = require('./live/live-manager');
 const focusSourceMod = require('./live/focus-source');
 const idleSourceMod = require('./live/idle-source');
+const winSourceMod = require('./live/win-source');
 
 let win = null;
 let tray = null;
@@ -84,8 +85,14 @@ function setupLive() {
   var focusSrc = null;
   var idleSrc = null;
   if (!fakeSamples) {
-    focusSrc = focusSourceMod.createFocusSource({});
-    idleSrc = idleSourceMod.createIdleSource({});
+    if (process.platform === 'win32') {
+      var winSources = winSourceMod.createWinSources({});
+      focusSrc = winSources.focus;
+      idleSrc = winSources.idle;
+    } else {
+      focusSrc = focusSourceMod.createFocusSource({});
+      idleSrc = idleSourceMod.createIdleSource({});
+    }
   }
   liveMgr = liveManager.createLiveManager({
     focusSource: focusSrc,
@@ -187,6 +194,7 @@ function refreshTray() {
     tray.setImage(nativeImage.createFromPath(trayIconPath(paused)));
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: 'Open Retoma', click: () => { if (win) { win.show(); win.focus(); } } },
+      { label: 'Leave a note…', click: () => { if (win) { if (!win.isVisible()) win.show(); win.focus(); if (!win.isDestroyed()) win.webContents.send('retoma:note:focus'); } } },
       {
         label: paused ? 'Resume tracking' : 'Pause tracking',
         click: () => {
@@ -223,6 +231,14 @@ function setupShortcut() {
       if (win.isVisible()) win.hide(); else { win.show(); win.focus(); }
     });
   } catch (e) { /* headless */ }
+  try {
+    globalShortcut.register('Ctrl+Alt+N', () => {
+      if (!win) return;
+      if (!win.isVisible()) win.show();
+      win.focus();
+      if (win && !win.isDestroyed()) win.webContents.send('retoma:note:focus');
+    });
+  } catch (e) { /* headless */ }
 }
 
 function showReturnNotification(info) {
@@ -245,6 +261,7 @@ function showReturnNotification(info) {
 
 function setupIpc() {
   ipcMain.handle('retoma:propose', (ev, summary, opts) => providers.propose(summary, opts));
+  ipcMain.handle('retoma:resume-line', (ev, ctx, opts) => (providers.resumeLine ? providers.resumeLine(ctx, opts) : null));
   ipcMain.handle('retoma:preview', (ev, summary, mode) => providers.previewPayload(summary, mode));
   ipcMain.handle('retoma:capabilities', () => providers.capabilities());
   function fileForArg(arg) {
@@ -391,7 +408,8 @@ function setupIpc() {
     installed: installer.isInstalled(fs),
     installedFiles: installer.installedFiles(fs),
     enableCommand: installer.ENABLE_COMMAND,
-    dest: installer.destDir()
+    dest: installer.destDir(),
+    needsHelper: installer.needsHelper(process.platform)
   }));
   ipcMain.handle('retoma:helper:install', async (ev, opts) => {
     var meta = installer.describeInstall();
@@ -454,6 +472,10 @@ if (!gotLock) {
 }
 app.on('window-all-closed', () => app.quit());
 app.on('activate', () => { if (!win || win.isDestroyed()) createWindow(); });
-app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (e) { /* noop */ } });
+app.on('will-quit', () => {
+  try { globalShortcut.unregisterAll(); } catch (e) { /* noop */ }
+  // Windows does not kill child processes with the parent: stop the probe.
+  try { if (liveMgr) liveMgr.stop(); } catch (e) { /* noop */ }
+});
 
 module.exports = { showReturnNotification: showReturnNotification, trayIconPath: trayIconPath };

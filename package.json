@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-sandbox",
-    "dist": "electron-builder --linux dir"
+    "dist": "electron-builder --linux dir",
+    "dist:win": "electron-builder --win nsis --x64"
   },
   "build": {
     "appId": "com.retoma.desktop",
@@ -18,6 +19,7 @@
       "css/",
       "js/",
       "fonts/",
+      "live/",
       "build/icon.svg",
       "build/tray-active.png",
       "build/tray-paused.png",
@@ -29,6 +31,21 @@
       ],
       "icon": "build/icon.svg",
       "category": "Utility"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "devDependencies": {

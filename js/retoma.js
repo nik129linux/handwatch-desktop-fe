@@ -33,11 +33,38 @@ var Retoma = (function () {
   var clockH = 9, clockM = 0;
   var tickTimer = null;
   var activeTab = 'ahora';
+  var resumeAiToken = 0;
 
   function isLiveMode() {
     try {
       return !!(window.Live && Live.isLive && Live.isLive());
     } catch (e) { return false; }
+  }
+
+  function noteKey() {
+    return 'retoma.note.' + (isLiveMode() ? 'live' : 'demo');
+  }
+  function loadNote() {
+    try { return window.localStorage.getItem(noteKey()) || ''; } catch (e) { return ''; }
+  }
+  function saveNote(value) {
+    try {
+      var v = value == null ? '' : String(value);
+      var key = noteKey();
+      if (v.trim() === '') window.localStorage.removeItem(key);
+      else window.localStorage.setItem(key, v.trim());
+    } catch (e) { /* noop */ }
+  }
+  function currentNote() {
+    if (el.leaveNote) return String(el.leaveNote.value || '').trim();
+    return String(loadNote() || '').trim();
+  }
+  function clearNote() {
+    resumeAiToken++;
+    if (el.leaveNote) el.leaveNote.value = '';
+    try { window.localStorage.removeItem(noteKey()); } catch (e) { /* noop */ }
+    if (el.resumeNote) { el.resumeNote.textContent = ''; el.resumeNote.classList.add('is-hidden'); }
+    if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
   }
 
   /* Live reads ONLY live events: never fall back to the demo seed. */
@@ -151,7 +178,66 @@ var Retoma = (function () {
     if (honest) honest.classList.toggle('is-hidden', !live);
     if (el.retomarBtn) el.retomarBtn.textContent = live ? 'Got it' : 'Resume';
     if (el.resumeChips) {
-      el.resumeChips.innerHTML = state.prevWindows.map(function (w) { return '<span class="chip resume-chip">' + w + '</span>'; }).join('');
+      el.resumeChips.textContent = '';
+      (state.prevWindows || []).forEach(function (w, i) {
+        if (i > 0) {
+          var sep = document.createElement('span');
+          sep.className = 'resume-chip__sep';
+          sep.textContent = ' · ';
+          el.resumeChips.appendChild(sep);
+        }
+        var chip = document.createElement('span');
+        chip.className = 'resume-chip';
+        chip.textContent = w;
+        el.resumeChips.appendChild(chip);
+      });
+    }
+    var note = loadNote();
+    if (el.resumeNote) {
+      if (note) {
+        el.resumeNote.textContent = 'Next: ' + note;
+        el.resumeNote.classList.remove('is-hidden');
+      } else {
+        el.resumeNote.textContent = '';
+        el.resumeNote.classList.add('is-hidden');
+      }
+    }
+    // resumeAi under hero
+    if (el.resumeAi) {
+      el.resumeAi.textContent = '';
+      el.resumeAi.classList.add('is-hidden');
+    }
+    var token = ++resumeAiToken;
+    if (window.retoma && window.retoma.resumeLine) {
+      var ctx = { app: state.prevApp, title: state.prevTitle, note: note, awayMinutes: state.awayMinutes };
+      var opts = { mode: state.aiMode, consent: state.aiConsent };
+      try {
+        window.retoma.resumeLine(ctx, opts).then(function (res) {
+          if (token !== resumeAiToken) return;
+          // Rules only repeat the hero + note line: show the line only when a model wrote it.
+          if (!res || !res.text || res.fallback || res.source === 'On-device rules') {
+            if (el.resumeAi) el.resumeAi.classList.add('is-hidden');
+            return;
+          }
+          if (el.resumeAi) {
+            el.resumeAi.textContent = '';
+            var t = document.createElement('span');
+            t.textContent = res.text;
+            el.resumeAi.appendChild(t);
+            if (res.source) {
+              var tag = document.createElement('small');
+              tag.className = 'resume-ai__source';
+              tag.textContent = res.source;
+              el.resumeAi.appendChild(document.createTextNode(' '));
+              el.resumeAi.appendChild(tag);
+            }
+            el.resumeAi.classList.remove('is-hidden');
+          }
+        }, function () {
+          if (token !== resumeAiToken) return;
+          if (el.resumeAi) el.resumeAi.classList.add('is-hidden');
+        });
+      } catch (e) { /* noop */ }
     }
     el.resumeCard.classList.remove('is-visible');
     void el.resumeCard.offsetWidth;
@@ -414,6 +500,8 @@ var Retoma = (function () {
 
   function hideResume() {
     if (!el.resumeCard) return;
+    resumeAiToken++;
+    if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
     if (el.retomaPanel) el.retomaPanel.classList.remove('has-resume');
     el.resumeCard.classList.remove('is-visible');
     setTimeout(function () {
@@ -425,17 +513,20 @@ var Retoma = (function () {
     if (!el.resumeCard || !el.resumeCard.classList.contains('is-visible')) return;
     if (window.Live && Live.isLive && Live.isLive()) {
       // Live on Wayland cannot reopen windows: the card only reminds.
+      clearNote();
       hideResume();
       return;
     }
     if (state.empty) return;
     Desk.reopen(state.prevWindows, true);
+    clearNote();
     hideResume();
     var app = Events.findByLabel(state.prevApp);
     if (app) switchApp(app);
   }
 
   function doStartFresh() {
+    clearNote();
     hideResume();
   }
 
@@ -638,6 +729,7 @@ var Retoma = (function () {
       state.aiToken++;
       state.away = false;
       state.awayMinutes = 0;
+      clearNote();
       hideResume();
       renderTimeline();
       dismissProposal();
@@ -652,6 +744,7 @@ var Retoma = (function () {
     state.aiToken++;
     state.away = false;
     state.awayMinutes = 0;
+    clearNote();
     hideResume();
     renderTimeline();
     dismissProposal();
@@ -781,6 +874,9 @@ var Retoma = (function () {
     el.resumeChips = document.getElementById('resumeChips');
     el.retomarBtn = document.getElementById('retomarBtn');
     el.startFreshBtn = document.getElementById('startFreshBtn');
+    el.leaveNote = document.getElementById('leaveNote');
+    el.resumeNote = document.getElementById('resumeNote');
+    el.resumeAi = document.getElementById('resumeAi');
     el.timeline = document.getElementById('timeline');
     el.timelineBar = document.getElementById('timelineBar');
     el.timelineLegend = document.getElementById('timelineLegend');
@@ -804,6 +900,13 @@ var Retoma = (function () {
     }
     if (el.retomarBtn) el.retomarBtn.addEventListener('click', doRetomar);
     if (el.startFreshBtn) el.startFreshBtn.addEventListener('click', doStartFresh);
+    if (el.leaveNote) {
+      try { el.leaveNote.value = loadNote(); } catch (e) { /* noop */ }
+      el.leaveNote.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); saveNote(el.leaveNote.value); }
+      });
+      el.leaveNote.addEventListener('blur', function () { saveNote(el.leaveNote.value); });
+    }
     if (el.proposalAccept) el.proposalAccept.addEventListener('click', acceptProposal);
     if (el.proposalDecline) el.proposalDecline.addEventListener('click', dismissProposal);
 
@@ -882,6 +985,15 @@ var Retoma = (function () {
           showResume();
           var resumeBtn = document.getElementById('retomarBtn');
           if (resumeBtn) resumeBtn.focus();
+        });
+      } catch (e) { /* demo keeps going */ }
+    }
+    if (window.retoma && window.retoma.onNoteFocus) {
+      try {
+        window.retoma.onNoteFocus(function () {
+          openPanel();
+          switchTab('ahora');
+          if (el.leaveNote) el.leaveNote.focus();
         });
       } catch (e) { /* demo keeps going */ }
     }

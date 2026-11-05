@@ -162,7 +162,35 @@
   color: var(--text-neutral-100);
   margin: 0;
   line-height: 1.4;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.resume-card__note {
+  font-size: var(--text-body);
+  color: var(--text-neutral-100);
+  margin: 0;
+  line-height: 1.4;
+}
+.resume-card__ai {
+  font-size: var(--text-body);
+  color: var(--text-neutral-400);
+  margin: 0;
+  line-height: 1.4;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.resume-ai__source {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--text-neutral-400);
+}
+#resumeNote.is-hidden, #resumeAi.is-hidden { display: none; }
 .resume-card__inter {
   font-family: var(--font-body);
   font-size: var(--text-body);
@@ -458,3 +486,8 @@
 .habit-exp.is-hidden { display: none; }
 #habitAskAnswer.is-hidden { display: none; }
 .habit-ask { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.leave-note { display: flex; flex-direction: column; gap: var(--sp-1); margin-top: var(--sp-3); }
+.leave-note label { font-family: var(--font-mono); font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--text-neutral-400); }
+.leave-note input { min-height: 40px; background: var(--bg-screen); border: 1px solid var(--border-card); border-radius: var(--radius-sm); color: var(--text-neutral-100); padding: 0 var(--sp-3); font-size: var(--text-body); font-family: var(--font-body); transition: border-color var(--dur-exit) var(--ease-exit), background var(--dur-exit) var(--ease-exit); }
+.leave-note input:hover { border-color: var(--border-neutral-600); background: var(--bg-raised); }
+.leave-note input:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }

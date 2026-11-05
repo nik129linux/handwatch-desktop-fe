@@ -18,7 +18,7 @@ var Story = (function () {
     {
       sub: 'Retoma sees the app in use. Only the name, never what you type.',
       hold: 2200,
-      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Document'); Retoma.openPanel(); }
+      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Document'); Retoma.openPanel(); var ln = document.getElementById('leaveNote'); if (ln) { ln.value = 'fix the citation in paragraph 3'; try { localStorage.setItem('retoma.note.' + (Retoma.isLiveMode() ? 'live' : 'demo'), 'fix the citation in paragraph 3'); } catch (e) { /* noop */ } } }
     },
     {
       sub: 'You were interrupted. It notes it, never judges.',

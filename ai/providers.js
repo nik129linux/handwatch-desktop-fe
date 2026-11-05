@@ -390,6 +390,118 @@ function habitsAsk(metrics, question, opts) {
     });
 }
 
+/* --- Resume card: one honest line saying where the person was and their
+ * next step. Rules always; the local gemma model may refine them, but only
+ * modes with consent reach the network, and cloud never does (notes and
+ * titles stay on this device). */
+
+var RESUME_BANNED = /productiv|distract|score|lazy|wasted/i;
+var CLOUD_RESUME_NOTE = 'Notes and titles stay on this device';
+
+/* ctx = { app, title, note, awayMinutes }; empty ctx -> "Unknown". */
+function rulesResumeLine(ctx) {
+  var c = ctx || {};
+  var app = String(c.app || '').trim() || 'Unknown';
+  var title = String(c.title || '').trim();
+  var note = String(c.note || '').trim();
+  var text = 'You were in ' + app + (title ? ' \u00b7 ' + title : '') + '.' +
+    (note ? ' Next: ' + note : '');
+  if (text.length > 160) text = text.slice(0, 159) + '\u2026';
+  return { text: text, source: 'On-device rules', fallback: false };
+}
+
+/* The prompt only contains the fields that exist: an empty title is never
+ * sent to the model. */
+function resumePrompt(ctx) {
+  var app = String(ctx.app || '').trim() || 'Unknown';
+  var title = String(ctx.title || '').trim();
+  var note = String(ctx.note || '').trim().slice(0, 200);
+  var data = { app: app };
+  if (title) data.title = title.slice(0, 120);
+  if (note) data.note = note;
+  return 'Write the one-line resume card for this app session. You may only ' +
+    'use these given facts: ' + JSON.stringify(data) + '. Reply with JSON ' +
+    'only, exactly {"line":"..."}: one sentence in English, at most 140 ' +
+    'characters, it must name the app, it must not invent facts beyond the ' +
+    'app, title or note given above, and it must not use judgement words ' +
+    'like productive, distracted, score, lazy or wasted.';
+}
+
+function validateResumeLine(line, app) {
+  if (typeof line !== 'string') return false;
+  if (line.length < 8 || line.length > 140) return false;
+  if (line.indexOf('\n') !== -1) return false;
+  if (line.toLowerCase().indexOf(String(app || '').toLowerCase()) === -1) return false;
+  if (RESUME_BANNED.test(line)) return false;
+  return true;
+}
+
+/* fetchWithTimeout relies on the fetch impl honouring the abort signal; some
+ * impls (and a hung socket) never settle. Race the whole local call so the
+ * card always resolves within the timeout. */
+function raceTimeout(promise, ms) {
+  return new Promise(function (resolve, reject) {
+    var timer = setTimeout(function () { reject(new Error('timeout')); }, ms);
+    promise.then(
+      function (v) { clearTimeout(timer); resolve(v); },
+      function (e) { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
+function ollamaResumeLine(ctx, o) {
+  var base = o.ollamaUrl || ollamaBaseUrl();
+  var impl = o.fetchImpl;
+  var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
+  return fetchWithTimeout(base + '/api/tags', { method: 'GET' }, ms, impl)
+    .then(function (res) { return res.json(); })
+    .then(function (tags) {
+      var model = pickLocalModel(tags);
+      if (!model) throw new Error('no local model');
+      var body = { model: model, prompt: resumePrompt(ctx), format: 'json', stream: false };
+      return fetchWithTimeout(base + '/api/generate',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }, ms, impl)
+        .then(function (res) { return res.json(); })
+        .then(function (gen) {
+          var parsed;
+          try { parsed = parseModelJson(gen.response); } catch (e) { throw new Error('bad json'); }
+          if (!validateResumeLine(parsed && parsed.line, ctx.app || 'Unknown')) {
+            throw new Error('invalid line');
+          }
+          return { text: parsed.line, source: 'Local model \u00b7 ' + model, fallback: false };
+        });
+    });
+}
+
+/* Entry. Only mode 'local' with consent.local calls Ollama; 'off', missing
+ * consent and 'cloud' are pure rules with zero fetch calls. */
+function resumeLine(ctx, opts) {
+  var c = ctx || {};
+  var o = opts || {};
+  var mode = o.mode || 'off';
+  var consent = o.consent || {};
+  if (mode !== 'local' || !consent.local) {
+    var r = rulesResumeLine(c);
+    if (mode === 'cloud') {
+      r.note = CLOUD_RESUME_NOTE;
+    } else if (mode !== 'off') {
+      r.note = 'Consent needed before the model is called';
+    }
+    return Promise.resolve(r);
+  }
+  var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
+  return raceTimeout(ollamaResumeLine(c, o), ms).catch(function () {
+    var f = rulesResumeLine(c);
+    f.fallback = true;
+    f.note = FALLBACK_NOTE;
+    return f;
+  });
+}
+
 /* Privacy-tab status: is Ollama reachable, and with which model? */
 function aiStatus(opts) {
   var o = opts || {};
@@ -429,5 +541,7 @@ module.exports = {
   buildAskBody: buildAskBody,
   previewHabitsPayload: previewHabitsPayload,
   fmtClock: fmtClock,
-  parseClock: parseClock
+  parseClock: parseClock,
+  rulesResumeLine: rulesResumeLine,
+  resumeLine: resumeLine
 };
