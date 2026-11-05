@@ -896,7 +896,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const fake = await fakeOllama({ tags: { models: [{ name: 'qwen3.5:4b' }, { name: 'gemma4:31b-cloud', remote_host: 'cloud' }] }, generate: goodGen });
   const localRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: fake.url, timeoutMs: 5000 });
   ok(localRes.minutes === 45 && localRes.start === '09:00', 'local with consent returns validated output', JSON.stringify(localRes));
-  ok(/Local model/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the local model', localRes.source);
+  ok(/^Ollama cloud/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the model and says a -cloud model runs on Ollama cloud', localRes.source);
   const genReq = fake.requests.find(r => r.url === '/api/generate');
   const genBody = genReq ? JSON.parse(genReq.body) : {};
   ok(genBody.model === 'gemma4:31b-cloud', 'picks gemma, never another local model', genBody.model);
