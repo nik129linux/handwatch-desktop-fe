@@ -15,6 +15,7 @@ const liveManager = require('./live/live-manager');
 const focusSourceMod = require('./live/focus-source');
 const idleSourceMod = require('./live/idle-source');
 const winSourceMod = require('./live/win-source');
+const hyprSourceMod = require('./live/hypr-source');
 
 let win = null;
 let tray = null;
@@ -37,6 +38,7 @@ function eventsFileFor(mode) {
 function eventsFile() {
   return eventsFileFor(modeNow());
 }
+
 
 function experimentsFileFor(mode) {
   return store.experimentsPathFor(app.getPath('userData'), mode);
@@ -90,6 +92,10 @@ function setupLive() {
       var winSources = winSourceMod.createWinSources({});
       focusSrc = winSources.focus;
       idleSrc = winSources.idle;
+    } else if (hyprSourceMod.isHyprland(process.env)) {
+      var hyprSources = hyprSourceMod.createHyprSources({});
+      focusSrc = hyprSources.focus;
+      idleSrc = hyprSources.idle;
     } else {
       focusSrc = focusSourceMod.createFocusSource({});
       idleSrc = idleSourceMod.createIdleSource({});
@@ -422,14 +428,17 @@ function setupIpc() {
   ipcMain.handle('retoma:live:replay', () => (liveMgr ? liveMgr.replay() : false));
   ipcMain.handle('retoma:live:ready', () => (liveMgr ? liveMgr.ready() : false));
   ipcMain.handle('retoma:helper:describe', () => installer.describeInstall());
-  ipcMain.handle('retoma:helper:check', () => ({
-    status: liveMgr ? liveMgr.status() : 'error',
-    installed: installer.isInstalled(fs),
-    installedFiles: installer.installedFiles(fs),
-    enableCommand: installer.ENABLE_COMMAND,
-    dest: installer.destDir(),
-    needsHelper: installer.needsHelper(process.platform)
-  }));
+  ipcMain.handle('retoma:helper:check', () => {
+    var needed = installer.needsHelper(process.platform, process.env);
+    return {
+      status: liveMgr ? liveMgr.status() : 'error',
+      installed: installer.isInstalled(fs),
+      installedFiles: installer.installedFiles(fs),
+      enableCommand: installer.ENABLE_COMMAND,
+      dest: installer.destDir(),
+      needsHelper: needed
+    };
+  });
   ipcMain.handle('retoma:helper:install', async (ev, opts) => {
     var meta = installer.describeInstall();
     var confirmed;
