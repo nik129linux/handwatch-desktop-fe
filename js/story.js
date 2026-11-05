@@ -89,7 +89,7 @@ var Story = (function () {
   ];
 
   function setControls(runningNow) {
-    if (el.storyPlay) { el.storyPlay.disabled = runningNow; el.storyPlay.textContent = runningNow ? '▶ Running' : '▶ Guided tour'; }
+    if (el.storyPlay) { el.storyPlay.disabled = runningNow; var lbl = el.storyPlay.querySelector('.story-play-label'); if (lbl) lbl.textContent = runningNow ? 'Running' : 'Guided tour'; else el.storyPlay.textContent = runningNow ? 'Running' : 'Guided tour'; }
     if (el.storyPause) el.storyPause.disabled = !runningNow;
     if (el.storySkip) el.storySkip.disabled = !runningNow;
     var freeBtns = document.querySelectorAll('#freeMode .btn');

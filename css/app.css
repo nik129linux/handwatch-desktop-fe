@@ -376,3 +376,32 @@ body.is-live .app > .sim-panel { display: none; }
 .sim-panel #storyPlay svg { width: 12px; height: 12px; }
 .sim-panel .sim-section .panel-section__text--muted { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--ink-muted); margin: 0 0 0 var(--sp-2); }
 .sim-panel > .panel-section__text--muted { margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--ink-muted); }
+
+/* --- Shell details ------------------------------------------------------------ */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: content-box; }
+
+/* The tab already names the section: its first label is for screen readers only */
+#timeline > .panel-section__label:first-child,
+#retomaTabPriv > .panel-section > .panel-section__label:first-child {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* Live: the simulated dock belongs to the demo only */
+body.is-live .dock { display: none; }
+
+/* Live setup: real numbered steps */
+.helper-card__steps { counter-reset: step; list-style: none; padding: 0; }
+.helper-card__step { counter-increment: step; position: relative; padding-left: var(--sp-10); }
+.helper-card__step::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-pill);
+  font: var(--weight-semibold) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  color: var(--ink-strong);
+}
