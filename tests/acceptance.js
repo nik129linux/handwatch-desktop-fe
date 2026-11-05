@@ -2,7 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
-const { chromium } = require('/home/nico/.nvm/versions/node/v22.23.2/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'shots');
