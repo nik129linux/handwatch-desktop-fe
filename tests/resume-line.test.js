@@ -132,7 +132,7 @@ async function main() {
     var r = await providers.resumeLine(CTX, {mode: 'local', consent: {local: true}, fetchImpl: f});
     assert.strictEqual(r.fallback, false);
     assert.strictEqual(r.text, 'You were tightening the Document quality report; next, fix the paragraph 3 citation.');
-    assert.strictEqual(r.source, 'Local model · gemma4:31b-cloud');
+    assert.strictEqual(r.source, 'Ollama cloud · gemma4:31b-cloud', 'a -cloud model is never called local');
     var gen = f.calls.filter(function (c) { return /generate$/.test(c.url); })[0];
     var body = JSON.parse(gen.body);
     assert.strictEqual(body.model, 'gemma4:31b-cloud');
@@ -163,7 +163,8 @@ async function main() {
     ['multi-line', '{"line":"You were in Document.\\nNext: fix it."}'],
     ['not JSON', 'You were in Document.'],
     ['wrong key', '{"text":"You were in Document."}'],
-    ['non-string line', '{"line":42}']
+    ['non-string line', '{"line":42}'],
+    ['third person ("the user")', '{"line":"In Document, the user worked on the report."}']
   ];
   for (const [label, reply] of BAD) {
     await test('local: rejects ' + label + ' -> rules fallback', async function () {
@@ -189,6 +190,19 @@ async function main() {
     var r = await providers.resumeLine(CTX, {mode: 'local', consent: {local: true}, fetchImpl: hung, timeoutMs: 50});
     assert.ok(Date.now() - t0 < 1000, 'took ' + (Date.now() - t0) + 'ms');
     assert.strictEqual(r.fallback, true);
+  });
+
+  await test('a truly local gemma is labelled local', async function () {
+    var r = await providers.resumeLine(CTX, {mode: 'local', consent: {local: true}, fetchImpl: fakeOllama('{"line":"You were in Document; next, fix the citation."}', ['gemma4:12b'])});
+    assert.strictEqual(r.source, 'Local model · gemma4:12b');
+  });
+
+  await test('propose: a judging reason from the model falls back to rules', async function () {
+    var summary = providers.buildSummary([{app: 'Document', duration: 40}, {app: 'WhatsApp', duration: 18}]);
+    var r = await providers.propose(summary, {mode: 'local', consent: {local: true},
+      fetchImpl: fakeOllama('{"start":"9:40","minutes":40,"reason":"Avoid the WhatsApp distraction pattern."}')});
+    assert.strictEqual(r.fallback, true, JSON.stringify(r));
+    assert.ok(!/distract/i.test(r.reason));
   });
 
   await test('existing propose() still works (no regression in the export list)', async function () {

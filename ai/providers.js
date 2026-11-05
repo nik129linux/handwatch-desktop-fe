@@ -75,8 +75,16 @@ function rulesPropose(summary) {
   return { start: fmtClock(winStart), minutes: minutes, reason: reason.slice(0, 140), source: 'rules' };
 }
 
+/* A -cloud Ollama model runs on ollama.com: say so, never call it local. */
+function sourceLabel(model) {
+  return (/(-|:)cloud\b/i.test(String(model)) ? 'Ollama cloud \u00b7 ' : 'Local model \u00b7 ') + model;
+}
+
+var JUDGING = /productiv|distract|score|lazy|wasted/i;
+
 function validateProposal(obj) {
   if (!obj || typeof obj !== 'object') return false;
+  if (typeof obj.reason === 'string' && JUDGING.test(obj.reason)) return false;
   if (parseClock(obj.start) === null) return false;
   if (!Number.isInteger(obj.minutes) || obj.minutes < 15 || obj.minutes > 180) return false;
   if (typeof obj.reason !== 'string' || obj.reason.length < 1 || obj.reason.length > 140) return false;
@@ -189,7 +197,7 @@ function ollamaPropose(summary, opts) {
           var parsed;
           try { parsed = parseModelJson(gen.response); } catch (e) { throw new Error('bad json'); }
           if (!validateProposal(parsed)) throw new Error('invalid shape');
-          return { start: parsed.start, minutes: parsed.minutes, reason: parsed.reason, source: 'Local model \u00b7 ' + model, fallback: false };
+          return { start: parsed.start, minutes: parsed.minutes, reason: parsed.reason, source: sourceLabel(model), fallback: false };
         });
     });
 }
@@ -422,7 +430,8 @@ function resumePrompt(ctx) {
   return 'Write the one-line resume card for this app session. You may only ' +
     'use these given facts: ' + JSON.stringify(data) + '. Reply with JSON ' +
     'only, exactly {"line":"..."}: one sentence in English, at most 140 ' +
-    'characters, it must name the app, it must not invent facts beyond the ' +
+    'characters, speak to the person as "you" (for example "You were in ..."), ' +
+    'never "the user", it must name the app, it must not invent facts beyond the ' +
     'app, title or note given above, and it must not use judgement words ' +
     'like productive, distracted, score, lazy or wasted.';
 }
@@ -433,6 +442,7 @@ function validateResumeLine(line, app) {
   if (line.indexOf('\n') !== -1) return false;
   if (line.toLowerCase().indexOf(String(app || '').toLowerCase()) === -1) return false;
   if (RESUME_BANNED.test(line)) return false;
+  if (/\bthe user\b/i.test(line)) return false;
   return true;
 }
 
@@ -472,7 +482,7 @@ function ollamaResumeLine(ctx, o) {
           if (!validateResumeLine(parsed && parsed.line, ctx.app || 'Unknown')) {
             throw new Error('invalid line');
           }
-          return { text: parsed.line, source: 'Local model \u00b7 ' + model, fallback: false };
+          return { text: parsed.line, source: sourceLabel(model), fallback: false };
         });
     });
 }
