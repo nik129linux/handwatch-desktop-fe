@@ -8,15 +8,17 @@
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/desk.css">
 <link rel="stylesheet" href="css/retoma.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<div class="stage">
-  <div class="desktop-area">
-    <div class="menu-bar" id="menuBar" role="banner">
+<a class="skip-link" href="#retomaPanel">Skip to Retoma</a>
+<div class="stage app">
+    <header class="menu-bar titlebar" id="menuBar">
       <div class="menu-bar__left">
-        <span class="menu-bar__dot"></span><span class="menu-bar__dot"></span><span class="menu-bar__dot"></span>
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="40 4 6 4"></circle></svg>
         <span class="menu-bar__appname">Retoma</span>
         <span class="live-dot" id="liveDot" aria-hidden="true"></span>
+        <span class="paused-chip" role="status">Paused: not watching</span>
       </div>
       <div class="menu-bar__right">
         <span id="deskClock" class="menu-bar__clock tabular">09:00</span>
@@ -34,7 +36,7 @@
             <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
           </svg>
         </button>
-        <button id="retomaToggle" class="retoma-toggle" aria-label="Pause Retoma" aria-pressed="false" title="Pause 30 min" aria-expanded="false" aria-controls="retomaPanel">
+        <button id="retomaToggle" class="retoma-toggle" aria-label="Pause Retoma" aria-pressed="false" title="Pause 30 min">
           <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
             <circle cx="12" cy="12" r="3.2"></circle>
@@ -47,109 +49,8 @@
           <span class="retoma-toggle__tooltip">Paused: I am not watching anything</span>
         </button>
       </div>
-    </div>
-
-    <div class="desktop-workspace" id="desktopWorkspace">
-      <div class="wallpaper" aria-hidden="true">
-        <div class="wallpaper__glow wallpaper__glow--a"></div>
-        <div class="wallpaper__glow wallpaper__glow--b"></div>
-        <div class="wallpaper__glow wallpaper__glow--c"></div>
-      </div>
-      <svg class="grain" aria-hidden="true"><filter id="grainF"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#grainF)"/></svg>
-      <div class="desktop-hint" id="desktopHint">Simulation — drag focus between windows</div>
-      <div id="win-doc" class="window is-focused" data-app="Document">
-        <div class="window__bar">
-          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
-          <span class="window__title">Quality report</span><span class="window__app">Document</span>
-        </div>
-        <div class="window__body">
-          <p><strong>Quality report — paragraph 3</strong></p>
-          <p>Quarterly report draft. You were writing here before the interruption.</p>
-          <p class="muted">Edited 2 min ago · Only the title is visible to Retoma</p>
-        </div>
-      </div>
-      <div id="win-browser" class="window" data-app="Browser">
-        <div class="window__bar">
-          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
-          <span class="window__title">Brightspace · Course 4B</span><span class="window__app">Browser</span>
-        </div>
-        <div class="window__body">
-          <p><strong>Brightspace</strong></p>
-          <p>Course material and assignments. Window open in the background.</p>
-          <p class="muted">brightspace.example.edu</p>
-        </div>
-      </div>
-      <div id="win-whatsapp" class="window" data-app="WhatsApp">
-        <div class="window__bar">
-          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
-          <span class="window__title">Messages · Ana</span><span class="window__app">WhatsApp</span>
-        </div>
-        <div class="window__body">
-          <p><strong>WhatsApp</strong></p>
-          <p>Hi, do you have a moment?</p>
-          <p class="muted">Only the window title, never the content</p>
-        </div>
-      </div>
-      <div id="win-sheet" class="window" data-app="Spreadsheet">
-        <div class="window__bar">
-          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
-          <span class="window__title">Data · Tracker</span><span class="window__app">Spreadsheet</span>
-        </div>
-        <div class="window__body">
-          <p><strong>Tracker</strong></p>
-          <p>Report data table. Open next to the document.</p>
-          <p class="muted">Only the title, not the cells</p>
-        </div>
-      </div>
-      <div id="liveView" class="live-view is-hidden" inert aria-live="polite" aria-label="Live tracking on this PC">
-        <div class="live-view__inner">
-          <div id="liveStatus" class="status-chip" data-status="waiting">
-            <span class="status-chip__pulse" aria-hidden="true"></span>
-            <span id="liveStatusText">Waiting for helper</span>
-          </div>
-          <h2 id="liveNow" class="live-now">Now: waiting for activity</h2>
-          <p id="liveToday" class="live-today tabular">Nothing tracked yet</p>
-          <div id="liveBar" class="timeline-bar" aria-hidden="true"></div>
-          <div id="helperCard" class="helper-card is-hidden" aria-label="Helper setup">
-            <h3 class="helper-card__title">Track this PC</h3>
-            <ol class="helper-card__steps">
-              <li class="helper-card__step">
-                <span class="helper-card__text">Install the focus helper</span>
-                <button id="helperInstall" class="btn btn--primary">Install helper</button>
-              </li>
-              <li class="helper-card__step">
-                <span class="helper-card__text">Log out and back in</span>
-              </li>
-              <li class="helper-card__step">
-                <span class="helper-card__text">Enable and check</span>
-                <span class="helper-card__row">
-                  <button id="helperCheck" class="btn">Check again</button>
-                  <button id="enableCopy" class="btn">Copy</button>
-                </span>
-                <code id="enableCmd" class="helper-cmd">gnome-extensions enable retoma-focus@retoma.local</code>
-              </li>
-            </ol>
-            <p id="helperNote" class="helper-card__note is-hidden"></p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="dock" role="toolbar" aria-label="Dock">
-      <button class="dock__item is-active" data-app="Document" aria-label="Document">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h6"></path></svg>
-      </button>
-      <button class="dock__item" data-app="Browser" aria-label="Browser">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18"></path></svg>
-      </button>
-      <button class="dock__item" data-app="WhatsApp" aria-label="WhatsApp">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10h8M8 14h5"></path><path d="M21 11.5a9 9 0 0 1-9 9 9 9 0 0 1-3.2-.6L3 21l1.1-5.8A9 9 0 0 1 12 2.5a9 9 0 0 1 9 9z"></path></svg>
-      </button>
-      <button class="dock__item" data-app="Spreadsheet" aria-label="Spreadsheet">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 3v18"></path><path d="M14 13h3M14 17h3"></path></svg>
-      </button>
-    </div>
-    <div id="subtitle" aria-live="polite"></div>
-    <div id="retomaPanel" class="retoma-panel" role="dialog" aria-label="Retoma panel">
+    </header>
+    <main id="retomaPanel" class="retoma-panel is-open" aria-label="Retoma">
       <!-- Resume card is hero, NOT a tab: first and largest when exists -->
       <div id="resumeCard" class="resume-card is-hidden" aria-live="polite" aria-atomic="true">
         <div class="resume-card__eyebrow">Retoma</div>
@@ -177,12 +78,31 @@
       <div id="retomaTabAhora" class="retoma-tab is-active" role="tabpanel" aria-labelledby="tabBtnAhora">
         <section class="panel-section" aria-label="Now">
           <div class="panel-section__label">Now</div>
+          <div class="now-hero">
+          <div id="nowRing" class="now-ring" style="--p: 0" role="img" aria-label="Time in this task">
+            <svg class="now-ring__svg" viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="var(--ring-spectrum-1)"></stop>
+                  <stop offset="0.2" stop-color="var(--ring-spectrum-2)"></stop>
+                  <stop offset="0.4" stop-color="var(--ring-spectrum-3)"></stop>
+                  <stop offset="0.6" stop-color="var(--ring-spectrum-4)"></stop>
+                  <stop offset="0.8" stop-color="var(--ring-spectrum-5)"></stop>
+                  <stop offset="1" stop-color="var(--ring-spectrum-6)"></stop>
+                </linearGradient>
+              </defs>
+              <circle class="now-ring__track" cx="60" cy="60" r="52"></circle>
+              <circle class="now-ring__fill" cx="60" cy="60" r="52" pathLength="100"></circle>
+            </svg>
+            <span id="nowRingLabel" class="now-ring__label tabular">0<small>min</small></span>
+          </div>
           <div class="now-row">
             <span id="nowApp" class="now-app">Document</span>
             <span id="nowTime" class="now-time tabular">0 min here</span>
           </div>
           <p id="nowTitle" class="panel-section__text">Quality report (paragraph 3)</p>
           <p id="nowDesc" class="panel-section__text--muted">Only the app name and the title. Never what you type.</p>
+          </div>
           <div class="leave-note">
             <label for="leaveNote">Next step (one line)</label>
             <input id="leaveNote" type="text" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note">
@@ -305,15 +225,117 @@
           </div>
         </section>
       </div>
-    </div>
-  </div>
+    </main>
+  <section class="desktop-area" aria-label="Your desktop">
 
-  <aside class="sim-panel" aria-label="Simulator">
-    <h2 class="sim-title">Retoma — simulator</h2>
+    <div class="desktop-workspace" id="desktopWorkspace">
+      <div class="wallpaper" aria-hidden="true">
+        <div class="wallpaper__glow wallpaper__glow--a"></div>
+        <div class="wallpaper__glow wallpaper__glow--b"></div>
+        <div class="wallpaper__glow wallpaper__glow--c"></div>
+      </div>
+      <svg class="grain" aria-hidden="true"><filter id="grainF"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#grainF)"/></svg>
+      <div class="desktop-hint" id="desktopHint">A simulated desktop for the demo. Click a window to focus it.</div>
+      <div id="win-doc" class="window is-focused" data-app="Document">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Quality report</span><span class="window__app">Document</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Quality report — paragraph 3</strong></p>
+          <p>Quarterly report draft. You were writing here before the interruption.</p>
+          <p class="muted">Edited 2 min ago · Only the title is visible to Retoma</p>
+        </div>
+      </div>
+      <div id="win-browser" class="window" data-app="Browser">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Brightspace · Course 4B</span><span class="window__app">Browser</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Brightspace</strong></p>
+          <p>Course material and assignments. Window open in the background.</p>
+          <p class="muted">brightspace.example.edu</p>
+        </div>
+      </div>
+      <div id="win-whatsapp" class="window" data-app="WhatsApp">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Messages · Ana</span><span class="window__app">WhatsApp</span>
+        </div>
+        <div class="window__body">
+          <p><strong>WhatsApp</strong></p>
+          <p>Hi, do you have a moment?</p>
+          <p class="muted">Only the window title, never the content</p>
+        </div>
+      </div>
+      <div id="win-sheet" class="window" data-app="Spreadsheet">
+        <div class="window__bar">
+          <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
+          <span class="window__title">Data · Tracker</span><span class="window__app">Spreadsheet</span>
+        </div>
+        <div class="window__body">
+          <p><strong>Tracker</strong></p>
+          <p>Report data table. Open next to the document.</p>
+          <p class="muted">Only the title, not the cells</p>
+        </div>
+      </div>
+      <div id="liveView" class="live-view is-hidden" inert aria-live="polite" aria-label="Live tracking on this PC">
+        <div class="live-view__inner">
+          <div id="liveStatus" class="status-chip" data-status="waiting">
+            <span class="status-chip__pulse" aria-hidden="true"></span>
+            <span id="liveStatusText">Waiting for helper</span>
+          </div>
+          <h2 id="liveNow" class="live-now">Now: waiting for activity</h2>
+          <p id="liveToday" class="live-today tabular">Nothing tracked yet</p>
+          <div id="liveBar" class="timeline-bar" aria-hidden="true"></div>
+          <div id="helperCard" class="helper-card is-hidden" aria-label="Helper setup">
+            <h3 class="helper-card__title">Track this PC</h3>
+            <ol class="helper-card__steps">
+              <li class="helper-card__step">
+                <span class="helper-card__text">Install the focus helper</span>
+                <button id="helperInstall" class="btn btn--primary">Install helper</button>
+              </li>
+              <li class="helper-card__step">
+                <span class="helper-card__text">Log out and back in</span>
+              </li>
+              <li class="helper-card__step">
+                <span class="helper-card__text">Enable and check</span>
+                <span class="helper-card__row">
+                  <button id="helperCheck" class="btn">Check again</button>
+                  <button id="enableCopy" class="btn">Copy</button>
+                </span>
+                <code id="enableCmd" class="helper-cmd">gnome-extensions enable retoma-focus@retoma.local</code>
+              </li>
+            </ol>
+            <p id="helperNote" class="helper-card__note is-hidden"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Dock">
+      <button class="dock__item is-active" data-app="Document" aria-label="Document">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h6"></path></svg>
+      </button>
+      <button class="dock__item" data-app="Browser" aria-label="Browser">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18"></path></svg>
+      </button>
+      <button class="dock__item" data-app="WhatsApp" aria-label="WhatsApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10h8M8 14h5"></path><path d="M21 11.5a9 9 0 0 1-9 9 9 9 0 0 1-3.2-.6L3 21l1.1-5.8A9 9 0 0 1 12 2.5a9 9 0 0 1 9 9z"></path></svg>
+      </button>
+      <button class="dock__item" data-app="Spreadsheet" aria-label="Spreadsheet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 3v18"></path><path d="M14 13h3M14 17h3"></path></svg>
+      </button>
+    </div>
+    <div id="subtitle" aria-live="polite"></div>
+  </section>
+
+  <aside class="sim-panel" aria-label="Demo controls">
+    <h2 class="sim-title">Demo controls</h2>
     <section class="sim-section" aria-label="Guided tour">
-      <div class="sim-label">Guided tour · 60 s</div>
+      <div class="sim-label">Guided tour, 60 seconds</div>
       <div class="story-controls">
-        <button id="storyPlay" class="btn btn--primary btn--hero">▶ Guided tour</button>
+        <button id="storyPlay" class="btn btn--primary btn--hero"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"></path></svg>Guided tour</button>
       </div>
       <div class="btn-row btn-row--trio">
         <button id="storyPause" class="btn btn--secondary" disabled>Pause</button>

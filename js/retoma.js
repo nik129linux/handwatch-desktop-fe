@@ -530,8 +530,28 @@ var Retoma = (function () {
     hideResume();
   }
 
+  var RING_BLOCK_MIN = 25;
+  function renderRing(minutes) {
+    var ring = document.getElementById('nowRing');
+    var label = document.getElementById('nowRingLabel');
+    if (!ring || !label) return;
+    var known = typeof minutes === 'number' && isFinite(minutes) && minutes >= 0;
+    var p = known ? Math.min(1, minutes / RING_BLOCK_MIN) : 0;
+    ring.style.setProperty('--p', String(p));
+    ring.classList.toggle('is-full', p >= 1);
+    label.textContent = '';
+    label.appendChild(document.createTextNode(known ? String(minutes) : '0'));
+    var unit = document.createElement('small');
+    unit.textContent = 'min';
+    label.appendChild(unit);
+    ring.setAttribute('aria-label', known
+      ? minutes + ' minutes in this task. The ring fills at ' + RING_BLOCK_MIN + ' minutes.'
+      : 'Not tracking right now');
+  }
+
   function renderAhora() {
     if (!el.nowApp) return;
+    renderRing(null);
     if (isLiveMode() && !hasTimelineEntries() && !(window.Live && Live.state && Live.state.liveApp)) {
       /* Live with no live events: never show the demo's Document. */
       el.nowApp.textContent = 'Waiting for activity';
@@ -555,6 +575,7 @@ var Retoma = (function () {
       return;
     }
     el.nowApp.textContent = state.currentApp;
+    renderRing(state.timeInCurrent);
     if (el.nowTitle) el.nowTitle.textContent = state.currentTitle;
     if (el.nowTime) el.nowTime.textContent = state.timeInCurrent + ' min here';
     if (el.nowDesc) {
@@ -757,69 +778,39 @@ var Retoma = (function () {
     return !state.empty && state.timeline.length > 0;
   }
 
-  function isPanelOpen() { return el.retomaPanel && el.retomaPanel.classList.contains('is-open'); }
+  /* The Retoma column is the app itself (always on screen). openPanel /
+   * closePanel stay in the API for the story and tests; closing is a no-op. */
+  function isPanelOpen() { return !!el.retomaPanel; }
 
   function syncDesktopLayout() {
-    if (window.innerWidth < 901) {
-      var da = document.querySelector('.desktop-area');
-      if (da) da.classList.remove('has-panel-open');
-      return;
-    }
-    var desktopArea = document.querySelector('.desktop-area');
-    if (!desktopArea) return;
-    var isOpen = isPanelOpen();
-    if (isOpen) desktopArea.classList.add('has-panel-open');
-    else desktopArea.classList.remove('has-panel-open');
-    if (isOpen) {
-      requestAnimationFrame(function () {
-        var panel = document.getElementById('retomaPanel');
-        var ws = document.getElementById('desktopWorkspace');
-        if (!panel || !ws) return;
-        var pLeft = panel.getBoundingClientRect().left;
-        var wsLeft = ws.getBoundingClientRect().left;
-        var avail = pLeft - wsLeft - 24;
-        if (avail < 100) return;
-        var gap = 16;
-        var inset = 16;
-        var colW = Math.floor((avail - inset * 2 - gap) / 2);
-        colW = Math.max(180, Math.min(colW, 340));
-        var map = { 'win-doc': 0, 'win-browser': 1, 'win-whatsapp': 2, 'win-sheet': 3 };
-        var lefts = [inset, inset + colW + gap, inset, inset + colW + gap];
-        var tops = [48, 48, 330, 330];
-        Object.keys(map).forEach(function (id) {
-          var e = document.getElementById(id);
-          if (!e) return;
-          var idx = map[id];
-          e.style.left = lefts[idx] + 'px';
-          e.style.width = colW + 'px';
-          e.style.top = tops[idx] + 'px';
-        });
-      });
-    } else {
-      ['win-doc','win-browser','win-whatsapp','win-sheet'].forEach(function (id) {
+    var ws = document.getElementById('desktopWorkspace');
+    if (!ws) return;
+    requestAnimationFrame(function () {
+      var r = ws.getBoundingClientRect();
+      if (r.width < 200) return;
+      var inset = 24, gap = 16, top = 56;
+      var colW = Math.floor((r.width - inset * 2 - gap) / 2);
+      colW = Math.max(160, Math.min(colW, 360));
+      var rowH = Math.floor((r.height - top - inset - gap) / 2);
+      var map = { 'win-doc': 0, 'win-browser': 1, 'win-whatsapp': 2, 'win-sheet': 3 };
+      Object.keys(map).forEach(function (id) {
         var e = document.getElementById(id);
-        if (e) { e.style.left = ''; e.style.width = ''; e.style.top = ''; }
+        if (!e) return;
+        var ix = map[id];
+        e.style.left = (inset + (ix % 2) * (colW + gap)) + 'px';
+        e.style.top = (top + Math.floor(ix / 2) * (Math.max(rowH, 180) + gap)) + 'px';
+        e.style.width = colW + 'px';
       });
-    }
+    });
   }
 
   function openPanel() {
     if (!el.retomaPanel) return;
     el.retomaPanel.classList.add('is-open');
-    el.retomaPanel.classList.remove('is-closing');
-    el.retomaPanel.setAttribute('aria-hidden', 'false');
-    if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'true');
     syncDesktopLayout();
   }
   function closePanel() {
-    if (!el.retomaPanel) return;
-    if (el.retomaPanel.contains(document.activeElement) && el.toggleBtn) el.toggleBtn.focus();
-    el.retomaPanel.classList.remove('is-open');
-    el.retomaPanel.classList.add('is-closing');
-    el.retomaPanel.setAttribute('aria-hidden', 'true');
-    if (el.toggleBtn) el.toggleBtn.setAttribute('aria-expanded', 'false');
     syncDesktopLayout();
-    setTimeout(function () { el.retomaPanel.classList.remove('is-closing'); }, 220);
   }
   function togglePanel() {
     if (isPanelOpen()) closePanel(); else openPanel();
@@ -895,7 +886,6 @@ var Retoma = (function () {
       el.toggleBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         togglePause();
-        togglePanel();
       });
     }
     if (el.retomarBtn) el.retomarBtn.addEventListener('click', doRetomar);
@@ -915,21 +905,10 @@ var Retoma = (function () {
       b.addEventListener('click', function () { switchTab(b.getAttribute('data-tab')); });
     });
 
-    // Esc closes the confirm dialog first, then the panel
+    // Esc closes the confirm dialog (the Retoma column never closes)
     document.addEventListener('keydown', function (ev) {
       if (ev.key !== 'Escape') return;
-      if (el.confirmOverlay && el.confirmOverlay.classList.contains('is-open')) { closeConfirm(); return; }
-      closePanel();
-    });
-    // click outside closes — ignore clicks that intentionally open the panel (Volver, endday) or inside sim-panel
-    document.addEventListener('click', function (ev) {
-      if (!el.retomaPanel || !el.toggleBtn) return;
-      if (!isPanelOpen()) return;
-      if (el.retomaPanel.contains(ev.target) || el.toggleBtn.contains(ev.target)) return;
-      if (ev.target.closest('.confirm-overlay')) return;
-      if (ev.target.closest('.sim-panel') || ev.target.closest('#freeMode')) return;
-      if (ev.target.closest('.retoma-panel')) return;
-      closePanel();
+      if (el.confirmOverlay && el.confirmOverlay.classList.contains('is-open')) closeConfirm();
     });
 
     // privacy delete confirm

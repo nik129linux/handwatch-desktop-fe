@@ -1,49 +1,6 @@
 /* retoma.css — Retoma panel: whitespace + hairline, editorial hero, quiet timeline */
-.retoma-panel {
-  position: absolute;
-  top: 36px; right: 16px;
-  bottom: 150px;
-  width: 400px;
-  max-height: calc(100% - 36px - 150px);
-  max-height: calc(100dvh - 36px - 150px);
-  overflow: hidden;
-  overflow-x: hidden;
-  background: color-mix(in srgb, var(--bg-stage) 88%, transparent);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid var(--border-neutral-700);
-  border-radius: var(--radius-card);
-  padding: var(--sp-6) var(--sp-6);
-  padding-bottom: 24px;
-  display: flex; flex-direction: column; gap: 0;
-  z-index: 50;
-  opacity: 0; pointer-events: none;
-  visibility: hidden;
-  transform: scale(0.96) translateY(-8px);
-  transform-origin: top right;
-  /* Base visibility flips with no delay: the close fade is covered by
-     .is-closing (visibility stays visible for --dur-exit), so once that class
-     is stripped the panel must leave the tab order immediately instead of
-     lingering visible for another --dur-enter. */
-  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter), visibility 0s;
-  scrollbar-gutter: stable;
-  scroll-padding-bottom: 24px;
-}
 .retoma-tab { display: none; overflow: hidden; min-height: 0; }
 .retoma-tab.is-active { display: flex; flex-direction: column; gap: 0; overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1 1 auto; padding-bottom: 24px; }
-.retoma-panel.is-open {
-  opacity: 1; pointer-events: auto;
-  visibility: visible;
-  transform: scale(1) translateY(0);
-  transition: opacity var(--dur-enter) var(--ease-enter), transform var(--dur-enter) var(--ease-enter);
-}
-.retoma-panel.is-closing {
-  opacity: 0; pointer-events: none;
-  visibility: visible;
-  transform: scale(0.96) translateY(-8px);
-  transition: opacity var(--dur-exit) var(--ease-exit), transform var(--dur-exit) var(--ease-exit), visibility 0s linear var(--dur-exit);
-}
-
 /* tabs — quiet mono, no pills */
 .retoma-tabs {
   display: flex; gap: var(--sp-4);

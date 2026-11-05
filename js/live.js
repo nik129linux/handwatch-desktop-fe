@@ -107,7 +107,7 @@ var Live = (function () {
         wins[w].removeAttribute('aria-hidden');
       }
     }
-    if (el.hint) el.hint.textContent = isLive() ? 'Live — tracking this PC' : 'Simulation — drag focus between windows';
+    if (el.hint) el.hint.textContent = isLive() ? 'Live: tracking this PC' : 'A simulated desktop for the demo. Click a window to focus it.';
     var simBtns = document.querySelectorAll('.sim-panel .btn');
     for (var j = 0; j < simBtns.length; j++) {
       simBtns[j].disabled = isLive();
