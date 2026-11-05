@@ -405,3 +405,11 @@ body.is-live .dock { display: none; }
   font: var(--weight-semibold) var(--text-sm) / var(--leading-sm) var(--font-sans);
   color: var(--ink-strong);
 }
+
+/* Lime is reserved: the app's primary action, the active state, focus.
+   The demo's own controls stay neutral so they never outrank Resume. */
+.sim-panel #storyPlay.btn--primary { background: var(--surface-raised); border-color: var(--line-strong); color: var(--ink-strong); font-weight: var(--weight-semibold); }
+.sim-panel #storyPlay.btn--primary svg { color: var(--accent-line); }
+@media (hover: hover) {
+  .sim-panel #storyPlay.btn--primary:hover { background: var(--surface-card-hover); border-color: var(--ink-muted); }
+}

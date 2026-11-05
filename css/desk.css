@@ -224,8 +224,8 @@
   outline-offset: 2px;
 }
 .dock__item.is-active {
-  background: var(--accent-soft);
-  border-color: var(--line-subtle);
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
 }
 .dock__item.is-hidden-app {
   opacity: 0.45;
