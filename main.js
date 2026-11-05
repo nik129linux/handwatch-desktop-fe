@@ -19,6 +19,7 @@ const winSourceMod = require('./live/win-source');
 let win = null;
 let tray = null;
 let paused = false;
+let appLang = 'en';
 let settingsFile = null;
 let liveMgr = null;
 let liveClock = null;
@@ -192,7 +193,23 @@ function refreshTray() {
   if (!tray) return;
   try {
     tray.setImage(nativeImage.createFromPath(trayIconPath(paused)));
-    tray.setContextMenu(Menu.buildFromTemplate([
+    tray.setContextMenu(Menu.buildFromTemplate(appLang === 'es' ? [
+      { label: 'Abrir Retoma', click: () => { if (win) { win.show(); win.focus(); } } },
+      { label: 'Dejar una nota…', click: () => { if (win) { if (!win.isVisible()) win.show(); win.focus(); if (!win.isDestroyed()) win.webContents.send('retoma:note:focus'); } } },
+      {
+        label: paused ? 'Reanudar seguimiento' : 'Pausar seguimiento',
+        click: () => {
+          paused = !paused;
+          if (win && !win.isDestroyed()) {
+            win.webContents.executeJavaScript(
+              'window.Retoma && window.Retoma.isPaused && window.Retoma.isPaused() !== ' + (paused ? 'true' : 'false') + ' ? window.Retoma.togglePause() : null'
+            );
+          }
+          refreshTray();
+        }
+      },
+      { label: appLang === 'es' ? 'Salir' : 'Quit', click: () => app.quit() }
+    ] : [
       { label: 'Open Retoma', click: () => { if (win) { win.show(); win.focus(); } } },
       { label: 'Leave a note…', click: () => { if (win) { if (!win.isVisible()) win.show(); win.focus(); if (!win.isDestroyed()) win.webContents.send('retoma:note:focus'); } } },
       {
@@ -209,7 +226,7 @@ function refreshTray() {
       },
       { label: 'Quit', click: () => app.quit() }
     ]));
-    tray.setToolTip(paused ? 'Retoma (paused)' : 'Retoma');
+    tray.setToolTip(paused ? (appLang === 'es' ? 'Retoma (en pausa)' : 'Retoma (paused)') : 'Retoma');
   } catch (e) { /* headless: tray handlers are unit-tested instead */ }
 }
 
@@ -246,7 +263,9 @@ function showReturnNotification(info) {
   var appName = (info && info.app) || 'Document';
   if (!native.shouldNotify(awayMinutes)) return false;
   try {
-    var note = new Notification(native.resumeNotification(appName));
+    var note = appLang === 'es'
+      ? new Notification({ title: 'Retoma', body: 'Sigue donde quedaste: ' + appName })
+      : new Notification(native.resumeNotification(appName));
     note.on('click', () => {
       if (win) {
         if (!win.isVisible()) win.show();
@@ -379,8 +398,8 @@ function setupIpc() {
     st.gated = false;
     return st;
   });
-  ipcMain.on('retoma:paused', (ev, isPaused) => {
-    paused = !!isPaused;
+  ipcMain.on('retoma:lang', (ev, l) => { appLang = l === 'es' ? 'es' : 'en'; refreshTray(); });
+  ipcMain.on('retoma:paused', (ev, isPaused) => {    paused = !!isPaused;
     try {
       var next = persistSettings({ paused: paused });
       if (liveMgr) liveMgr.setPaused(paused);

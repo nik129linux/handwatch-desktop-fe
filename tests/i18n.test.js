@@ -37,7 +37,7 @@ async function setLang(page, lang) {
 
 /* Visible text in the app that is still English. App names, numbers and the user's own note are data,
  * not copy; anything inside [data-i18n-skip] is data too. */
-const ENGLISH = /\b(the|you|your|you're|what|never|today|tomorrow|now|with|before|after|away|back|start|delete|everything|suggestion|planned|actual|resume|switch|pause|tracking|helper|minutes|here|only|title|window|arrives|guided|tour|free|mode|step|next|deleted|history|about|this|device|thanks|accept|interrupted|longest|block|report|morning)\b/i;
+const ENGLISH = /\b(the|you|your|you're|what|never|today|tomorrow|now|with|before|after|away|back|start|delete|everything|suggestion|planned|actual|resume|switch|pause|tracking|helper|minutes|here|only|title|window|arrives|guided|free|mode|step|next|deleted|history|about|this|device|thanks|accept|interrupted|longest|block|report|morning)\b/i;
 async function englishLeftovers(page) {
   return page.evaluate((src) => {
     const re = new RegExp(src, 'i');

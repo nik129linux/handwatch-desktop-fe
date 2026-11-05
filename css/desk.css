@@ -232,7 +232,8 @@
 }
 
 /* titlebar controls owned here */
-.mode-switch {
+.mode-switch,
+.lang-switch {
   display: inline-flex;
   align-items: center;
   background: var(--surface-inset);
@@ -241,7 +242,8 @@
   padding: var(--sp-0-5);
   flex-shrink: 0;
 }
-.mode-switch__btn {
+.mode-switch__btn,
+.lang-switch__btn {
   appearance: none;
   background: transparent;
   border: none;
@@ -258,19 +260,23 @@
   transition: background-color var(--dur-state) var(--ease-enter), color var(--dur-state) var(--ease-enter);
 }
 @media (hover: hover) {
-  .mode-switch__btn:hover {
+  .mode-switch__btn:hover,
+  .lang-switch__btn:hover {
     color: var(--ink-strong);
   }
 }
-.mode-switch__btn:focus-visible {
+.mode-switch__btn:focus-visible,
+.lang-switch__btn:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-.mode-switch__btn.is-active {
+.mode-switch__btn.is-active,
+.lang-switch__btn.is-active {
   background: var(--accent);
   color: var(--ink-on-accent);
 }
-.mode-switch__ink {
+.mode-switch__ink,
+.lang-switch__ink {
   display: none;
 }
 .theme-toggle,
@@ -576,6 +582,20 @@ body.is-live .window {
     right: var(--sp-3);
     bottom: var(--sp-3);
     transform: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .menu-bar__appname {
+    display: none;
+  }
+  .titlebar .menu-bar__left,
+  .titlebar .menu-bar__right {
+    gap: var(--sp-2);
+  }
+  .mode-switch__btn,
+  .lang-switch__btn {
+    padding: 0 var(--sp-2);
   }
 }
 

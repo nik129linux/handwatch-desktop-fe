@@ -69,6 +69,7 @@ async function awayAndBack(page) {
   await typeNote(page, 'fix the citation in paragraph 3');
   await awayAndBack(page);
   ok(await page.locator('#resumeNote').isVisible(), 'resume card shows the note line');
+  ok(!(await page.locator('#resumeHonest').isVisible()) && !(await page.locator('#resumeAi').isVisible()), 'demo card hides the Live-only line and the empty AI line');
   ok((await page.locator('#resumeNote').textContent()).trim() === 'Next: fix the citation in paragraph 3', 'note line reads "Next: <note>"',
     await page.locator('#resumeNote').textContent());
   await page.evaluate(() => document.getElementById('retomarBtn').click());

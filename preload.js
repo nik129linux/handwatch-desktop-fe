@@ -30,5 +30,6 @@ contextBridge.exposeInMainWorld('retoma', {
   habitsReport: (opts) => ipcRenderer.invoke('retoma:habits:report', opts || {}),
   habitsAccept: (experiment, opts) => ipcRenderer.invoke('retoma:habits:accept', experiment, opts || {}),
   habitsAsk: (question, opts) => ipcRenderer.invoke('retoma:habits:ask', question, opts || {}),
-  aiStatus: (opts) => ipcRenderer.invoke('retoma:ai:status', opts || {})
+  aiStatus: (opts) => ipcRenderer.invoke('retoma:ai:status', opts || {}),
+  setLang: (lang) => ipcRenderer.send('retoma:lang', lang)
 });

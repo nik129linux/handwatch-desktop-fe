@@ -197,7 +197,7 @@ var Visual = (function () {
           walked += w;
         }
         acc = Math.round(frac * total);
-        read.textContent = (label ? label + ' — ' : '') + acc + ' min in';
+        read.textContent = (label ? label + ', ' : '') + acc + ' min in';
         read.style.opacity = '1';
         read.style.transform = 'translateX(' + Math.round(Math.min(Math.max(x - 60, 0), r.width - 130)) + 'px)';
       });

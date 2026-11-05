@@ -301,6 +301,8 @@ body.is-live .app > .sim-panel { display: none; }
   color: var(--ink-strong);
 }
 .retoma-panel .resume-card__note.is-hidden { display: none; }
+.retoma-panel .resume-card__honest.is-hidden,
+.retoma-panel .resume-card__ai.is-hidden { display: none; }
 .retoma-panel .resume-card__ai { margin: 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); }
 .retoma-panel .resume-card__ai .resume-ai__source { display: block; margin-top: var(--sp-1); font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans); letter-spacing: var(--tracking-label); text-transform: none; color: var(--ink-muted); }
 .retoma-panel .resume-card__sub { margin: 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

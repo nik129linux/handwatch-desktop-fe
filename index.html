@@ -27,6 +27,10 @@
           <button class="mode-switch__btn is-active" data-mode="demo" aria-pressed="true">Demo</button>
           <button class="mode-switch__btn" data-mode="live" aria-pressed="false">Live</button>
         </div>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
+          <button class="lang-switch__btn" data-lang="es" aria-pressed="false">ES</button>
+        </div>
         <button id="themeToggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme" aria-pressed="false">
           <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -242,7 +246,7 @@
           <span class="window__title">Quality report</span><span class="window__app">Document</span>
         </div>
         <div class="window__body">
-          <p><strong>Quality report — paragraph 3</strong></p>
+          <p><strong>Quality report, paragraph 3</strong></p>
           <p>Quarterly report draft. You were writing here before the interruption.</p>
           <p class="muted">Edited 2 min ago · Only the title is visible to Retoma</p>
         </div>
@@ -388,6 +392,7 @@
 <script src="js/theme.js"></script>
 <script src="js/presence.js"></script>
 <script src="js/visual.js"></script>
+<script src="js/i18n.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     Desk.mount();
@@ -398,6 +403,7 @@
     Theme.mount();
     Presence.mount();
     Visual.mount();
+    if (window.I18n && I18n.mount) I18n.mount();
   });
 </script>
 </body>
