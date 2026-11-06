@@ -1479,6 +1479,105 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await qp.screenshot({ path: path.join(SHOTS, '33-quota-adjust.png'), fullPage: true });
   await qp.close();
 
+  head('34 · Suggest with AI button proves the server answered');
+  const c34 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const asPage = await c34.newPage();
+  const asErrs = watchErrors(asPage);
+  await asPage.addInitScript(() => {
+    window.__aiSuggestMode = 'server';
+    window.retoma = {
+      propose: function (summary, opts) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            if (window.__aiSuggestMode === 'fallback') {
+              resolve({ source: 'On-device rules', fallback: true });
+            } else {
+              resolve({ source: 'Retoma server · gemma4:31b', quota: { left: 47, limit: 50 }, start: '9:30', minutes: 45, reason: 'Quiet block after the first hour.' });
+            }
+          }, 300);
+        });
+      },
+      previewPayload: function (summary) {
+        return Promise.resolve({ model: 'gemma4:31b', prompt: 'Summary: ' + JSON.stringify(summary), format: 'json', stream: false });
+      },
+      aiQuota: function () { return Promise.resolve({ left: 47, limit: 50 }); },
+      aiStatus: function () { return Promise.resolve({ reachable: true, model: 'gemma4:31b' }); },
+      capabilities: function () { return Promise.resolve({ cloudAvailable: false }); }
+    };
+  });
+  await asPage.goto(INDEX, { waitUntil: 'load' });
+  await asPage.waitForSelector('#deskClock');
+  await asPage.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  await asPage.evaluate(() => Retoma.showEndOfDay());
+  await settle(asPage, 400);
+
+  ok(await asPage.locator('#aiSuggestBtn').isVisible(), 'AI suggest button visible on the proposal card');
+  ok(await asPage.locator('#aiSuggestBtn .ring-face').count() === 1, 'AI suggest button carries the ring face');
+  ok(await asPage.locator('#aiSuggestBtn .ring-eye').count() === 2, 'ring face has two eyes');
+  const textBeforeAI = await asPage.locator('#proposalText').textContent();
+
+  // AI off: click asks first and shows the exact server payload
+  await asPage.evaluate(() => { if (Retoma.state.aiMode === 'server') { Retoma.state.aiMode = 'off'; Retoma.state.aiConsent.server = false; } });
+  await asPage.click('#aiSuggestBtn');
+  await settle(asPage, 400);
+  ok(await asPage.locator('#aiSuggestConsent').isVisible(), 'AI off: click opens the consent panel');
+  const consentPayload = await asPage.evaluate(() => {
+    const raw = document.getElementById('aiSuggestPayload').textContent;
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { /* stays null */ }
+    const keys = [];
+    (function walk(v) {
+      if (!v || typeof v !== 'object') return;
+      Object.keys(v).forEach((k) => { keys.push(k); walk(v[k]); });
+    })(parsed);
+    return { parsed: !!parsed, keys: keys };
+  });
+  ok(consentPayload.parsed, 'consent payload is valid JSON');
+  ok(consentPayload.keys.indexOf('title') === -1 && consentPayload.keys.indexOf('note') === -1,
+    'consent payload has no title or note key', consentPayload.keys.join(','));
+
+  // Send: thinking state during the wait, proof after
+  await asPage.click('#aiSuggestSend');
+  await settle(asPage, 100);
+  const thinking = await asPage.evaluate(() => ({
+    label: document.getElementById('aiSuggestBtn').textContent.trim(),
+    face: document.querySelector('#aiSuggestBtn .ring-face').classList.contains('is-thinking'),
+    disabled: document.getElementById('aiSuggestBtn').disabled
+  }));
+  ok(thinking.face, 'during the wait the face is thinking', JSON.stringify(thinking));
+  ok(/Thinking…/.test(thinking.label), 'during the wait the label reads Thinking…', thinking.label);
+  await asPage.waitForFunction(() => /gemma4:31b/.test(document.getElementById('aiProofLine').textContent), { timeout: 4000 });
+  const proof = await asPage.locator('#aiProofLine').textContent();
+  ok(/gemma4:31b/.test(proof), 'proof names the real model', proof);
+  ok(/Retoma server/.test(proof), 'proof says Retoma server', proof);
+  ok(/ s ·/.test(proof), 'proof shows latency in seconds', proof);
+  ok(/47 requests left/.test(proof), 'proof shows the remaining quota', proof);
+  const textAfterAI = await asPage.locator('#proposalText').textContent();
+  ok(textAfterAI !== textBeforeAI, 'the server answer replaced the proposal text', textBeforeAI.slice(0, 50) + ' -> ' + textAfterAI.slice(0, 50));
+  const privacyMode = await asPage.evaluate(() => ({
+    state: Retoma.state.aiMode,
+    radio: !!document.querySelector('[data-ai-mode="server"].is-active')
+  }));
+  ok(privacyMode.state === 'server' && privacyMode.radio, 'Privacy AI mode is now server', JSON.stringify(privacyMode));
+  ok(await asPage.evaluate(() => !document.getElementById('aiProof').classList.contains('is-hidden')), 'proof block is visible after success');
+  await asPage.screenshot({ path: path.join(SHOTS, '34-ai-suggest.png'), fullPage: true });
+
+  // fallback proof
+  await asPage.evaluate(() => { window.__aiSuggestMode = 'fallback'; });
+  await asPage.click('#aiSuggestBtn');
+  await asPage.waitForFunction(() => /on-device rules made this one/.test(document.getElementById('aiProofLine').textContent), { timeout: 4000 });
+  const fallbackProof = await asPage.locator('#aiProofLine').textContent();
+  ok(/on-device rules made this one/.test(fallbackProof), 'fallback proof says on-device rules made this one', fallbackProof);
+  const restored = await asPage.evaluate(() => ({
+    label: document.getElementById('aiSuggestBtn').textContent.trim(),
+    disabled: document.getElementById('aiSuggestBtn').disabled,
+    thinking: document.querySelector('#aiSuggestBtn .ring-face').classList.contains('is-thinking')
+  }));
+  ok(/Suggest with AI/.test(restored.label) && !restored.disabled && !restored.thinking, 'button restored after the run', JSON.stringify(restored));
+  ok(asErrs.length === 0, 'AI suggest run has no console errors', asErrs.join(' | '));
+  await asPage.close();
+  await c34.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });

@@ -224,6 +224,7 @@
   --dur-state: 220ms;      /* tab, toggle, color */
   --dur-exit: 200ms;
   --dur-enter: 360ms;      /* card / panel entrance */
+  --dur-fresh: 240ms;      /* one-shot proof refresh */
   --dur-hero: 900ms;       /* ring fill, hero reveal */
   --dur-stagger: 60ms;
 }

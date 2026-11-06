@@ -128,8 +128,32 @@
           <p id="timelineText" class="planned-real tabular">Planned: 2 h on the report · Actual: 1 h 20 min</p>
           <div id="proposalCard" class="proposal-card">
             <div class="proposal-card__label">Suggestion · <span id="proposalTag" class="proposal-tag">On-device rules</span></div>
+            <div class="ai-suggest-row">
+              <button id="aiSuggestBtn" class="btn btn--ai" type="button">
+                <span class="ai-face" aria-hidden="true"><span class="ring-face"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span></span>
+                <span id="aiSuggestLabel">Suggest with AI</span>
+              </button>
+            </div>
+            <div id="aiSuggestConsent" class="ai-suggest-consent is-hidden">
+              <p class="panel-section__text--muted">Sends app names and minutes to the Retoma server. No titles, no notes.</p>
+              <details class="ai-suggest-details">
+                <summary>See exactly what is sent</summary>
+                <pre id="aiSuggestPayload" class="ai-payload"></pre>
+              </details>
+              <div class="proposal-actions">
+                <button id="aiSuggestSend" class="btn btn--primary" type="button">Send</button>
+                <button id="aiSuggestCancel" class="btn btn--ghost" type="button">Cancel</button>
+              </div>
+            </div>
             <p id="proposalText" class="proposal-card__text">Tomorrow: 40 min for the report, 9:00 to 9:40, before the messages arrive.</p>
             <p id="proposalHow" class="proposal-card__how">How I decided: longest block Document 40 min · first interruption WhatsApp 9:52 · window 9:00–9:40</p>
+            <div id="aiProof" class="ai-proof is-hidden">
+              <p id="aiProofLine" class="ai-proof__line"></p>
+              <details class="ai-suggest-details">
+                <summary>What the model saw</summary>
+                <pre id="aiProofPayload" class="ai-payload"></pre>
+              </details>
+            </div>
             <div class="proposal-actions">
               <button id="proposalAccept" class="btn btn--primary">Accept</button>
               <button id="proposalAdjust" class="btn btn--ghost" type="button">Adjust</button>

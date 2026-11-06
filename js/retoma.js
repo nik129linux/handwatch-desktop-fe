@@ -24,6 +24,8 @@ var Retoma = (function () {
     aiConsent: { local: false, cloud: false, server: false },
     aiBusy: false,
     aiToken: 0,
+    aiSuggestBusy: false,
+    suppressProposal: false,
     cloudAvailable: false,
     cloudReason: '',
     pendingMode: null,
@@ -367,38 +369,68 @@ var Retoma = (function () {
     };
   }
 
-  function renderProposal(data) {
+  function proposalData() {
+    var data = activeEntries();
+    return data && data.length ? data : Events.seedTimeline;
+  }
+
+  function proposalSummary() {
+    return Ai.buildSummary(proposalData());
+  }
+
+  function paintRulesProposal(data) {
+    var p = computeProposal(data);
+    if (!p) return false;
+    state.currentProposal = {
+      start: fmtClock(p.winStart),
+      minutes: Math.max(15, Math.min(180, Math.round(p.longest.duration))),
+      reason: p.how
+    };
     var textEl = document.getElementById('proposalText');
     var howEl = document.getElementById('proposalHow');
     var tagEl = document.getElementById('proposalTag');
+    if (textEl) textEl.textContent = p.text;
+    if (howEl) howEl.textContent = p.how;
+    if (tagEl) tagEl.textContent = 'On-device rules';
+    return true;
+  }
+
+  function paintProviderProposal(res) {
+    if (!res || !Ai.validProposal(res)) return false;
+    var textEl = document.getElementById('proposalText');
+    var howEl = document.getElementById('proposalHow');
+    var tagEl = document.getElementById('proposalTag');
+    var f = Ai.formatProposal(res);
+    state.currentProposal = { start: res.start, minutes: res.minutes, reason: res.reason };
+    if (textEl) textEl.textContent = f.text;
+    if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
+    if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
+    return true;
+  }
+
+  function renderProposal(data) {
     var card = document.getElementById('proposalCard');
     /* Live with no live events: no proposal, and propose() never runs. */
     if (isLiveMode() && (!data || !data.length)) {
       if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
       return null;
     }
-    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'server') && state.aiConsent[state.aiMode];
+    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'server') && state.aiConsent[state.aiMode] && !state.suppressProposal;
     if (!useProvider) {
-      var p = computeProposal(data);
+      var p = paintRulesProposal(data);
       if (!p) {
         if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
         return null;
       }
-      state.currentProposal = {
-        start: fmtClock(p.winStart),
-        minutes: Math.max(15, Math.min(180, Math.round(p.longest.duration))),
-        reason: p.how
-      };
-      if (textEl) textEl.textContent = p.text;
-      if (howEl) howEl.textContent = p.how;
-      if (tagEl) tagEl.textContent = 'On-device rules';
       if (card) card.classList.remove('is-loading');
-      return p;
+      return true;
     }
     var summary = Ai.buildSummary(data && data.length ? data : Events.seedTimeline);
     var token = ++state.aiToken;
     state.aiBusy = true;
     if (card) card.classList.add('is-loading');
+    var textEl = document.getElementById('proposalText');
+    var howEl = document.getElementById('proposalHow');
     if (textEl) textEl.innerHTML = '<span class="skeleton-bar"></span><span class="skeleton-bar skeleton-bar--short"></span>';
     if (howEl) howEl.textContent = '';
     window.retoma.propose(summary, { mode: state.aiMode, consent: state.aiConsent, lang: uiLang() }).then(function (res) {
@@ -406,40 +438,171 @@ var Retoma = (function () {
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
       if (res && res.quota) setQuota(res.quota);
-      if (!res || !Ai.validProposal(res)) {
-        var fb = computeProposal(data);
-        if (!fb) { if (card) card.classList.add('is-hidden'); return; }
-        state.currentProposal = {
-          start: fmtClock(fb.winStart),
-          minutes: Math.max(15, Math.min(180, Math.round(fb.longest.duration))),
-          reason: fb.how
-        };
-        if (textEl) textEl.textContent = fb.text;
-        if (howEl) howEl.textContent = fb.how;
-        if (tagEl) tagEl.textContent = 'On-device rules';
-        return;
+      if (!paintProviderProposal(res)) {
+        if (!paintRulesProposal(data)) { if (card) card.classList.add('is-hidden'); }
       }
-      var f = Ai.formatProposal(res);
-      state.currentProposal = { start: res.start, minutes: res.minutes, reason: res.reason };
-      if (textEl) textEl.textContent = f.text;
-      if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
-      if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
     }, function () {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
-      var fb2 = computeProposal(data);
-      if (!fb2) { if (card) card.classList.add('is-hidden'); return; }
-      state.currentProposal = {
-        start: fmtClock(fb2.winStart),
-        minutes: Math.max(15, Math.min(180, Math.round(fb2.longest.duration))),
-        reason: fb2.how
-      };
-      if (textEl) textEl.textContent = fb2.text;
-      if (howEl) howEl.textContent = fb2.how;
-      if (tagEl) tagEl.textContent = 'On-device rules';
+      if (!paintRulesProposal(data)) { if (card) card.classList.add('is-hidden'); }
     });
     return null;
+  }
+
+  /* --- Suggest with AI ---------------------------------------------------
+   * One visible button that always calls the server and shows what answered:
+   * model, latency and the remaining requests. Without the desktop bridge the
+   * button stays on screen, disabled, so the card never pretends. */
+
+  function isServerSource(source) {
+    return typeof source === 'string' && source.indexOf('Retoma server') === 0;
+  }
+
+  function modelFromSource(source) {
+    var ix = typeof source === 'string' ? source.indexOf('\u00b7') : -1;
+    return ix === -1 ? '' : source.slice(ix + 1).trim();
+  }
+
+  function suggestFace() {
+    return document.querySelector('#aiSuggestBtn .ring-face');
+  }
+
+  function setSuggestLabel(text) {
+    var label = document.getElementById('aiSuggestLabel');
+    if (label) label.textContent = text;
+  }
+
+  function suggestCopy() {
+    return uiLang() === 'es' ? 'Sugerir con IA' : 'Suggest with AI';
+  }
+
+  function paintSuggestCopy() {
+    if (!state.aiSuggestBusy) setSuggestLabel(suggestCopy());
+  }
+
+  function syncSuggestButton() {
+    var btn = document.getElementById('aiSuggestBtn');
+    if (!btn) return;
+    var ready = hasBridge();
+    btn.disabled = !ready;
+    btn.title = ready ? '' : 'Needs the desktop app';
+  }
+
+  function restoreSuggestButton() {
+    state.aiSuggestBusy = false;
+    var btn = document.getElementById('aiSuggestBtn');
+    if (btn) { btn.disabled = !hasBridge(); btn.title = hasBridge() ? '' : 'Needs the desktop app'; }
+    setSuggestLabel(suggestCopy());
+    var face = suggestFace();
+    if (face) face.classList.remove('is-thinking');
+  }
+
+  function hideSuggestConsent() {
+    var box = document.getElementById('aiSuggestConsent');
+    if (box) box.classList.add('is-hidden');
+  }
+
+  function paintSuggestPayload(summary, mode, preId) {
+    var pre = document.getElementById(preId);
+    if (!pre) return;
+    var paint = function (payload) { pre.textContent = JSON.stringify(payload, null, 2); };
+    if (window.retoma && window.retoma.previewPayload) {
+      window.retoma.previewPayload(summary, mode).then(paint, function () { paint(Ai.previewLocal(summary)); });
+    } else {
+      paint(Ai.previewLocal(summary));
+    }
+  }
+
+  function showSuggestConsent() {
+    var box = document.getElementById('aiSuggestConsent');
+    if (!box) return;
+    paintSuggestPayload(proposalSummary(), 'server', 'aiSuggestPayload');
+    box.classList.remove('is-hidden');
+  }
+
+  function setProofLine(text) {
+    var line = document.getElementById('aiProofLine');
+    if (line) line.textContent = text;
+    var box = document.getElementById('aiProof');
+    if (box) box.classList.remove('is-hidden');
+  }
+
+  function triggerLimitNotice(res) {
+    var limit = res && res.quota && quotaKnown(res.quota)
+      ? res.quota.limit
+      : (quotaKnown(state.quota) ? state.quota.limit : 1);
+    setQuota({ left: 0, limit: limit });
+  }
+
+  function markFresh() {
+    var textEl = document.getElementById('proposalText');
+    if (!textEl) return;
+    textEl.classList.remove('is-fresh');
+    void textEl.offsetWidth;
+    textEl.classList.add('is-fresh');
+    setTimeout(function () { textEl.classList.remove('is-fresh'); }, 300);
+  }
+
+  function runAiSuggest() {
+    var btn = document.getElementById('aiSuggestBtn');
+    if (!btn || !hasBridge() || state.aiSuggestBusy) return;
+    var summary = proposalSummary();
+    var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+    var card = document.getElementById('proposalCard');
+    state.aiSuggestBusy = true;
+    btn.disabled = true;
+    setSuggestLabel('Thinking\u2026');
+    var face = suggestFace();
+    if (face) face.classList.add('is-thinking');
+    if (card) card.classList.add('is-loading');
+    hideSuggestConsent();
+    var token = ++state.aiToken;
+    window.retoma.propose(summary, { mode: 'server', consent: state.aiConsent, lang: uiLang() }).then(function (res) {
+      restoreSuggestButton();
+      if (token !== state.aiToken) return;
+      if (card) card.classList.remove('is-loading');
+      if (res && res.quota) setQuota(res.quota);
+      var real = isServerSource(res && res.source) && !res.fallback;
+      if (real && paintProviderProposal(res)) {
+        var ms = ((window.performance && performance.now) ? performance.now() : Date.now()) - t0;
+        var left = res.quota && quotaKnown(res.quota)
+          ? Math.max(0, Math.floor(res.quota.left))
+          : (quotaKnown(state.quota) ? state.quota.left : null);
+        var model = modelFromSource(res.source);
+        var line = (model ? model + ' \u00b7 ' : '') + 'Retoma server \u00b7 ' + (ms / 1000).toFixed(1) + ' s';
+        if (left !== null) line += ' \u00b7 ' + left + ' requests left';
+        setProofLine(line);
+        markFresh();
+      } else {
+        if (res && res.limitReached) triggerLimitNotice(res);
+        paintRulesProposal(proposalData());
+        setProofLine('The server did not answer, so on-device rules made this one.');
+      }
+      paintSuggestPayload(summary, 'server', 'aiProofPayload');
+    }, function () {
+      restoreSuggestButton();
+      if (token !== state.aiToken) return;
+      if (card) card.classList.remove('is-loading');
+      paintRulesProposal(proposalData());
+      setProofLine('The server did not answer, so on-device rules made this one.');
+      paintSuggestPayload(summary, 'server', 'aiProofPayload');
+    });
+  }
+
+  function aiSuggestClick() {
+    if (!hasBridge()) { syncSuggestButton(); return; }
+    if (state.aiMode === 'server' && state.aiConsent.server) { runAiSuggest(); return; }
+    showSuggestConsent();
+  }
+
+  function sendSuggestedAi() {
+    hideSuggestConsent();
+    /* Same path the Privacy panel's Allow button takes, so the radio and the
+     * saved preference move together. renderTimeline runs once, silently. */
+    state.suppressProposal = true;
+    try { grantAiConsentMode('server'); } finally { state.suppressProposal = false; }
+    if (state.aiMode === 'server' && state.aiConsent.server) runAiSuggest();
   }
 
   /* The proposal tag names the real source. The resume card is not AI
@@ -732,6 +895,18 @@ var Retoma = (function () {
     } else {
       paint(Ai.previewLocal(summary));
     }
+  }
+
+  function grantAiConsentMode(mode) {
+    if (mode !== 'local' && mode !== 'cloud' && mode !== 'server') return;
+    state.aiConsent[mode] = true;
+    state.pendingMode = null;
+    state.aiToken++;
+    state.aiMode = mode;
+    saveAiPrefs();
+    hideConsent();
+    paintAiMode();
+    renderTimeline();
   }
 
   function selectAiMode(mode) {
@@ -1413,19 +1588,23 @@ var Retoma = (function () {
     });
     var aiAllow = document.getElementById('aiAllow');
     if (aiAllow) aiAllow.addEventListener('click', function () {
-      if (!state.pendingMode) return;
-      state.aiConsent[state.pendingMode] = true;
-      var m = state.pendingMode;
-      state.pendingMode = null;
-      state.aiToken++;
-      state.aiMode = m;
-      saveAiPrefs();
-      hideConsent();
-      paintAiMode();
-      renderTimeline();
+      if (state.pendingMode) grantAiConsentMode(state.pendingMode);
     });
     var aiCancel = document.getElementById('aiCancel');
     if (aiCancel) aiCancel.addEventListener('click', function () { state.pendingMode = null; hideConsent(); paintAiMode(); });
+    var aiSuggestBtn = document.getElementById('aiSuggestBtn');
+    if (aiSuggestBtn) aiSuggestBtn.addEventListener('click', aiSuggestClick);
+    var aiSuggestSend = document.getElementById('aiSuggestSend');
+    if (aiSuggestSend) aiSuggestSend.addEventListener('click', sendSuggestedAi);
+    var aiSuggestCancel = document.getElementById('aiSuggestCancel');
+    if (aiSuggestCancel) aiSuggestCancel.addEventListener('click', hideSuggestConsent);
+    syncSuggestButton();
+    paintSuggestCopy();
+    try {
+      if (window.MutationObserver) {
+        new MutationObserver(paintSuggestCopy).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+      }
+    } catch (e) { /* label keeps its language */ }
     var privExport = document.getElementById('privacyExport');
     if (privExport) privExport.addEventListener('click', function () { Persist.exportData(state.timeline); });
     if (window.retoma && window.retoma.onFocusResume) {
