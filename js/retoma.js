@@ -67,10 +67,25 @@ var Retoma = (function () {
       if (v.trim() === '') window.localStorage.removeItem(key);
       else window.localStorage.setItem(key, v.trim());
     } catch (e) { /* noop */ }
+    renderNowNote();
   }
   function currentNote() {
     if (el.leaveNote) return String(el.leaveNote.value || '').trim();
     return String(loadNote() || '').trim();
+  }
+  /* The saved note is pinned right under the Now title. Earlier browsing
+   * is history, not the live task, so the pin steps aside there. */
+  function renderNowNote() {
+    var n = el.nowNote;
+    if (!n) return;
+    var note = currentNote();
+    if (!note || browseIndex >= 0) {
+      n.textContent = '';
+      n.style.display = 'none';
+      return;
+    }
+    n.textContent = 'Next: ' + note;
+    n.style.display = '';
   }
   /* Grow the note field to its content, never past three lines. */
   function growLeaveNote() {
@@ -87,8 +102,11 @@ var Retoma = (function () {
     var h = n.scrollHeight + border;
     n.style.height = Math.min(Math.max(h, minH), maxH) + 'px';
   }
-  function showNoteSaved() {
-    if (el.leaveNoteSaved) el.leaveNoteSaved.classList.add('is-visible');
+  function showNoteSaved(full) {
+    if (el.leaveNoteSaved) {
+      el.leaveNoteSaved.textContent = full ? "Saved, you'll see it when you come back" : 'Saved';
+      el.leaveNoteSaved.classList.add('is-visible');
+    }
   }
   function stashNoteSaved() {
     if (noteSavedTimer) { clearTimeout(noteSavedTimer); noteSavedTimer = null; }
@@ -112,6 +130,7 @@ var Retoma = (function () {
     try { window.localStorage.removeItem(noteKey()); } catch (e) { /* noop */ }
     if (el.resumeNote) { el.resumeNote.textContent = ''; el.resumeNote.classList.add('is-hidden'); }
     if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
+    renderNowNote();
   }
 
   /* Live reads ONLY live events: never fall back to the demo seed. */
@@ -669,6 +688,7 @@ var Retoma = (function () {
     if (el.nowTime) el.nowTime.textContent = 'Was here ' + e.duration + ' min';
     if (el.nowWhen) el.nowWhen.textContent = 'Earlier, ' + browseIndex + ' of ' + entries.length;
     updateBrowseControls();
+    renderNowNote();
   }
 
   function updateBrowseControls() {
@@ -707,6 +727,7 @@ var Retoma = (function () {
       }
     }
     updateBrowseControls();
+    renderNowNote();
     if (el.nowWhen) el.nowWhen.textContent = '';
     renderRing(null);
     if (isLiveMode() && !hasTimelineEntries() && !(window.Live && Live.state && Live.state.liveApp)) {
@@ -1063,6 +1084,7 @@ var Retoma = (function () {
     el.menuBar = document.getElementById('menuBar');
     el.nowApp = document.getElementById('nowApp');
     el.nowTitle = document.getElementById('nowTitle');
+    el.nowNote = document.getElementById('nowNote');
     el.nowDesc = document.getElementById('nowDesc');
     el.nowTime = document.getElementById('nowTime');
     el.nowClock = document.getElementById('nowClock');
@@ -1124,7 +1146,7 @@ var Retoma = (function () {
           if (clean !== n.value) n.value = clean;
           saveNote(n.value);
           growLeaveNote();
-          showNoteSaved();
+          showNoteSaved(true);
           n.blur();
           return;
         }

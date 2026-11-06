@@ -82,6 +82,7 @@ var I18n = (function () {
     'Only app names. Never what you type.': 'Solo nombres de apps. Nunca lo que escribes.',
     'Next step': 'Siguiente paso',
     'Saved': 'Guardado',
+    "Saved, you'll see it when you come back": 'Guardado, lo verás al volver',
     "What's next when you return?": '\u00bfQué sigue cuando vuelvas?',
     'Next step note': 'Nota del siguiente paso',
     'Today, the report won the morning': 'Hoy, el informe ganó la mañana',

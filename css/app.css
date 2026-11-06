@@ -209,7 +209,7 @@ body.is-live .app > .sim-panel { display: none; }
 .now-hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "ring app" "ring title" "ring desc";
+  grid-template-areas: "ring app" "ring title" "ring desc" "ring note";
   column-gap: var(--sp-6);
   align-items: center;
   padding: var(--sp-6);
@@ -247,6 +247,21 @@ body.is-live .app > .sim-panel { display: none; }
 .now-hero .now-time { order: -1; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--ink-muted); font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
 .now-hero #nowTitle { grid-area: title; margin: var(--sp-2) 0 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-hero #nowDesc { grid-area: desc; margin: var(--sp-1) 0 0; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--ink-muted); }
+.now-hero .now-note {
+  grid-area: note;
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-2);
+  border-left: 2px solid var(--accent-line);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--ink-strong);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 
 /* Next step: the cue you leave yourself before you go */
 .retoma-panel .leave-note { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-6); }
@@ -338,7 +353,7 @@ body.is-live .app > .sim-panel { display: none; }
 }
 
 /* While the card is up, Now steps back to one quiet line */
-.retoma-panel.has-resume .now-hero { grid-template-columns: minmax(0, 1fr); grid-template-areas: "app"; padding: var(--sp-4) var(--sp-6); border-radius: var(--radius-xl); }
+.retoma-panel.has-resume .now-hero { grid-template-columns: minmax(0, 1fr); grid-template-areas: "app" "note"; padding: var(--sp-4) var(--sp-6); border-radius: var(--radius-xl); }
 .retoma-panel.has-resume .now-ring,
 .retoma-panel.has-resume #nowTitle,
 .retoma-panel.has-resume #nowDesc { display: none; }
