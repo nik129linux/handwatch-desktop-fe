@@ -69,7 +69,8 @@ var Presence = (function () {
   }
 
   function refreshPalette() {
-    var lime = rgbComp('--color-primary-500', [200, 200, 200]);
+    /* Accent is reserved for actions, the active state and focus: the field stays neutral. */
+    var lime = rgbComp('--ink-faint', [111, 111, 111]);
     var paper = rgbComp('--text-neutral-100', [200, 200, 200]);
     var fog = rgbComp('--text-neutral-400', [150, 150, 150]);
     var deep = rgbComp('--text-neutral-600', [110, 110, 110]);

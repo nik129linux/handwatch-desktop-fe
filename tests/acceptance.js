@@ -2,7 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
-const { chromium } = require('/home/nico/.nvm/versions/node/v22.23.2/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'shots');
@@ -308,34 +308,32 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(/animation/.test(rmBlock), 'covers animations');
 
   // ---------- FIXES ROUND 1 — new assertions ----------
-  head('10 · FIX 1: dropdown panel behavior');
+  head('10 · APP FIRST: the Retoma column is the app (always on screen)');
   // reload fresh for panel checks
   const fixPage = await ctx.newPage();
   await fixPage.goto(INDEX, { waitUntil: 'load' });
   await fixPage.waitForSelector('#deskClock');
   await settle(fixPage, 400);
-  ok(await fixPage.evaluate(() => !Retoma.isPanelOpen()), 'panel closed by default');
-  // max-height check
-  const panelMaxH = await fixPage.evaluate(() => {
-    const p = document.getElementById('retomaPanel');
-    const cs = getComputedStyle(p);
-    return cs.maxHeight;
+  const colGeom = await fixPage.evaluate(() => {
+    const p = document.getElementById('retomaPanel').getBoundingClientRect();
+    const bar = document.getElementById('menuBar').getBoundingClientRect();
+    const stage = document.querySelector('.desktop-area').getBoundingClientRect();
+    const cs = getComputedStyle(document.getElementById('retomaPanel'));
+    return { left: p.left, top: p.top, bottom: p.bottom, right: p.right, barBottom: bar.bottom, stageLeft: stage.left, vh: window.innerHeight, vis: cs.visibility, op: cs.opacity };
   });
-  ok(/calc\(.*100.*vh.*-.*56px\)/.test(panelMaxH) || /calc\(.*100.*dvh.*-.*56px\)/.test(panelMaxH) || panelMaxH === panelMaxH, 'panel max-height uses viewport -56px', panelMaxH);
-  // numeric check: panel clears dock (FIXES-3: bottom <= dock top - 12)
-  const panelVHOk = await fixPage.evaluate(() => {
-    const p = document.getElementById('retomaPanel');
-    const mh = parseFloat(getComputedStyle(p).maxHeight);
-    return mh <= window.innerHeight - 150 && mh >= window.innerHeight - 260;
-  });
-  ok(panelVHOk, 'panel max-height clears dock (≈ viewport -186px)');
+  ok(await fixPage.evaluate(() => Retoma.isPanelOpen()) && colGeom.vis === 'visible' && colGeom.op === '1', 'Retoma column visible on launch', JSON.stringify(colGeom));
+  ok(colGeom.left === 0 && Math.abs(colGeom.top - colGeom.barBottom) <= 1 && Math.abs(colGeom.bottom - colGeom.vh) <= 1, 'column docked left, titlebar to bottom', JSON.stringify(colGeom));
+  ok(colGeom.right <= colGeom.stageLeft + 1, 'column never overlaps the stage', JSON.stringify(colGeom));
   // overflow: tab body scrolls (FIXES-3), panel itself clips
   const overflow = await fixPage.evaluate(() => getComputedStyle(document.querySelector('.retoma-tab.is-active')).overflowY);
   ok(overflow === 'auto' || overflow === 'scroll', 'active tab body has own scroll', overflow);
   // click eye opens
   await fixPage.click('#retomaToggle');
   await settle(fixPage, 300);
-  ok(await fixPage.evaluate(() => Retoma.isPanelOpen()), 'click eye opens panel');
+  ok(await fixPage.evaluate(() => Retoma.isPaused() && Retoma.isPanelOpen()), 'eye pauses, column stays');
+  await fixPage.click('#retomaToggle');
+  await settle(fixPage, 300);
+  ok(await fixPage.evaluate(() => !Retoma.isPaused()), 'eye again resumes');
   // tabs: only one active
   const tabsActive = await fixPage.evaluate(() => document.querySelectorAll('.retoma-tab.is-active').length);
   ok(tabsActive === 1, 'only one tab section visible', 'found ' + tabsActive);
@@ -346,14 +344,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // Esc closes
   await fixPage.keyboard.press('Escape');
   await settle(fixPage, 300);
-  ok(await fixPage.evaluate(() => !Retoma.isPanelOpen()), 'Esc closes panel');
+  ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && getComputedStyle(document.getElementById('retomaPanel')).visibility === 'visible'), 'Esc never hides the app column');
   // click-outside closes
-  await fixPage.click('#retomaToggle');
-  await settle(fixPage, 200);
-  ok(await fixPage.evaluate(() => Retoma.isPanelOpen()), 'reopened for click-outside test');
-  await fixPage.click('.desktop-workspace');
+  await fixPage.click('.desktop-workspace', { position: { x: 8, y: 8 } });
   await settle(fixPage, 300);
-  ok(await fixPage.evaluate(() => !Retoma.isPanelOpen()), 'click outside closes panel');
+  ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && getComputedStyle(document.getElementById('retomaPanel')).visibility === 'visible'), 'clicking the desktop never hides the app column');
   // Come back auto-opens with resume card hero first
   await fixPage.evaluate(() => { if (Retoma.isPaused()) Retoma.togglePause(); if (Retoma.isPanelOpen()) Retoma.closePanel(); });
   await settle(fixPage, 200);
@@ -379,19 +374,19 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { family: cs.fontFamily, weight: cs.fontWeight, size: cs.fontSize, text: el.textContent };
   });
-  ok(/(Instrument Serif|Fraunces)/.test(heroStyles.family), 'hero uses serif display (Instrument Serif/Fraunces)', heroStyles.family);
-  ok(heroStyles.weight === '400' || heroStyles.weight === '600' || heroStyles.weight === '700', 'hero weight 400 (serif)', heroStyles.weight);
+  ok(/^"?Onest"?/.test(heroStyles.family), 'hero uses the one sans (Onest)', heroStyles.family);
+  ok(heroStyles.weight === '500' || heroStyles.weight === '600', 'hero weight 500/600 (Stryds)', heroStyles.weight);
   const heroSize = parseFloat(heroStyles.size);
-  ok(heroSize >= 48 && heroSize <= 110, 'hero poster scale 48-110px', heroStyles.size);
+  ok(heroSize >= 40 && heroSize <= 72, 'hero display scale 40-72px', heroStyles.size);
   ok(/You were in/.test(heroStyles.text), 'hero has You were in');
-  const subColor = await fixPage.evaluate(() => getComputedStyle(document.getElementById('resumeSub')).color);
-  ok(subColor !== 'rgb(253, 253, 253)', 'doc title under hero in Fog (not primary text)');
+  const subSize = await fixPage.evaluate(() => parseFloat(getComputedStyle(document.getElementById('resumeSub')).fontSize));
+  ok(subSize === 16 && subSize < heroSize / 2, 'doc title under hero is body size, far below the hero', String(subSize));
   const interStyles = await fixPage.evaluate(() => {
     const el = document.getElementById('resumeInter');
     const cs = getComputedStyle(el);
     return { size: cs.fontSize, ls: cs.letterSpacing, tt: cs.textTransform, weight: cs.fontWeight, whiteSpace: cs.whiteSpace };
   });
-  ok(interStyles.size === '15px', 'interruption label 15px body', interStyles.size);
+  ok(interStyles.size === '14px', 'interruption label 14px (text-sm)', interStyles.size);
   ok(interStyles.tt === 'none', 'interruption label normal-case (FIX2)', interStyles.tt);
   const chipCount2 = await fixPage.locator('.resume-chip').count();
   ok(chipCount2 === 3, 'hero chips 3');
@@ -472,12 +467,12 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(el);
     return { size: cs.fontSize, weight: cs.fontWeight, ls: cs.letterSpacing, tt: cs.textTransform, family: cs.fontFamily };
   });
-  ok(labelStyles.size === '11px', 'kicker 11px mono micro', labelStyles.size);
-  ok(labelStyles.weight === '400' || labelStyles.weight === '500', 'kicker 400/500', labelStyles.weight);
-  ok(labelStyles.tt === 'uppercase', 'kicker uppercase');
-  ok(/JetBrains Mono/.test(labelStyles.family), 'kicker JetBrains Mono', labelStyles.family);
-  const lsVal = parseFloat(labelStyles.ls);
-  ok(lsVal >= 1.2 && lsVal <= 3, 'kicker letter-spacing .14em', labelStyles.ls);
+  ok(labelStyles.size === '12px', 'label 12px (text-xs)', labelStyles.size);
+  ok(labelStyles.weight === '400' || labelStyles.weight === '500', 'label 400/500', labelStyles.weight);
+  ok(labelStyles.tt === 'none', 'label sentence case (no tracked caps)', labelStyles.tt);
+  ok(/^"?Onest"?/.test(labelStyles.family), 'label in Onest, no mono costume', labelStyles.family);
+  const lsVal = parseFloat(labelStyles.ls) || 0;
+  ok(lsVal <= 0.5, 'label tracking quiet (<= 0.5px)', labelStyles.ls);
   const tabularNums = await fixPage.evaluate(() => getComputedStyle(document.body).fontVariantNumeric);
   ok(/tabular/.test(tabularNums), 'numbers tabular-nums everywhere', tabularNums);
 
@@ -503,17 +498,13 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(noTitleCollision, 'menu bar title not colliding with clock at 390');
   const dockHidden390 = await p390.evaluate(() => getComputedStyle(document.querySelector('.dock')).display === 'none');
   ok(dockHidden390, 'dock hidden under 900px');
-  const stageIsColumn = await p390.evaluate(() => getComputedStyle(document.querySelector('.stage')).flexDirection === 'column');
-  ok(stageIsColumn, 'simulator panel stacked below stage');
-  const panelIsSheet = await p390.evaluate(async () => {
-    // open panel then check position
-    Retoma.openPanel();
-    await new Promise(r => setTimeout(r, 200));
-    const p = document.getElementById('retomaPanel');
-    const cs = getComputedStyle(p);
-    return cs.position === 'fixed' && cs.bottom === '0px';
+  const stack390 = await p390.evaluate(() => {
+    const t = s => document.querySelector(s).getBoundingClientRect();
+    return { app: t('#retomaPanel'), stage: t('.desktop-area'), sim: t('.sim-panel') };
   });
-  ok(panelIsSheet, 'Retoma dropdown is bottom sheet at 390', await p390.evaluate(() => { const s=getComputedStyle(document.getElementById('retomaPanel')); return s.position+','+s.bottom; }));
+  ok(stack390.app.bottom <= stack390.stage.top + 1 && stack390.stage.bottom <= stack390.sim.top + 1, 'at 390: Retoma, then desktop, then demo controls, stacked', JSON.stringify(stack390));
+  const col390 = await p390.evaluate(() => { const r = document.getElementById('retomaPanel').getBoundingClientRect(); return { l: r.left, w: r.width, vw: window.innerWidth, pos: getComputedStyle(document.getElementById('retomaPanel')).position }; });
+  ok(col390.pos !== 'fixed' && col390.l === 0 && Math.abs(col390.w - col390.vw) <= 1, 'at 390 the Retoma column is full width in flow', JSON.stringify(col390));
   // cleanup 390
   await p390.close();
   await ctx390.close();
@@ -532,7 +523,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const cs = getComputedStyle(mb);
     return { bdStyle: cs.borderBottomStyle, bdWidth: cs.borderBottomWidth, hasPaused: mb.classList.contains('is-paused') };
   });
-  ok(menuDashed.hasPaused && menuDashed.bdStyle === 'dashed' && menuDashed.bdWidth === '2px', 'menu bar 2px dashed underline when paused', JSON.stringify(menuDashed));
+  const pausedMark = await paPage.evaluate(() => ({ chip: getComputedStyle(document.querySelector('.titlebar .paused-chip')).display, text: document.querySelector('.titlebar .paused-chip').textContent.trim() }));
+  ok(menuDashed.hasPaused && pausedMark.chip !== 'none' && /Paused/.test(pausedMark.text), 'titlebar shows a Paused chip when paused', JSON.stringify({ menuDashed, pausedMark }));
   const eyeStruck = await paPage.evaluate(() => {
     const btn = document.getElementById('retomaToggle');
     const open = btn.querySelector('.eye-open');
@@ -567,7 +559,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden') && getComputedStyle(e).display !== 'none');
     const checks = wins.map(w => {
       const r = w.getBoundingClientRect();
-      return { app: w.getAttribute('data-app'), winRight: Math.round(r.right), panelLeft: Math.round(pRect.left), ok: r.right <= pRect.left + 0.5, rect: { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) } };
+      const st = document.querySelector('.desktop-area').getBoundingClientRect();
+      return { app: w.getAttribute('data-app'), winLeft: Math.round(r.left), panelRight: Math.round(pRect.right), ok: r.left >= pRect.right - 0.5 && r.right <= st.right + 0.5, rect: { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) } };
     });
     // also check windows not overlapping each other
     let overlap = null;
@@ -579,7 +572,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return { checks, overlap, panelLeft: Math.round(pRect.left) };
   });
   const allLeft = winVsPanel.checks.every(c => c.ok);
-  ok(allLeft, 'every visible window right <= panel left', JSON.stringify(winVsPanel));
+  ok(allLeft, 'every visible window inside the stage, right of the Retoma column', JSON.stringify(winVsPanel));
   ok(!winVsPanel.overlap, 'windows not overlapping each other with panel open', winVsPanel.overlap || '');
   // staggered reopen after Resume must be visible in left region
   await r2Page.evaluate(() => document.getElementById('retomarBtn').click());
@@ -603,9 +596,10 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const panel = document.getElementById('retomaPanel');
     const pRect = panel.getBoundingClientRect();
     const wins = Array.from(document.querySelectorAll('.window')).filter(e => !e.classList.contains('is-minimized') && !e.classList.contains('is-hidden'));
-    return wins.map(w => { const r=w.getBoundingClientRect(); return { app: w.getAttribute('data-app'), right: Math.round(r.right), panelLeft: Math.round(pRect.left), ok: r.right <= pRect.left + 0.5 }; });
+    const st = document.querySelector('.desktop-area').getBoundingClientRect();
+    return wins.map(w => { const r=w.getBoundingClientRect(); return { app: w.getAttribute('data-app'), left: Math.round(r.left), panelRight: Math.round(pRect.right), ok: r.left >= pRect.right - 0.5 && r.right <= st.right + 0.5 }; });
   });
-  ok(afterRetomar.every(c=>c.ok), 'after Resume windows still left of panel', JSON.stringify(afterRetomar));
+  ok(afterRetomar.every(c=>c.ok), 'after Resume windows stay inside the stage', JSON.stringify(afterRetomar));
   await r2Page.close();
 
   head('18 · FIX2 round2-2: 390 compact stacked list');
@@ -655,11 +649,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await settle(p390b, 300);
   const betweenCheck = await p390b.evaluate(() => {
     const bar = document.getElementById('menuBar').getBoundingClientRect();
-    const panel = document.getElementById('retomaPanel').getBoundingClientRect();
+    const stage = document.querySelector('.desktop-area').getBoundingClientRect();
     const wins = Array.from(document.querySelectorAll('.window')).map(w=>w.getBoundingClientRect());
-    return wins.every(r => r.top >= bar.bottom -1 && r.bottom <= panel.top +1) ? 'ok' : JSON.stringify({ barBottom: bar.bottom, panelTop: panel.top, wins: wins.map(r=>({top:Math.round(r.top), bottom:Math.round(r.bottom)})) });
+    return wins.every(r => r.top >= stage.top - 1 && r.bottom <= stage.bottom + 1 && r.top >= bar.bottom - 1) ? 'ok' : JSON.stringify({ stageTop: stage.top, stageBottom: stage.bottom, wins: wins.map(r=>({top:Math.round(r.top), bottom:Math.round(r.bottom)})) });
   });
-  ok(betweenCheck === 'ok', 'windows between menu bar and sheet at 390', betweenCheck);
+  ok(betweenCheck === 'ok', 'windows inside the desktop section at 390', betweenCheck);
   await p390b.close();
   await c390b.close();
 
@@ -676,21 +670,19 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return { text: el.textContent, size: cs.fontSize, tt: cs.textTransform, ls: cs.letterSpacing, color: cs.color, whiteSpace: cs.whiteSpace, top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom };
   });
   ok(kickerStyles.text === 'WhatsApp interrupted you · 25 min', 'kicker text normal-case', kickerStyles.text);
-  ok(kickerStyles.size === '15px', 'kicker 15px body', kickerStyles.size);
+  ok(kickerStyles.size === '14px', 'kicker 14px (text-sm)', kickerStyles.size);
   ok(kickerStyles.tt === 'none', 'kicker not uppercase', kickerStyles.tt);
   // check single line: height close to line-height (approx 19px), not wrapped to 2 lines (>30)
   const kickerH = kickerStyles.bottom - kickerStyles.top;
   ok(kickerH < 28, 'kicker single line', 'h '+kickerH);
   ok(kickerStyles.color === 'rgb(163, 163, 163)' || kickerStyles.color.includes('163'), 'kicker Fog color (AA muted)', kickerStyles.color);
-  // short kickers remain uppercase tracked
+  // labels: sentence case, quiet tracking, one family (no mono costume)
   const shortKickers = await r2k.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('.panel-section__label, .resume-card__eyebrow'));
-    return els.map(e=>{ const cs=getComputedStyle(e); return { text:e.textContent.trim(), tt:cs.textTransform, ls:cs.letterSpacing, size:cs.fontSize }; });
+    const els = Array.from(document.querySelectorAll('.panel-section__label, .resume-card__eyebrow, .sim-label')).filter(e => getComputedStyle(e).display !== 'none');
+    return els.map(e=>{ const cs=getComputedStyle(e); return { text:e.textContent.trim(), tt:cs.textTransform, ls:cs.letterSpacing, size:cs.fontSize, family: cs.fontFamily }; });
   });
-  const allUpper = shortKickers.every(k => k.tt === 'uppercase');
-  ok(allUpper, 'short kickers uppercase', JSON.stringify(shortKickers));
-  const hasSpacing = shortKickers.every(k => parseFloat(k.ls) >= 1.2);
-  ok(hasSpacing, 'short kickers tracked mono', JSON.stringify(shortKickers));
+  ok(shortKickers.length >= 3 && shortKickers.every(k => k.tt === 'none'), 'labels sentence case (no tracked caps)', JSON.stringify(shortKickers));
+  ok(shortKickers.every(k => (parseFloat(k.ls) || 0) <= 0.5 && /^"?Onest"?/.test(k.family)), 'labels quiet tracking, one family', JSON.stringify(shortKickers));
   await r2k.close();
 
   head('20 · FIX2 round2-4: proposal buttons reachable via scroll');
@@ -709,7 +701,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     const tcs = tab ? getComputedStyle(tab) : null;
     return { panelPadBottom: cs.paddingBottom, tabPadBottom: tcs ? tcs.paddingBottom : 'no-tab', panelOver: cs.overflowY, tabOver: tcs ? tcs.overflowY : 'no-tab', panelScrollPad: cs.scrollPaddingBottom };
   });
-  ok(padCheck.panelPadBottom === '24px' || padCheck.tabPadBottom === '24px', 'tab/panel 24px bottom padding', JSON.stringify(padCheck));
+  ok(parseFloat(padCheck.tabPadBottom) >= 24, 'tab body keeps >= 24px bottom padding', JSON.stringify(padCheck));
   ok(padCheck.tabOver === 'auto' || padCheck.tabOver === 'scroll', 'tab body scrollable (FIXES-3)', JSON.stringify(padCheck));
   const acceptReach = await r2p.evaluate(() => {
     const btn = document.getElementById('proposalAccept');
@@ -804,7 +796,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   });
   ok(dockClear.dockVisible, 'dock visible with panel open');
   ok(!dockClear.intersect, 'dock rect not intersecting panel rect', JSON.stringify(dockClear));
-  ok(dockClear.gap >= 12, 'panel bottom <= dock top - 12px', JSON.stringify(dockClear));
+  const dockInStage = await f3.evaluate(() => { const d = document.querySelector('.dock').getBoundingClientRect(); const st = document.querySelector('.desktop-area').getBoundingClientRect(); return d.left >= st.left && d.right <= st.right && d.bottom <= st.bottom + 1; });
+  ok(dockInStage, 'dock sits inside the desktop stage', JSON.stringify(dockClear));
   // FIX 2: legend sub-line matches proposal longest block
   await f3.evaluate(() => { Retoma.showEndOfDay(); Retoma.openPanel(); Retoma.switchTab('hoy'); });
   await settle(f3, 300);
@@ -835,7 +828,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   });
   ok(simBtns.length >= 7, 'sim buttons present', 'found ' + simBtns.length);
   ok(simBtns.every(b => b.h >= 40), 'sim hit height >= 40', JSON.stringify(simBtns));
-  ok(simBtns.every(b => b.size === '12px'), 'sim sentence-case mono 12px', JSON.stringify(simBtns));
+  ok(simBtns.every(b => b.size === '14px' && /^"?Onest"?/.test(b.family)), 'sim buttons 14px in Onest, sentence case', JSON.stringify(simBtns));
   ok(simBtns.every(b => b.tt === 'none'), 'sim buttons NOT caps', JSON.stringify(simBtns.map(b => b.tt)));
   const heroPill = await f3.evaluate(() => {
     const el = document.getElementById('storyPlay');
@@ -903,7 +896,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const fake = await fakeOllama({ tags: { models: [{ name: 'qwen3.5:4b' }, { name: 'gemma4:31b-cloud', remote_host: 'cloud' }] }, generate: goodGen });
   const localRes = await providers.propose(d1Summary, { mode: 'local', consent: { local: true }, ollamaUrl: fake.url, timeoutMs: 5000 });
   ok(localRes.minutes === 45 && localRes.start === '09:00', 'local with consent returns validated output', JSON.stringify(localRes));
-  ok(/Local model/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the local model', localRes.source);
+  ok(/^Ollama cloud/.test(localRes.source) && localRes.source.includes('gemma4:31b-cloud'), 'tag names the model and says a -cloud model runs on Ollama cloud', localRes.source);
   const genReq = fake.requests.find(r => r.url === '/api/generate');
   const genBody = genReq ? JSON.parse(genReq.body) : {};
   ok(genBody.model === 'gemma4:31b-cloud', 'picks gemma, never another local model', genBody.model);
@@ -1081,7 +1074,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(ovHidden.vis === 'hidden' && ovHidden.aria === 'true', 'closed confirm is out of tab order + hidden from AT', JSON.stringify(ovHidden));
   await qa.evaluate(() => Retoma.closePanel());
   await settle(qa, 700);
-  ok(await qa.evaluate(() => getComputedStyle(document.getElementById('retomaPanel')).visibility === 'hidden'), 'closed panel is out of tab order');
+  ok(await qa.evaluate(() => getComputedStyle(document.getElementById('retomaPanel')).visibility === 'visible' && document.getElementById('retomaPanel').getAttribute('aria-hidden') !== 'true'), 'Retoma column stays reachable (app first)');
+  ok(await qa.evaluate(() => { const a = document.querySelector('a.skip-link'); return !!a && a.getAttribute('href') === '#retomaPanel'; }), 'skip link targets the Retoma column');
 
   // 30e theme toggle mid-story then skip: story still ends clean
   await qa.click('#storyPlay');
@@ -1191,7 +1185,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
     return { h: Math.round(r.height), text: row.textContent.trim().replace(/\s+/g, ' '), sep: sep, titleHidden: titleHidden, descHidden: descHidden };
   });
   ok(nowLine.titleHidden && nowLine.descHidden, 'full Now detail hidden while resume is up');
-  ok(nowLine.h < 32 && /·/.test(nowLine.sep) && /Document/.test(nowLine.text), 'Now collapsed to a single line', nowLine.h + 'px -> ' + nowLine.text);
+  ok(nowLine.h < 32 && /Document/.test(nowLine.text), 'Now collapsed to a single line', nowLine.h + 'px -> ' + nowLine.text);
   // Document is back on the desk in the resume state too
   ok(await d4.evaluate(() => Desk.isVisible('Document')), 'Document visible in resume state');
   // sliding ink sits under the active tab after an internal switch (comeBack)

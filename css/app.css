@@ -1,0 +1,454 @@
+/* ==========================================================================
+   app.css — the app shell and the taste layer (owned by design, not bulk):
+   grid shell, titlebar, button primitives, the Retoma column, the Now hero
+   with the spectrum ring, the resume card. Loaded last.
+   Tokens only (css/tokens.css). Sentence case everywhere: no tracked caps.
+   ========================================================================== */
+
+/* --- Base ------------------------------------------------------------------ */
+html, body { height: 100%; }
+body {
+  background: var(--surface-canvas);
+  color: var(--ink-strong);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.skip-link {
+  position: absolute; left: var(--sp-4); top: var(--sp-2);
+  z-index: var(--z-toast);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--accent); color: var(--ink-on-accent);
+  border-radius: var(--radius-sm);
+  font-weight: var(--weight-semibold);
+  transform: translateY(-200%);
+  transition: transform var(--dur-state) var(--ease-enter);
+}
+.skip-link:focus-visible { transform: translateY(0); outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* --- Shell: titlebar / app column / stage / demo controls ----------------- */
+.app {
+  display: grid;
+  grid-template-columns: var(--app-col) minmax(0, 1fr);
+  grid-template-rows: var(--titlebar-h) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "bar bar"
+    "app stage"
+    "app sim";
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app > .titlebar { grid-area: bar; }
+.app > .retoma-panel { grid-area: app; }
+.app > .desktop-area { grid-area: stage; }
+.app > .sim-panel { grid-area: sim; }
+
+/* Live: the stage is this PC, demo controls leave the layout */
+body.is-live .app { grid-template-areas: "bar bar" "app stage" "app stage"; }
+body.is-live .app > .sim-panel { display: none; }
+
+.desktop-area {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+  position: relative;
+  background: var(--surface-canvas);
+  border-left: 1px solid var(--line-subtle);
+  overflow: hidden;
+}
+.sim-panel {
+  min-width: 0;
+  border-left: 1px solid var(--line-subtle);
+  border-top: 1px solid var(--line-subtle);
+  background: var(--surface-canvas);
+}
+
+/* --- Titlebar ---------------------------------------------------------------- */
+.app > .titlebar {
+  height: var(--titlebar-h); min-height: var(--titlebar-h);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4) 0 var(--sp-6);
+  background: var(--surface-canvas);
+  border-bottom: 1px solid var(--line-subtle);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  position: relative; z-index: var(--z-titlebar);
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+}
+.titlebar .menu-bar__left, .titlebar .menu-bar__right { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.brand-mark { width: 20px; height: 20px; color: var(--accent-line); flex: none; }
+.titlebar .menu-bar__appname {
+  font-size: var(--text-base); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-title); color: var(--ink-strong);
+}
+.titlebar .menu-bar__clock { color: var(--ink-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.titlebar.is-paused { border-bottom: 1px solid var(--line-strong); }
+.titlebar .paused-chip {
+  display: none; align-items: center;
+  min-height: 24px; padding: 0 var(--sp-2);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-pill);
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  color: var(--ink-strong);
+}
+.titlebar.is-paused .paused-chip { display: inline-flex; }
+.titlebar.is-paused .brand-mark { color: var(--ink-muted); }
+
+/* --- Button primitives ------------------------------------------------------ */
+.btn {
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--ink-strong);
+  font: var(--weight-medium) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-state) var(--ease-enter), border-color var(--dur-state) var(--ease-enter), color var(--dur-state) var(--ease-enter), transform var(--dur-press) var(--ease-press), opacity var(--dur-state) var(--ease-enter);
+}
+.btn svg { width: 16px; height: 16px; flex: none; }
+@media (hover: hover) {
+  .btn:hover { background: var(--surface-card-hover); border-color: var(--line-strong); }
+}
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn--primary {
+  background: var(--accent); border-color: var(--accent); color: var(--ink-on-accent);
+  font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-semibold);
+  min-height: 44px; padding: var(--sp-2) var(--sp-6);
+}
+@media (hover: hover) {
+  .btn--primary:hover { background: var(--accent-press); border-color: var(--accent-press); }
+}
+.btn--secondary { background: transparent; }
+.btn--ghost { background: transparent; border-color: transparent; color: var(--ink-muted); }
+@media (hover: hover) {
+  .btn--ghost:hover { background: transparent; border-color: transparent; color: var(--ink-strong); }
+}
+.btn--destructive { background: transparent; color: var(--ink-strong); border-color: var(--line-subtle); }
+@media (hover: hover) {
+  .btn--destructive:hover { border-color: var(--danger); color: var(--ink-strong); background: transparent; }
+}
+
+/* --- The Retoma column --------------------------------------------------- */
+.app > .retoma-panel {
+  position: relative;
+  inset: auto; width: auto; max-height: none;
+  display: flex; flex-direction: column;
+  min-height: 0;
+  padding: var(--sp-8) var(--sp-8) 0;
+  background: var(--surface-canvas);
+  border: 0; border-radius: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: none;
+  overflow: hidden;
+  z-index: var(--z-app);
+}
+.retoma-panel .retoma-tab.is-active { padding-bottom: var(--sp-8); }
+
+/* Tabs: sentence case, the active one carries a lime underline */
+.retoma-panel .retoma-tabs {
+  order: 0;
+  display: flex; gap: var(--sp-6);
+  margin: 0 0 var(--sp-6);
+  padding: 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.retoma-panel .retoma-tabs__btn {
+  appearance: none; background: none; border: 0;
+  position: relative;
+  padding: var(--sp-2) 0 var(--sp-3);
+  font: var(--weight-medium) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  letter-spacing: 0; text-transform: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color var(--dur-state) var(--ease-enter);
+}
+.retoma-panel .retoma-tabs__btn::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform var(--dur-state) var(--ease-enter);
+}
+.retoma-panel .retoma-tabs__btn.is-active { color: var(--ink-strong); }
+.retoma-panel .retoma-tabs__btn.is-active::after { transform: scaleX(1); }
+@media (hover: hover) { .retoma-panel .retoma-tabs__btn:hover { color: var(--ink-strong); } }
+.retoma-panel .retoma-tabs__btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-xs); }
+
+/* Section labels: small, sentence case, muted (no tracked caps) */
+.retoma-panel .panel-section__label {
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  letter-spacing: var(--tracking-label); text-transform: none;
+  color: var(--ink-muted);
+  margin: 0 0 var(--sp-3);
+}
+#retomaTabAhora .panel-section { border-top: 0; padding: 0; }
+#retomaTabAhora .panel-section__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* --- Now hero: the spectrum ring is time in the task ------------------------ */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+.now-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "ring app" "ring title" "ring desc";
+  column-gap: var(--sp-6);
+  align-items: center;
+  padding: var(--sp-6);
+  background: var(--surface-card);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-2xl);
+}
+.now-ring { grid-area: ring; position: relative; width: 120px; height: 120px; flex: none; }
+.now-ring__svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.now-ring__track { fill: none; stroke: var(--ring-track); stroke-width: 10; }
+.now-ring__fill {
+  fill: none; stroke: url(#ringGrad); stroke-width: 10; stroke-linecap: round;
+  stroke-dasharray: calc(var(--p) * 100) 100;
+  transition: --p var(--dur-hero) var(--ease-enter);
+}
+.now-ring.is-full .now-ring__fill { stroke-dasharray: 100 0; }
+.now-ring__label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: var(--text-3xl); line-height: var(--leading-3xl); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-title);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+}
+.now-ring__label small { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); color: var(--ink-muted); letter-spacing: var(--tracking-label); }
+
+.now-hero .now-row { grid-area: app; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; }
+.now-hero .now-app {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl); line-height: var(--leading-4xl); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-hero);
+  color: var(--ink-strong);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.now-hero .now-time { order: -1; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--ink-muted); font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+.now-hero #nowTitle { grid-area: title; margin: var(--sp-2) 0 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-hero #nowDesc { grid-area: desc; margin: var(--sp-1) 0 0; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--ink-muted); }
+
+/* Next step: the cue you leave yourself before you go */
+.retoma-panel .leave-note { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-6); }
+.retoma-panel .leave-note label {
+  font: var(--weight-medium) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  letter-spacing: 0; text-transform: none; color: var(--ink-strong);
+}
+.retoma-panel .leave-note input {
+  min-height: 48px;
+  padding: 0 var(--sp-4);
+  background: var(--surface-inset);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--ink-strong);
+  font: var(--weight-regular) var(--text-base) / var(--leading-base) var(--font-sans);
+  transition: border-color var(--dur-state) var(--ease-enter), background-color var(--dur-state) var(--ease-enter);
+}
+.retoma-panel .leave-note input::placeholder { color: var(--ink-muted); }
+@media (hover: hover) { .retoma-panel .leave-note input:hover { border-color: var(--line-strong); } }
+.retoma-panel .leave-note input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: transparent; }
+
+/* --- Resume card: the moment you come back ---------------------------------- */
+.retoma-panel .resume-card {
+  order: -1;
+  position: relative;
+  margin: 0 0 var(--sp-6);
+  padding: var(--sp-8);
+  background: var(--surface-card);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-2xl);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  min-width: 0;
+}
+.retoma-panel .resume-card.is-hidden { display: none; }
+.retoma-panel .resume-card.is-visible { animation: resume-in var(--dur-enter) var(--ease-enter) both; }
+@keyframes resume-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.retoma-panel .resume-card__eyebrow { display: none; }
+.retoma-panel .resume-card__hero {
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-hero); line-height: var(--leading-hero); font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-hero);
+  color: var(--ink-strong);
+}
+.retoma-panel .resume-card__hero .w { display: inline-block; }
+.retoma-panel .resume-card__note {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--accent-soft);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-medium);
+  color: var(--ink-strong);
+}
+.retoma-panel .resume-card__note.is-hidden { display: none; }
+.retoma-panel .resume-card__honest.is-hidden,
+.retoma-panel .resume-card__ai.is-hidden { display: none; }
+.retoma-panel .resume-card__ai { margin: 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); }
+.retoma-panel .resume-card__ai .resume-ai__source { display: block; margin-top: var(--sp-1); font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans); letter-spacing: var(--tracking-label); text-transform: none; color: var(--ink-muted); }
+.retoma-panel .resume-card__sub { margin: 0; font-size: var(--text-base); line-height: var(--leading-base); color: var(--ink-strong); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.retoma-panel .resume-card__inter,
+.retoma-panel .resume-card__honest { margin: 0; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--ink-muted); }
+.retoma-panel .resume-card__files { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-1) 0 0; }
+.retoma-panel .resume-card__files .resume-chip__sep { display: none; }
+.retoma-panel .resume-card__files .resume-chip {
+  display: inline-flex; align-items: center;
+  min-height: 28px; padding: 0 var(--sp-3);
+  border: 1px solid var(--line-subtle); border-radius: var(--radius-pill);
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  letter-spacing: 0; text-transform: none; color: var(--ink-strong);
+}
+.retoma-panel .resume-actions { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); }
+.retoma-panel .resume-actions .btn--primary { flex: 1; }
+.retoma-panel .resume-actions .btn--ghost {
+  font: var(--weight-medium) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  letter-spacing: 0; text-transform: none; color: var(--ink-muted);
+  padding: var(--sp-2) var(--sp-4);
+}
+
+/* While the card is up, Now steps back to one quiet line */
+.retoma-panel.has-resume .now-hero { grid-template-columns: minmax(0, 1fr); grid-template-areas: "app"; padding: var(--sp-4) var(--sp-6); border-radius: var(--radius-xl); }
+.retoma-panel.has-resume .now-ring,
+.retoma-panel.has-resume #nowTitle,
+.retoma-panel.has-resume #nowDesc { display: none; }
+.retoma-panel.has-resume .now-hero .now-row { flex-direction: row; align-items: baseline; gap: var(--sp-2); }
+.retoma-panel.has-resume .now-hero .now-app { font-size: var(--text-base); line-height: var(--leading-base); letter-spacing: 0; }
+.retoma-panel.has-resume .now-hero .now-app::after { content: none; }
+.retoma-panel.has-resume .now-hero .now-time { order: 0; }
+.retoma-panel.has-resume .leave-note { display: none; }
+
+/* --- Narrow windows (browser preview only; the app's minimum is 1100px) ---- */
+@media (max-width: 900px) {
+  .app {
+    height: auto; min-height: 100dvh; overflow: visible;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--titlebar-h) auto auto auto;
+    grid-template-areas: "bar" "app" "stage" "sim";
+  }
+  body.is-live .app { grid-template-areas: "bar" "app" "stage" "stage"; }
+  .app > .retoma-panel { padding: var(--sp-6) var(--sp-4) 0; overflow: visible; }
+  .desktop-area, .sim-panel { border-left: 0; border-top: 1px solid var(--line-subtle); }
+  .now-ring { width: 88px; height: 88px; }
+  .now-hero { padding: var(--sp-4); column-gap: var(--sp-4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-ring__fill, .btn, .retoma-panel .retoma-tabs__btn::after, .skip-link { transition: none !important; }
+  .retoma-panel .resume-card.is-visible { animation: none !important; }
+}
+
+/* --- Demo controls: two compact rows under the simulated desktop ---------- */
+.app > .sim-panel {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  overflow: visible;
+}
+.sim-panel .sim-title {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.sim-panel .sim-section { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border: 0; padding: 0; margin: 0; min-width: 0; }
+.sim-panel .sim-label {
+  width: 144px; flex: none;
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  letter-spacing: var(--tracking-label); text-transform: none;
+  color: var(--ink-muted);
+}
+.sim-panel .story-controls, .sim-panel .btn-row, .sim-panel .btn-row--trio { display: contents; }
+.sim-panel .btn { min-height: 40px; padding: var(--sp-2) var(--sp-3); flex: none; min-width: 0; }
+.sim-panel #storyPlay { min-height: 40px; padding: var(--sp-2) var(--sp-4); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.sim-panel #storyPlay svg { width: 12px; height: 12px; }
+.sim-panel .sim-section .panel-section__text--muted { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--ink-muted); margin: 0 0 0 var(--sp-2); }
+.sim-panel > .panel-section__text--muted { margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--ink-muted); }
+
+/* --- Shell details ------------------------------------------------------------ */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: content-box; }
+
+/* The tab already names the section: its first label is for screen readers only */
+#timeline > .panel-section__label:first-child,
+#retomaTabPriv > .panel-section > .panel-section__label:first-child {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* Live: the simulated dock belongs to the demo only */
+body.is-live .dock { display: none; }
+
+/* Live setup: real numbered steps */
+.helper-card__steps { counter-reset: step; list-style: none; padding: 0; }
+.helper-card__step { counter-increment: step; position: relative; padding-left: var(--sp-10); }
+.helper-card__step::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-pill);
+  font: var(--weight-semibold) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  color: var(--ink-strong);
+}
+
+/* Lime is reserved: the app's primary action, the active state, focus.
+   The demo's own controls stay neutral so they never outrank Resume. */
+.sim-panel #storyPlay.btn--primary { background: var(--surface-raised); border-color: var(--line-strong); color: var(--ink-strong); font-weight: var(--weight-semibold); }
+.sim-panel #storyPlay.btn--primary svg { color: var(--accent-line); }
+@media (hover: hover) {
+  .sim-panel #storyPlay.btn--primary:hover { background: var(--surface-card-hover); border-color: var(--ink-muted); }
+}
+
+/* --- The ring as a character (js/mood.js sets <html data-mood>) -------------
+   One shape, six moods. Loops are linear or alternate on the master ease;
+   reduced motion keeps every state (color, opacity, dot) and drops the motion. */
+@keyframes ring-breathe { from { transform: scale(1); } to { transform: scale(1.035); } }
+@keyframes ring-turn { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+@keyframes mark-turn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes mark-ping { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes ring-wink { 0% { transform: scale(1, 1); } 35% { transform: scale(1.06, 0.82); } 100% { transform: scale(1, 1); } }
+
+.now-ring, .brand-mark { transition: opacity var(--dur-enter) var(--ease-enter), color var(--dur-state) var(--ease-enter); transform-origin: 50% 50%; }
+.now-ring__svg { transform-origin: 50% 50%; }
+
+[data-mood="watching"] .now-ring { animation: ring-breathe 2.4s var(--ease-enter) infinite alternate; }
+[data-mood="thinking"] .now-ring__svg { animation: ring-turn 1.4s linear infinite; }
+[data-mood="thinking"] .brand-mark { animation: mark-turn 1.4s linear infinite; }
+[data-mood="paused"] .now-ring { opacity: 0.5; filter: grayscale(1); }
+[data-mood="paused"] .brand-mark { color: var(--ink-faint); }
+[data-mood="away"] .now-ring { opacity: 0.4; }
+[data-mood="away"] .brand-mark { opacity: 0.5; }
+[data-mood="back"] .brand-mark { animation: mark-ping 900ms var(--ease-enter) 2; color: var(--accent-line); }
+[data-mood="accepted"] .brand-mark,
+[data-mood="accepted"] .now-ring { animation: ring-wink 600ms var(--ease-enter) 1; }
+
+/* "Back" also gets a dot on the mark, so the state reads without motion. */
+.titlebar .menu-bar__left { position: relative; }
+.titlebar .menu-bar__left::before {
+  content: ''; position: absolute; left: 14px; top: 12px;
+  width: 8px; height: 8px; border-radius: var(--radius-pill);
+  background: var(--accent); box-shadow: 0 0 0 2px var(--surface-canvas);
+  transform: scale(0); transition: transform var(--dur-state) var(--ease-enter);
+}
+[data-mood="back"] .titlebar .menu-bar__left::before { transform: scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mood] .now-ring, [data-mood] .now-ring__svg, [data-mood] .brand-mark { animation: none !important; }
+}

@@ -9,6 +9,7 @@ var Live = (function () {
   var state = {
     mode: 'demo',
     liveStatus: 'waiting',
+    needsHelper: true,
     storeTitles: false,
     awayAfterMin: 5,
     blocklist: [],
@@ -106,7 +107,7 @@ var Live = (function () {
         wins[w].removeAttribute('aria-hidden');
       }
     }
-    if (el.hint) el.hint.textContent = isLive() ? 'Live — tracking this PC' : 'Simulation — drag focus between windows';
+    if (el.hint) el.hint.textContent = isLive() ? 'Live: tracking this PC' : 'A simulated desktop for the demo. Click a window to focus it.';
     var simBtns = document.querySelectorAll('.sim-panel .btn');
     for (var j = 0; j < simBtns.length; j++) {
       simBtns[j].disabled = isLive();
@@ -285,11 +286,22 @@ var Live = (function () {
     var s = state.paused ? 'paused' : state.liveStatus;
     if (el.liveStatus) {
       el.liveStatus.setAttribute('data-status', s === 'ready' ? 'ready' : (s === 'paused' ? 'paused' : 'waiting'));
-      if (el.liveStatusText) el.liveStatusText.textContent = s === 'paused' ? STATUS_TEXT.paused : (STATUS_TEXT[s] || STATUS_TEXT.error);
+      if (el.liveStatusText) {
+        if (state.needsHelper === false && !state.paused && state.liveStatus === 'error') {
+          el.liveStatusText.textContent = 'Retoma could not read the active window. Try restarting the app.';
+        } else {
+          el.liveStatusText.textContent = s === 'paused' ? STATUS_TEXT.paused : (STATUS_TEXT[s] || STATUS_TEXT.error);
+        }
+      }
     }
     if (el.helperCard) {
       var missing = !state.paused && (state.liveStatus === 'extension-missing' || state.liveStatus === 'error');
+      if (state.needsHelper === false) missing = false;
       el.helperCard.classList.toggle('is-hidden', !missing);
+    }
+    if (state.needsHelper === false) {
+      if (el.enableCmd) el.enableCmd.classList.add('is-hidden');
+      if (el.enableCopy) el.enableCopy.classList.add('is-hidden');
     }
   }
 
@@ -315,7 +327,19 @@ var Live = (function () {
     if (!hasBridge()) return Promise.resolve(null);
     return window.retoma.helperCheck().then(function (res) {
       if (!res) return res;
+      if (res.needsHelper === false) state.needsHelper = false;
       onLiveStatus(res.status);
+      if (res.needsHelper === false) {
+        if (el.helperCard) el.helperCard.classList.add('is-hidden');
+        if (el.enableCmd) el.enableCmd.classList.add('is-hidden');
+        if (el.enableCopy) el.enableCopy.classList.add('is-hidden');
+        if (res.status === 'error') {
+          if (el.liveStatusText) el.liveStatusText.textContent = 'Retoma could not read the active window. Try restarting the app.';
+          note('Retoma could not read the active window. Try restarting the app.');
+        }
+        paintStatus();
+        return res;
+      }
       /* The enable command is visible and copyable from the start. */
       if (el.enableCmd) el.enableCmd.classList.remove('is-hidden');
       if (el.enableCopy) el.enableCopy.classList.remove('is-hidden');
@@ -513,7 +537,7 @@ var Live = (function () {
       if (window.Retoma && Retoma.reloadForMode && state.mode === 'live') {
         try { Retoma.reloadForMode('live'); } catch (e) { /* demo keeps going */ }
       }
-      refreshStatus();
+      checkHelper();
       renderLiveNow();
       renderLiveToday();
       if (window.Retoma && Retoma.isPaused && Retoma.isPaused() !== state.paused && state.paused) {

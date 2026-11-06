@@ -18,7 +18,7 @@ var Story = (function () {
     {
       sub: 'Retoma sees the app in use. Only the name, never what you type.',
       hold: 2200,
-      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Document'); Retoma.openPanel(); }
+      act: function () { Retoma.setClock(9, 0); Retoma.state.currentApp = 'Document'; Retoma.state.currentTitle = 'Quality report (paragraph 3)'; Retoma.state.timeInCurrent = 0; Desk.focus('Document'); Retoma.openPanel(); var ln = document.getElementById('leaveNote'); if (ln) { ln.value = 'fix the citation in paragraph 3'; try { localStorage.setItem('retoma.note.' + (Retoma.isLiveMode() ? 'live' : 'demo'), 'fix the citation in paragraph 3'); } catch (e) { /* noop */ } } }
     },
     {
       sub: 'You were interrupted. It notes it, never judges.',
@@ -89,7 +89,7 @@ var Story = (function () {
   ];
 
   function setControls(runningNow) {
-    if (el.storyPlay) { el.storyPlay.disabled = runningNow; el.storyPlay.textContent = runningNow ? '▶ Running' : '▶ Guided tour'; }
+    if (el.storyPlay) { el.storyPlay.disabled = runningNow; var lbl = el.storyPlay.querySelector('.story-play-label'); if (lbl) lbl.textContent = runningNow ? 'Running' : 'Guided tour'; else el.storyPlay.textContent = runningNow ? 'Running' : 'Guided tour'; }
     if (el.storyPause) el.storyPause.disabled = !runningNow;
     if (el.storySkip) el.storySkip.disabled = !runningNow;
     var freeBtns = document.querySelectorAll('#freeMode .btn');
