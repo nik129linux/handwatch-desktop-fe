@@ -253,6 +253,72 @@ function geminiPropose(summary, opts) {
     });
 }
 
+/* --- Quota: every Retoma server reply carries the day's remaining requests.
+ * Read the header first (real HTTP), else the body keys (mirrors). A 429 means
+ * the daily cap is spent: quota left is 0 and the entry point falls back to
+ * rules with limitReached:true. Nothing here ever throws to the UI. */
+
+function headerValue(headers, name) {
+  if (!headers) return undefined;
+  if (typeof headers.get === 'function') {
+    var direct = headers.get(name);
+    if (direct !== null && direct !== undefined) return direct;
+  }
+  var want = String(name).toLowerCase();
+  var keys = Object.keys(headers);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === want) return headers[keys[i]];
+  }
+  return undefined;
+}
+
+function quotaNumber(v) {
+  if (v === undefined || v === null || v === '') return null;
+  var n = Number(v);
+  return isFinite(n) ? n : null;
+}
+
+function quotaFrom(res, json) {
+  var left = quotaNumber(headerValue(res && res.headers, 'X-Quota-Left'));
+  var limit = quotaNumber(headerValue(res && res.headers, 'X-Quota-Limit'));
+  if (left === null && json) left = quotaNumber(json.quotaLeft);
+  if (limit === null && json) limit = quotaNumber(json.quotaLimit);
+  if (left === null && limit === null) return null;
+  return { left: left, limit: limit };
+}
+
+function emitQuota(o, quota) {
+  if (!quota || typeof o.onQuota !== 'function') return;
+  try { o.onQuota(quota); } catch (e) { /* a broken sink never breaks the reply */ }
+}
+
+function readBody(res) {
+  if (!res || typeof res.json !== 'function') return Promise.resolve(null);
+  try {
+    return Promise.resolve(res.json()).catch(function () { return null; });
+  } catch (e) {
+    return Promise.resolve(null);
+  }
+}
+
+function limitError(message) {
+  var e = new Error(message || 'limit reached');
+  e.limitReached = true;
+  return e;
+}
+
+/* Records the last quota seen so an entry point can attach it to a rules
+ * fallback (the renderer repaints the bar from the IPC result). */
+function quotaSink(o) {
+  var box = { value: null };
+  var user = o && o.onQuota;
+  box.onQuota = function (q) {
+    box.value = q;
+    emitQuota({ onQuota: user }, q);
+  };
+  return box;
+}
+
 /* Retoma server mode: gemma through the remote server. Same validation as local. */
 function serverPropose(summary, opts) {
   var o = opts || {};
@@ -265,13 +331,20 @@ function serverPropose(summary, opts) {
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
-      if (!res.ok) throw new Error('http ' + res.status);
-      return res.json();
-    })
-    .then(function (json) {
-      if (!json || !json.ok || json.fallback) throw new Error('server fallback');
-      if (!validateProposal(json)) throw new Error('invalid shape');
-      return { start: json.start, minutes: json.minutes, reason: json.reason, source: json.source || 'Retoma server', fallback: false };
+      return readBody(res).then(function (json) {
+        var quota = quotaFrom(res, json);
+        if (res.status === 429) {
+          emitQuota(o, { left: 0, limit: quota ? quota.limit : null });
+          throw limitError('limit reached');
+        }
+        emitQuota(o, quota);
+        if (!res.ok) throw new Error('http ' + res.status);
+        if (!json || !json.ok || json.fallback) throw new Error('server fallback');
+        if (!validateProposal(json)) throw new Error('invalid shape');
+        var out = { start: json.start, minutes: json.minutes, reason: json.reason, source: json.source || 'Retoma server', fallback: false };
+        if (quota) out.quota = quota;
+        return out;
+      });
     });
   return raceTimeout(p, ms);
 }
@@ -283,19 +356,99 @@ function serverResumeLine(ctx, opts) {
   var impl = o.fetchImpl;
   var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
   var lang = o.lang || 'en';
-  var sendCtx = { app: c.app, title: c.title, note: c.note, awayMinutes: c.awayMinutes };
+  var sendCtx = { app: c.app, awayMinutes: c.awayMinutes };
+  if (String(c.title || '').trim()) sendCtx.title = c.title;
+  if (String(c.note || '').trim()) sendCtx.note = c.note;
   var body = { ctx: sendCtx, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/resume-line',
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
-      if (!res.ok) throw new Error('http ' + res.status);
-      return res.json();
-    })
-    .then(function (json) {
-      if (!json || !json.ok || json.fallback) throw new Error('server fallback');
-      if (!validateResumeLine(json.text, String(c.app || '').trim() || 'Unknown')) throw new Error('invalid line');
-      return { text: json.text, source: json.source || 'Retoma server', fallback: false };
+      return readBody(res).then(function (json) {
+        var quota = quotaFrom(res, json);
+        if (res.status === 429) {
+          emitQuota(o, { left: 0, limit: quota ? quota.limit : null });
+          throw limitError('limit reached');
+        }
+        emitQuota(o, quota);
+        if (!res.ok) throw new Error('http ' + res.status);
+        if (!json || !json.ok || json.fallback) throw new Error('server fallback');
+        if (!validateResumeLine(json.text, String(c.app || '').trim() || 'Unknown')) throw new Error('invalid line');
+        var out = { text: json.text, source: json.source || 'Retoma server', fallback: false };
+        if (quota) out.quota = quota;
+        return out;
+      });
+    });
+  return raceTimeout(p, ms);
+}
+
+/* Server habit coach and Ask your day: same grounded validation the local
+ * model must pass, so an ungrounded server line falls back to rules. */
+function serverHabits(metrics, opts) {
+  var o = opts || {};
+  var base = apiBaseFor(o);
+  var impl = o.fetchImpl;
+  var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
+  var lang = o.lang || 'en';
+  var body = { metrics: metrics, lang: lang };
+  var p = fetchWithTimeout(base + '/api/retoma/habits',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    ms, impl)
+    .then(function (res) {
+      return readBody(res).then(function (json) {
+        var quota = quotaFrom(res, json);
+        if (res.status === 429) {
+          emitQuota(o, { left: 0, limit: quota ? quota.limit : null });
+          throw limitError('limit reached');
+        }
+        emitQuota(o, quota);
+        if (!res.ok) throw new Error('http ' + res.status);
+        if (!json || !json.ok || json.fallback) throw new Error('server fallback');
+        if (!habits.validateReport(json)) throw new Error('invalid shape');
+        if (!habits.groundedReport(json, metrics)) throw new Error('ungrounded');
+        var rules = habits.rulesReport(metrics);
+        var out = {
+          pattern: json.pattern || (rules && rules.pattern) || '',
+          note: json.note,
+          experiment: json.experiment,
+          source: json.source || 'Retoma server',
+          fallback: false
+        };
+        if (quota) out.quota = quota;
+        return out;
+      });
+    });
+  return raceTimeout(p, ms);
+}
+
+function serverAsk(metrics, question, opts) {
+  var o = opts || {};
+  var base = apiBaseFor(o);
+  var impl = o.fetchImpl;
+  var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
+  var lang = o.lang || 'en';
+  var q = String(question || '').slice(0, 200);
+  var body = { metrics: metrics, question: q, lang: lang };
+  var p = fetchWithTimeout(base + '/api/retoma/ask',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    ms, impl)
+    .then(function (res) {
+      return readBody(res).then(function (json) {
+        var quota = quotaFrom(res, json);
+        if (res.status === 429) {
+          emitQuota(o, { left: 0, limit: quota ? quota.limit : null });
+          throw limitError('limit reached');
+        }
+        emitQuota(o, quota);
+        if (!res.ok) throw new Error('http ' + res.status);
+        if (!json || !json.ok || json.fallback) throw new Error('server fallback');
+        var answer = json.answer;
+        if (!habits.validateAnswer(answer)) throw new Error('invalid shape');
+        if (!habits.groundedAnswer(answer, metrics)) throw new Error('ungrounded');
+        var out = { answer: answer, source: json.source || 'Retoma server', fallback: false };
+        if (quota) out.quota = quota;
+        return out;
+      });
     });
   return raceTimeout(p, ms);
 }
@@ -337,7 +490,17 @@ function propose(summary, opts) {
     return ollamaPropose(summary, o).catch(function () { return fallbackResult(summary); });
   }
   if (mode === 'server') {
-    return serverPropose(summary, o).catch(function () { return fallbackResult(summary); });
+    var sink = quotaSink(o);
+    var serverOpts = Object.assign({}, o, { onQuota: sink.onQuota });
+    return serverPropose(summary, serverOpts).catch(function (e) {
+      var f = fallbackResult(summary);
+      if (e && e.limitReached) f.limitReached = true;
+      if (sink.value) f.quota = sink.value;
+      return f;
+    }).then(function (r) {
+      if (r && sink.value && !r.quota) r.quota = sink.value;
+      return r;
+    });
   }
   if (mode === 'cloud') {
     return geminiPropose(summary, o).catch(function () { return fallbackResult(summary); });
@@ -403,6 +566,19 @@ function habitsReport(metrics, opts) {
     if (mode !== 'off') out.noteFlag = 'Consent needed before the model is called';
     return Promise.resolve(out);
   }
+  if (mode === 'server') {
+    var sink = quotaSink(o);
+    var serverOpts = Object.assign({}, o, { onQuota: sink.onQuota });
+    return serverHabits(metrics, serverOpts).catch(function (e) {
+      var f = habitsFallback(metrics);
+      if (e && e.limitReached) f.limitReached = true;
+      if (sink.value) f.quota = sink.value;
+      return f;
+    }).then(function (r) {
+      if (r && sink.value && !r.quota) r.quota = sink.value;
+      return r;
+    });
+  }
   if (mode !== 'local') {
     return Promise.resolve(habitsFallback(metrics));
   }
@@ -446,7 +622,23 @@ function habitsAsk(metrics, question, opts) {
   if (!metrics) {
     return Promise.resolve({ answer: habits.rulesAsk(null, q), source: 'rules', fallback: false });
   }
-  if (mode === 'off' || !consent[mode] || mode !== 'local') {
+  if (mode === 'off' || !consent[mode]) {
+    return Promise.resolve({ answer: habits.rulesAsk(metrics, q), source: 'rules', fallback: false });
+  }
+  if (mode === 'server') {
+    var sink = quotaSink(o);
+    var serverOpts = Object.assign({}, o, { onQuota: sink.onQuota });
+    return serverAsk(metrics, q, serverOpts).catch(function (e) {
+      var f = { answer: habits.rulesAsk(metrics, q), source: 'rules', fallback: true, noteFlag: FALLBACK_NOTE };
+      if (e && e.limitReached) f.limitReached = true;
+      if (sink.value) f.quota = sink.value;
+      return f;
+    }).then(function (r) {
+      if (r && sink.value && !r.quota) r.quota = sink.value;
+      return r;
+    });
+  }
+  if (mode !== 'local') {
     return Promise.resolve({ answer: habits.rulesAsk(metrics, q), source: 'rules', fallback: false });
   }
   var base = o.ollamaUrl || ollamaBaseUrl();
@@ -582,11 +774,18 @@ function resumeLine(ctx, opts) {
       return Promise.resolve(rs);
     }
     var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
-    return raceTimeout(serverResumeLine(c, o), ms).catch(function () {
+    var sink = quotaSink(o);
+    var serverOpts = Object.assign({}, o, { onQuota: sink.onQuota });
+    return raceTimeout(serverResumeLine(c, serverOpts), ms).catch(function (e) {
       var f = rulesResumeLine(c);
       f.fallback = true;
       f.note = FALLBACK_NOTE;
+      if (e && e.limitReached) f.limitReached = true;
+      if (sink.value) f.quota = sink.value;
       return f;
+    }).then(function (r) {
+      if (r && sink.value && !r.quota) r.quota = sink.value;
+      return r;
     });
   }
   if (mode !== 'local' || !consent.local) {
@@ -651,5 +850,8 @@ module.exports = {
   validateResumeLine: validateResumeLine,
   resumeLine: resumeLine,
   DEFAULT_API_BASE: DEFAULT_API_BASE,
-  serverStatus: serverStatus
+  serverStatus: serverStatus,
+  serverHabits: serverHabits,
+  serverAsk: serverAsk,
+  quotaFrom: quotaFrom
 };

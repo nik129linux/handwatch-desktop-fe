@@ -44,6 +44,20 @@ function experimentsFileFor(mode) {
   return store.experimentsPathFor(app.getPath('userData'), mode);
 }
 
+function quotaFileFor(mode) {
+  return store.quotaPathFor(app.getPath('userData'), mode);
+}
+
+/* Every server AI reply reports the day's remaining requests; persist the
+ * last one so the renderer can repaint before the next call. */
+function quotaSaver(mode) {
+  return function (q) {
+    try {
+      store.saveQuota(fs, quotaFileFor(mode), q);
+    } catch (e) { /* the AI reply still goes through */ }
+  };
+}
+
 function dayKeyLocal(ms) {
   var d = new Date(ms);
   function p2(n) { return String(n).padStart(2, '0'); }
@@ -285,9 +299,22 @@ function showReturnNotification(info) {
 }
 
 function setupIpc() {
-  ipcMain.handle('retoma:propose', (ev, summary, opts) => providers.propose(summary, Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts)));
-  ipcMain.handle('retoma:resume-line', (ev, ctx, opts) => (providers.resumeLine ? providers.resumeLine(ctx, Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts)) : null));
+  ipcMain.handle('retoma:propose', (ev, summary, opts) => {
+    var o = Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts || {});
+    o.onQuota = quotaSaver(modeNow());
+    return providers.propose(summary, o);
+  });
+  ipcMain.handle('retoma:resume-line', (ev, ctx, opts) => {
+    if (!providers.resumeLine) return null;
+    var o = Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts || {});
+    o.onQuota = quotaSaver(modeNow());
+    return providers.resumeLine(ctx, o);
+  });
   ipcMain.handle('retoma:server:status', () => providers.serverStatus({ apiBase: process.env.RETOMA_API_BASE }));
+  ipcMain.handle('retoma:ai:quota', (ev, mode) => {
+    var m = mode === 'live' || mode === 'demo' ? mode : modeNow();
+    return store.loadQuota(fs, quotaFileFor(m));
+  });
   ipcMain.handle('retoma:preview', (ev, summary, mode) => providers.previewPayload(summary, mode));
   ipcMain.handle('retoma:capabilities', () => providers.capabilities());
   function fileForArg(arg) {
@@ -352,9 +379,10 @@ function setupIpc() {
     var report = await providers.habitsReport(metrics, {
       mode: o.aiMode || 'off',
       consent: o.consent || {},
-      ollamaUrl: process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL
+      ollamaUrl: process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL,
+      onQuota: quotaSaver(m)
     });
-    return { metrics: metrics, report: report, evaluation: evaluation };
+    return { metrics: metrics, report: report, evaluation: evaluation, quota: (report && report.quota) || null };
   });
   ipcMain.handle('retoma:habits:accept', (ev, experiment, opts) => {
     var o = opts || {};
@@ -391,14 +419,18 @@ function setupIpc() {
     return providers.habitsAsk(metrics, question, {
       mode: o.aiMode || 'off',
       consent: o.consent || {},
-      ollamaUrl: process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL
+      ollamaUrl: process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL,
+      onQuota: quotaSaver(m)
     });
   });
   ipcMain.handle('retoma:ai:status', async (ev, opts) => {
     var o = opts || {};
     var consent = o.consent || {};
-    var base = process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL;
-    if (!consent.local) {
+    var explicit = typeof o.ollamaUrl === 'string' && o.ollamaUrl.trim() ? o.ollamaUrl.trim() : '';
+    var base = explicit || process.env.OLLAMA_URL || process.env.RETOMA_OLLAMA_URL;
+    /* The URL test in Privacy only checks a health endpoint on the URL the
+     * person typed; it never sends usage data, so it needs no consent. */
+    if (!explicit && !consent.local) {
       return { gated: true, reachable: false, model: '', url: providers.capabilities().ollamaUrl };
     }
     var st = await providers.aiStatus({ ollamaUrl: base });

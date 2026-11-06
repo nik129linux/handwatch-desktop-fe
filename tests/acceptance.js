@@ -1390,6 +1390,95 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(l3Errs.length === 0, 'L3 run has no console errors', l3Errs.join(' | '));
   await l3.close();
 
+  head('33 · AI quota bar, Adjust, and Ask limits');
+  const qp = await ctx.newPage();
+  const qpErrs = watchErrors(qp);
+  await qp.goto(INDEX, { waitUntil: 'load' });
+  await qp.waitForSelector('#deskClock');
+  await qp.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  await settle(qp, 500);
+
+  // quota bar: server mode + known quota paints text and width
+  await qp.evaluate(() => {
+    window.retoma = {
+      aiQuota: () => Promise.resolve({ left: 7, limit: 10 }),
+      propose: () => Promise.resolve({ start: '9:00', minutes: 40, reason: 'Your longest block was in Document.', source: 'Retoma server · gemma4:31b', fallback: false, quota: { left: 6, limit: 10 } }),
+      habitsReport: () => Promise.resolve({
+        metrics: null,
+        evaluation: null,
+        report: {
+          pattern: 'focus',
+          note: 'Longest block Document 40 min across 2 blocks.',
+          experiment: { text: 'After I open my main task, I will stay with it for 25 min.', trigger: 'I open my main task', action: 'stay with it', minutes: 25, metric: 'longest', target: 25, direction: 'atLeast' },
+          source: 'Retoma server · gemma4:31b',
+          fallback: false
+        }
+      }),
+      habitsAsk: () => Promise.resolve({ answer: 'Your longest block was Document 40 min.', source: 'Retoma server · gemma4:31b', fallback: false, quota: { left: 6, limit: 10 } }),
+      aiStatus: () => Promise.resolve({ reachable: true, model: 'gemma4:31b' }),
+      capabilities: () => Promise.resolve({ cloudAvailable: false })
+    };
+    Retoma.state.aiMode = 'server';
+    Retoma.state.aiConsent.server = true;
+    Retoma.switchTab('priv');
+    Retoma.refreshQuota();
+  });
+  await settle(qp, 400);
+  ok(await qp.evaluate(() => !document.getElementById('quotaPriv').classList.contains('is-hidden')), 'quota bar visible in Privacy for server mode');
+  ok(((await qp.locator('#quotaTextPriv').textContent()) || '').includes('AI requests: 7 left'), 'quota text says AI requests: 7 left', await qp.locator('#quotaTextPriv').textContent().catch(() => ''));
+  ok(await qp.evaluate(() => document.getElementById('quotaFillPriv').style.width === '70%'), 'quota fill width is left/limit (70%)', await qp.evaluate(() => document.getElementById('quotaFillPriv').style.width));
+  ok(await qp.evaluate(() => !document.getElementById('quotaHoy').classList.contains('is-hidden')), 'quota bar also in the AI panel (Today)');
+  ok(await qp.evaluate(() => document.getElementById('quotaFillHoy').style.width === '70%'), 'AI panel quota fill matches', await qp.evaluate(() => document.getElementById('quotaFillHoy').style.width));
+
+  // quota 0: limit notice + Connect Ollama lands on Privacy with the URL focused
+  await qp.evaluate(() => { Retoma.state.aiMode = 'server'; Retoma.setQuota({ left: 0, limit: 10 }); });
+  await settle(qp, 300);
+  ok(/AI limit reached\. Connect Ollama to keep going\./.test(await qp.locator('#quotaTextPriv').textContent()), 'limit notice at 0', await qp.locator('#quotaTextPriv').textContent());
+  ok(await qp.evaluate(() => !document.getElementById('quotaOllamaPriv').classList.contains('is-hidden')), 'Connect Ollama shown at 0');
+  await qp.click('#quotaOllamaPriv');
+  await settle(qp, 300);
+  ok(await qp.evaluate(() => document.getElementById('retomaTabPriv').classList.contains('is-active')), 'Connect Ollama opens Privacy');
+  ok(await qp.evaluate(() => document.activeElement && document.activeElement.id === 'ollamaUrl'), 'Connect Ollama focuses the Ollama URL input', await qp.evaluate(() => document.activeElement && document.activeElement.id));
+  ok((await qp.inputValue('#ollamaUrl')) === 'http://127.0.0.1:11434', 'Ollama URL defaults to localhost', await qp.inputValue('#ollamaUrl'));
+  await qp.click('#ollamaTest');
+  await settle(qp, 350);
+  ok(/Connected · gemma4:31b/.test(await qp.locator('#ollamaTestResult').textContent()), 'Test says Connected · model', await qp.locator('#ollamaTestResult').textContent());
+
+  // Adjust: invalid clock blocks Accept; +15 clamps at 180
+  await qp.evaluate(() => {
+    Retoma.state.aiMode = 'off';
+    Retoma.state.empty = false;
+    Retoma.state.proposalDismissed = false;
+    Retoma.state.timeline = [{ app: 'Document', duration: 40 }, { app: 'WhatsApp', duration: 18 }];
+    Retoma.showEndOfDay();
+    Retoma.switchTab('hoy');
+  });
+  await settle(qp, 400);
+  await qp.evaluate(() => document.getElementById('proposalAdjust').click());
+  await settle(qp, 200);
+  await qp.fill('#adjustStart', '25:99');
+  await settle(qp, 200);
+  ok(/Use a time like 9:30 and 15–180 min/.test(await qp.locator('#adjustError').textContent()), 'invalid time shows the inline message', await qp.locator('#adjustError').textContent().catch(() => ''));
+  ok(await qp.evaluate(() => document.getElementById('proposalAccept').disabled === true), 'Accept disabled while invalid');
+  await qp.fill('#adjustStart', '9:30');
+  await settle(qp, 200);
+  ok(await qp.evaluate(() => document.getElementById('proposalAccept').disabled === false), 'Accept enabled again with a valid time');
+  for (let i = 0; i < 30; i++) await qp.click('#adjustPlus');
+  ok((await qp.locator('#adjustMinutes').textContent()).trim() === '180', '+15 clamps at 180', await qp.locator('#adjustMinutes').textContent());
+  await qp.evaluate(() => document.getElementById('proposalAccept').click());
+  await settle(qp, 300);
+  const adjustedText = await qp.locator('#proposalText').textContent();
+  ok(/9:30 to 12:30/.test(adjustedText) && /180 min/.test(adjustedText), 'Accept saves the adjusted window in the card', adjustedText);
+
+  // Ask: 300 typed characters keep 200
+  await qp.evaluate(() => Retoma.switchTab('hoy'));
+  await settle(qp, 250);
+  await qp.locator('#habitAskInput').pressSequentially('x'.repeat(300));
+  ok((await qp.inputValue('#habitAskInput')).length === 200, 'Ask keeps at most 200 characters', String((await qp.inputValue('#habitAskInput')).length));
+  ok(qpErrs.length === 0, 'quota/Adjust run has no console errors', qpErrs.join(' | '));
+  await qp.screenshot({ path: path.join(SHOTS, '33-quota-adjust.png'), fullPage: true });
+  await qp.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });

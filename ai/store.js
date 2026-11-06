@@ -121,6 +121,51 @@ function serialize(events) {
   return JSON.stringify({ version: STORE_VERSION, exportedAt: new Date().toISOString(), events: events || [] }, null, 2);
 }
 
+/* Last daily AI quota seen from the Retoma server, per mode. Same shape as
+ * the experiments store: one JSON file in userData. The renderer repaints the
+ * bar from this when the daily cap was already reached before launch. */
+function quotaPathFor(userDataDir, mode) {
+  var m = mode === 'live' ? 'live' : 'demo';
+  return path.join(userDataDir, 'quota-' + m + '.json');
+}
+
+function normalizeQuota(q) {
+  if (!q || typeof q !== 'object') return null;
+  var left = Number(q.left);
+  var limit = Number(q.limit);
+  if (!isFinite(left) || !isFinite(limit)) return null;
+  return {
+    left: Math.max(0, left),
+    limit: Math.max(0, limit),
+    at: q.at ? String(q.at) : new Date().toISOString()
+  };
+}
+
+function loadQuota(fsImpl, filePath) {
+  var raw;
+  try {
+    raw = fsImpl.readFileSync(filePath, 'utf8');
+  } catch (e) {
+    return null;
+  }
+  var data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+  return normalizeQuota(data && data.quota ? data.quota : data);
+}
+
+function saveQuota(fsImpl, filePath, quota, nowMs) {
+  var now = nowMs === undefined ? Date.now() : nowMs;
+  var out = normalizeQuota(Object.assign({ at: new Date(now).toISOString() }, quota || {}));
+  if (!out) out = { left: 0, limit: 0, at: new Date(now).toISOString() };
+  var data = { version: STORE_VERSION, savedAt: new Date(now).toISOString(), quota: out };
+  fsImpl.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  return out;
+}
+
 module.exports = {
   RETENTION_MS: RETENTION_MS,
   eventsPath: eventsPath,
@@ -134,5 +179,9 @@ module.exports = {
   pruneExperiments: pruneExperiments,
   loadExperimentsFile: loadExperimentsFile,
   saveExperimentsFile: saveExperimentsFile,
-  serializeExperiments: serializeExperiments
+  serializeExperiments: serializeExperiments,
+  quotaPathFor: quotaPathFor,
+  normalizeQuota: normalizeQuota,
+  loadQuota: loadQuota,
+  saveQuota: saveQuota
 };

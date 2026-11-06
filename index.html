@@ -132,7 +132,19 @@
             <p id="proposalHow" class="proposal-card__how">How I decided: longest block Document 40 min · first interruption WhatsApp 9:52 · window 9:00–9:40</p>
             <div class="proposal-actions">
               <button id="proposalAccept" class="btn btn--primary">Accept</button>
+              <button id="proposalAdjust" class="btn btn--ghost" type="button">Adjust</button>
               <button id="proposalDecline" class="btn btn--ghost">No, thanks</button>
+            </div>
+            <div id="proposalAdjuster" class="proposal-adjust is-hidden">
+              <label class="proposal-adjust__field" for="adjustStart">Start
+                <input id="adjustStart" type="text" inputmode="numeric" placeholder="9:30" aria-label="Start time">
+              </label>
+              <div class="proposal-adjust__minutes">
+                <button id="adjustMinus" class="btn btn--ghost" type="button" aria-label="15 minutes less">−15</button>
+                <span id="adjustMinutes" class="proposal-adjust__value" aria-live="polite">40</span>
+                <button id="adjustPlus" class="btn btn--ghost" type="button" aria-label="15 minutes more">+15</button>
+              </div>
+              <p id="adjustError" class="proposal-adjust__error is-hidden">Use a time like 9:30 and 15–180 min</p>
             </div>
           </div>
           <div id="emptyState" class="empty-state is-hidden">No history. Everything was deleted.</div>
@@ -153,6 +165,13 @@
               </div>
               <p id="habitAskAnswer" class="habit-exp is-hidden"></p>
             </div>
+          </div>
+          <div id="quotaHoy" class="quota is-hidden">
+            <p id="quotaTextHoy" class="quota__text">AI requests: 0 left</p>
+            <div class="quota-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="AI requests left">
+              <div id="quotaFillHoy" class="quota-fill"></div>
+            </div>
+            <button id="quotaOllamaHoy" class="btn btn--ghost is-hidden" type="button">Connect Ollama</button>
           </div>
         </section>
       </div>
@@ -197,6 +216,21 @@
             </div>
             <p id="aiModeReason" class="panel-section__text--muted is-hidden"></p>
             <p id="aiStatus" class="panel-section__text--muted">Local model: off</p>
+            <div id="quotaPriv" class="quota is-hidden">
+              <p id="quotaTextPriv" class="quota__text">AI requests: 0 left</p>
+              <div class="quota-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="AI requests left">
+                <div id="quotaFillPriv" class="quota-fill"></div>
+              </div>
+              <button id="quotaOllamaPriv" class="btn btn--ghost is-hidden" type="button">Connect Ollama</button>
+            </div>
+            <div id="ollamaConnect" class="ollama-connect">
+              <label class="panel-section__label" for="ollamaUrl">Ollama URL</label>
+              <div class="blocklist__row">
+                <input id="ollamaUrl" type="text" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434" aria-label="Ollama URL">
+                <button id="ollamaTest" class="btn" type="button">Test</button>
+              </div>
+              <p id="ollamaTestResult" class="panel-section__text--muted is-hidden" aria-live="polite"></p>
+            </div>
             <div id="aiConsent" class="ai-consent is-hidden">
               <p class="panel-section__text--muted">This exact payload is sent. Nothing else leaves this device.</p>
               <pre id="aiPayload" class="ai-payload"></pre>

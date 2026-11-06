@@ -26,7 +26,11 @@ var Retoma = (function () {
     aiToken: 0,
     cloudAvailable: false,
     cloudReason: '',
-    pendingMode: null
+    pendingMode: null,
+    quota: null,
+    currentProposal: null,
+    acceptedBlock: null,
+    adjust: null
   };
 
   var el = {};
@@ -283,6 +287,7 @@ var Retoma = (function () {
       try {
         window.retoma.resumeLine(ctx, opts).then(function (res) {
           if (token !== resumeAiToken) return;
+          if (res && res.quota) setQuota(res.quota);
           // Rules only repeat the hero + note line: show the line only when a model wrote it.
           if (!res || !res.text || res.fallback || res.source === 'On-device rules') {
             if (el.resumeAi) el.resumeAi.classList.add('is-hidden');
@@ -379,6 +384,11 @@ var Retoma = (function () {
         if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
         return null;
       }
+      state.currentProposal = {
+        start: fmtClock(p.winStart),
+        minutes: Math.max(15, Math.min(180, Math.round(p.longest.duration))),
+        reason: p.how
+      };
       if (textEl) textEl.textContent = p.text;
       if (howEl) howEl.textContent = p.how;
       if (tagEl) tagEl.textContent = 'On-device rules';
@@ -395,15 +405,22 @@ var Retoma = (function () {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
+      if (res && res.quota) setQuota(res.quota);
       if (!res || !Ai.validProposal(res)) {
         var fb = computeProposal(data);
         if (!fb) { if (card) card.classList.add('is-hidden'); return; }
+        state.currentProposal = {
+          start: fmtClock(fb.winStart),
+          minutes: Math.max(15, Math.min(180, Math.round(fb.longest.duration))),
+          reason: fb.how
+        };
         if (textEl) textEl.textContent = fb.text;
         if (howEl) howEl.textContent = fb.how;
         if (tagEl) tagEl.textContent = 'On-device rules';
         return;
       }
       var f = Ai.formatProposal(res);
+      state.currentProposal = { start: res.start, minutes: res.minutes, reason: res.reason };
       if (textEl) textEl.textContent = f.text;
       if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
       if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
@@ -413,6 +430,11 @@ var Retoma = (function () {
       if (card) card.classList.remove('is-loading');
       var fb2 = computeProposal(data);
       if (!fb2) { if (card) card.classList.add('is-hidden'); return; }
+      state.currentProposal = {
+        start: fmtClock(fb2.winStart),
+        minutes: Math.max(15, Math.min(180, Math.round(fb2.longest.duration))),
+        reason: fb2.how
+      };
       if (textEl) textEl.textContent = fb2.text;
       if (howEl) howEl.textContent = fb2.how;
       if (tagEl) tagEl.textContent = 'On-device rules';
@@ -430,6 +452,149 @@ var Retoma = (function () {
 
   function hasBridge() {
     return !!(window.retoma && window.retoma.propose);
+  }
+
+  /* --- Daily AI quota ---------------------------------------------------- */
+
+  function quotaKnown(q) {
+    return !!q && typeof q.left === 'number' && isFinite(q.left) &&
+      typeof q.limit === 'number' && isFinite(q.limit) && q.limit > 0;
+  }
+
+  function setQuota(q) {
+    if (!quotaKnown(q)) return;
+    state.quota = { left: Math.max(0, Math.floor(q.left)), limit: Math.floor(q.limit) };
+    paintQuota();
+  }
+
+  function quotaBarIds() {
+    return [
+      { box: 'quotaHoy', text: 'quotaTextHoy', fill: 'quotaFillHoy', btn: 'quotaOllamaHoy' },
+      { box: 'quotaPriv', text: 'quotaTextPriv', fill: 'quotaFillPriv', btn: 'quotaOllamaPriv' }
+    ];
+  }
+
+  function paintQuota() {
+    var q = state.quota;
+    var show = state.aiMode === 'server' && quotaKnown(q);
+    quotaBarIds().forEach(function (ids) {
+      var box = document.getElementById(ids.box);
+      if (!box) return;
+      box.classList.toggle('is-hidden', !show);
+      if (!show) return;
+      var text = document.getElementById(ids.text);
+      var fill = document.getElementById(ids.fill);
+      var btn = document.getElementById(ids.btn);
+      var pct = Math.max(0, Math.min(100, q.left / q.limit * 100));
+      pct = Math.round(pct * 10) / 10;
+      if (fill) fill.style.width = pct + '%';
+      var bar = fill && fill.parentElement;
+      if (bar) bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+      var reached = q.left <= 0;
+      if (text) {
+        text.textContent = reached
+          ? 'AI limit reached. Connect Ollama to keep going.'
+          : 'AI requests: ' + q.left + ' left';
+      }
+      if (btn) btn.classList.toggle('is-hidden', !reached);
+    });
+  }
+
+  /* Re-read the last quota saved by the main process (or the test stub). */
+  function refreshQuota() {
+    paintQuota();
+    if (state.aiMode !== 'server') return;
+    if (!(window.retoma && window.retoma.aiQuota)) return;
+    try {
+      window.retoma.aiQuota(isLiveMode() ? 'live' : 'demo').then(function (q) {
+        if (state.aiMode !== 'server') return;
+        setQuota(q);
+      }, function () { /* no saved quota yet */ });
+    } catch (e) { /* noop */ }
+  }
+
+  function connectOllama() {
+    switchTab('priv');
+    var panel = document.getElementById('ollamaConnect');
+    if (panel) panel.classList.remove('is-hidden');
+    if (state.aiMode !== 'local') selectAiMode('local');
+    var input = document.getElementById('ollamaUrl');
+    if (input) {
+      if (!input.value) input.value = 'http://127.0.0.1:11434';
+      setTimeout(function () {
+        try { input.focus(); input.select(); } catch (e) { /* noop */ }
+      }, 60);
+    }
+  }
+
+  function testOllama() {
+    var input = document.getElementById('ollamaUrl');
+    var out = document.getElementById('ollamaTestResult');
+    var url = input ? String(input.value || '').trim() : '';
+    if (!url || !out) return;
+    function say(text) {
+      out.textContent = text;
+      out.classList.remove('is-hidden');
+    }
+    if (!(window.retoma && window.retoma.aiStatus)) { say('Not reachable'); return; }
+    say('Testing…');
+    try {
+      window.retoma.aiStatus({ ollamaUrl: url, consent: state.aiConsent }).then(function (st) {
+        if (st && st.reachable) say('Connected' + (st.model ? ' \u00b7 ' + st.model : ''));
+        else say('Not reachable');
+      }, function () { say('Not reachable'); });
+    } catch (e) { say('Not reachable'); }
+  }
+
+  /* --- Proposal Adjust: start time + 15-min steps, clamped 15..180 ------- */
+
+  function adjustValid() {
+    if (!state.adjust) return false;
+    var clock = Ai.parseClock(state.adjust.start);
+    var minutes = state.adjust.minutes;
+    return clock !== null && Number.isInteger(minutes) && minutes >= 15 && minutes <= 180;
+  }
+
+  function validateAdjust() {
+    var okv = adjustValid();
+    if (el.adjustError) el.adjustError.classList.toggle('is-hidden', okv);
+    if (el.proposalAccept) el.proposalAccept.disabled = !okv;
+    return okv;
+  }
+
+  function startAdjust() {
+    if (!state.currentProposal) return;
+    state.adjust = {
+      start: state.currentProposal.start,
+      minutes: Math.max(15, Math.min(180, Math.round(state.currentProposal.minutes)))
+    };
+    if (el.proposalAdjuster) el.proposalAdjuster.classList.remove('is-hidden');
+    if (el.adjustStart) el.adjustStart.value = state.adjust.start;
+    if (el.adjustMinutes) el.adjustMinutes.textContent = String(state.adjust.minutes);
+    validateAdjust();
+    if (el.adjustStart) {
+      try { el.adjustStart.focus(); } catch (e) { /* noop */ }
+    }
+  }
+
+  function endAdjust() {
+    state.adjust = null;
+    if (el.proposalAdjuster) el.proposalAdjuster.classList.add('is-hidden');
+    if (el.adjustError) el.adjustError.classList.add('is-hidden');
+    if (el.proposalAccept) el.proposalAccept.disabled = false;
+  }
+
+  function bumpAdjust(delta) {
+    if (!state.adjust) return;
+    state.adjust.minutes = Math.max(15, Math.min(180, state.adjust.minutes + delta));
+    if (el.adjustMinutes) el.adjustMinutes.textContent = String(state.adjust.minutes);
+    validateAdjust();
+  }
+
+  function readAdjustStart() {
+    if (!state.adjust || !el.adjustStart) return;
+    state.adjust.start = String(el.adjustStart.value || '').trim();
+    validateAdjust();
   }
 
   function loadAiPrefs() {
@@ -475,6 +640,8 @@ var Retoma = (function () {
       reason.classList.toggle('is-hidden', !msg);
     }
     refreshServerStatusLine();
+    paintQuota();
+    if (state.aiMode === 'server') refreshQuota();
   }
 
   var habitsPatched = false;
@@ -560,7 +727,7 @@ var Retoma = (function () {
       pre.textContent = JSON.stringify(payload, null, 2);
       box.classList.remove('is-hidden');
     };
-    if (hasBridge()) {
+    if (hasBridge() && window.retoma.previewPayload) {
       window.retoma.previewPayload(summary, mode).then(paint, function () { paint(Ai.previewLocal(summary)); });
     } else {
       paint(Ai.previewLocal(summary));
@@ -798,6 +965,7 @@ var Retoma = (function () {
 
   function renderTimeline() {
     if (!el.timelineBar) return;
+    if (state.aiMode === 'server') refreshQuota();
     /* Live reads ONLY live events: empty Live never falls back to the demo seed. */
     var dayStatement = document.getElementById('dayStatement');
     if (isLiveMode()) {
@@ -915,10 +1083,39 @@ var Retoma = (function () {
 
   function dismissProposal() {
     state.proposalDismissed = true;
+    endAdjust();
     if (el.proposalCard) el.proposalCard.classList.add('is-hidden');
   }
 
   function acceptProposal() {
+    if (state.adjust) {
+      if (!validateAdjust()) return;
+      var start = String(state.adjust.start || '').trim();
+      var minutes = state.adjust.minutes;
+      state.acceptedBlock = { start: start, minutes: minutes };
+      try {
+        window.localStorage.setItem('retoma-block-' + (isLiveMode() ? 'live' : 'demo'),
+          JSON.stringify(state.acceptedBlock));
+      } catch (e) { /* session only */ }
+      var end = fmtClock(Ai.parseClock(start) + minutes);
+      var textEl = document.getElementById('proposalText');
+      if (textEl) {
+        textEl.textContent = 'Tomorrow: ' + minutes + ' min for the report, ' + start +
+          ' to ' + end + ', before the messages arrive.';
+      }
+      if (state.currentProposal) {
+        state.currentProposal.start = start;
+        state.currentProposal.minutes = minutes;
+      }
+      var howEl = document.getElementById('proposalHow');
+      if (howEl) {
+        var baseHow = String(howEl.textContent || '')
+          .replace(/\s*\u00b7\s*adjusted to \d{1,2}:\d{2}\u2013\d{1,2}:\d{2}$/, '');
+        howEl.textContent = baseHow + ' \u00b7 adjusted to ' + start + '\u2013' + end;
+      }
+      endAdjust();
+      return;
+    }
     dismissProposal();
   }
 
@@ -1110,6 +1307,13 @@ var Retoma = (function () {
     el.proposalCard = document.getElementById('proposalCard');
     el.proposalAccept = document.getElementById('proposalAccept');
     el.proposalDecline = document.getElementById('proposalDecline');
+    el.proposalAdjust = document.getElementById('proposalAdjust');
+    el.proposalAdjuster = document.getElementById('proposalAdjuster');
+    el.adjustStart = document.getElementById('adjustStart');
+    el.adjustMinutes = document.getElementById('adjustMinutes');
+    el.adjustMinus = document.getElementById('adjustMinus');
+    el.adjustPlus = document.getElementById('adjustPlus');
+    el.adjustError = document.getElementById('adjustError');
     el.emptyState = document.getElementById('emptyState');
     el.confirmOverlay = document.getElementById('confirmOverlay');
     el.confirmYes = document.getElementById('confirmYes');
@@ -1156,6 +1360,17 @@ var Retoma = (function () {
     }
     if (el.proposalAccept) el.proposalAccept.addEventListener('click', acceptProposal);
     if (el.proposalDecline) el.proposalDecline.addEventListener('click', dismissProposal);
+    if (el.proposalAdjust) el.proposalAdjust.addEventListener('click', function () {
+      if (state.adjust) endAdjust(); else startAdjust();
+    });
+    if (el.adjustStart) el.adjustStart.addEventListener('input', readAdjustStart);
+    if (el.adjustMinus) el.adjustMinus.addEventListener('click', function () { bumpAdjust(-15); });
+    if (el.adjustPlus) el.adjustPlus.addEventListener('click', function () { bumpAdjust(15); });
+    Array.prototype.forEach.call(document.querySelectorAll('#quotaOllamaHoy, #quotaOllamaPriv'), function (b) {
+      b.addEventListener('click', connectOllama);
+    });
+    var ollamaTest = document.getElementById('ollamaTest');
+    if (ollamaTest) ollamaTest.addEventListener('click', testOllama);
 
     // tabs
     document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
@@ -1267,7 +1482,7 @@ var Retoma = (function () {
     }
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama };
   }
 
   function openConfirm() {
@@ -1292,5 +1507,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama };
 })();
