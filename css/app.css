@@ -250,23 +250,35 @@ body.is-live .app > .sim-panel { display: none; }
 
 /* Next step: the cue you leave yourself before you go */
 .retoma-panel .leave-note { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-6); }
+.retoma-panel .leave-note__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .retoma-panel .leave-note label {
   font: var(--weight-medium) var(--text-sm) / var(--leading-sm) var(--font-sans);
   letter-spacing: 0; text-transform: none; color: var(--ink-strong);
 }
-.retoma-panel .leave-note input {
+.retoma-panel .leave-note .leave-note__saved {
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  letter-spacing: 0; text-transform: none; color: var(--ink-muted);
+  opacity: 0;
+  transition: opacity var(--dur-state) var(--ease-enter);
+}
+.retoma-panel .leave-note .leave-note__saved.is-visible { opacity: 1; }
+.retoma-panel .leave-note textarea {
+  display: block;
+  width: 100%;
   min-height: 48px;
-  padding: 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
   background: var(--surface-inset);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius-lg);
   color: var(--ink-strong);
   font: var(--weight-regular) var(--text-base) / var(--leading-base) var(--font-sans);
+  resize: none;
+  overflow: hidden;
   transition: border-color var(--dur-state) var(--ease-enter), background-color var(--dur-state) var(--ease-enter);
 }
-.retoma-panel .leave-note input::placeholder { color: var(--ink-muted); }
-@media (hover: hover) { .retoma-panel .leave-note input:hover { border-color: var(--line-strong); } }
-.retoma-panel .leave-note input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: transparent; }
+.retoma-panel .leave-note textarea::placeholder { color: var(--ink-muted); }
+@media (hover: hover) { .retoma-panel .leave-note textarea:hover { border-color: var(--line-strong); } }
+.retoma-panel .leave-note textarea:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: transparent; }
 
 /* --- Resume card: the moment you come back ---------------------------------- */
 .retoma-panel .resume-card {

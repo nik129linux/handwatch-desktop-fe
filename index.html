@@ -109,8 +109,11 @@
           <p id="nowDesc" class="panel-section__text--muted">Only the app name and the title. Never what you type.</p>
           </div>
           <div class="leave-note">
-            <label for="leaveNote">Next step (one line)</label>
-            <input id="leaveNote" type="text" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note">
+            <div class="leave-note__head">
+              <label for="leaveNote">Next step</label>
+              <span id="leaveNoteSaved" class="leave-note__saved" aria-live="polite">Saved</span>
+            </div>
+            <textarea id="leaveNote" rows="1" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note"></textarea>
           </div>
         </section>
       </div>

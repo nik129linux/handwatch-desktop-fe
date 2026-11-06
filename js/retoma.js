@@ -37,6 +37,7 @@ var Retoma = (function () {
   /* -1 is the live view; 1 is the newest timeline entry, N the oldest. */
   var browseIndex = -1;
   var browseSig = '';
+  var noteSavedTimer = null;
 
   function timelineSig() {
     return activeEntries().map(function (e) { return e.app + ':' + e.duration + ':' + (e.title || ''); }).join('|');
@@ -71,9 +72,43 @@ var Retoma = (function () {
     if (el.leaveNote) return String(el.leaveNote.value || '').trim();
     return String(loadNote() || '').trim();
   }
+  /* Grow the note field to its content, never past three lines. */
+  function growLeaveNote() {
+    var n = el.leaveNote;
+    if (!n) return;
+    n.style.height = 'auto';
+    var cs = window.getComputedStyle ? window.getComputedStyle(n) : null;
+    var lh = cs ? parseFloat(cs.lineHeight) : 24;
+    if (!(lh > 0)) lh = 24;
+    var pad = cs ? (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) : 0;
+    var border = cs ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 2;
+    var minH = lh + pad + border;
+    var maxH = lh * 3 + pad + border;
+    var h = n.scrollHeight + border;
+    n.style.height = Math.min(Math.max(h, minH), maxH) + 'px';
+  }
+  function showNoteSaved() {
+    if (el.leaveNoteSaved) el.leaveNoteSaved.classList.add('is-visible');
+  }
+  function stashNoteSaved() {
+    if (noteSavedTimer) { clearTimeout(noteSavedTimer); noteSavedTimer = null; }
+    if (el.leaveNoteSaved) el.leaveNoteSaved.classList.remove('is-visible');
+  }
+  function scheduleNoteSave() {
+    if (noteSavedTimer) clearTimeout(noteSavedTimer);
+    noteSavedTimer = setTimeout(function () {
+      noteSavedTimer = null;
+      if (!el.leaveNote) return;
+      saveNote(el.leaveNote.value);
+      showNoteSaved();
+    }, 600);
+  }
+  function cleanNoteText(value) {
+    return String(value == null ? '' : value).replace(/[\r\n]+/g, ' ');
+  }
   function clearNote() {
     resumeAiToken++;
-    if (el.leaveNote) el.leaveNote.value = '';
+    if (el.leaveNote) { el.leaveNote.value = ''; growLeaveNote(); }
     try { window.localStorage.removeItem(noteKey()); } catch (e) { /* noop */ }
     if (el.resumeNote) { el.resumeNote.textContent = ''; el.resumeNote.classList.add('is-hidden'); }
     if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
@@ -974,6 +1009,7 @@ var Retoma = (function () {
       var target = idMap[name];
       if (p.id === target) p.classList.add('is-active'); else p.classList.remove('is-active');
     });
+    if (name === 'ahora') growLeaveNote();
     // keep the sliding tab ink under the active tab on every path
     // (button clicks and internal calls, not only the wrapped global).
     if (window.Visual && window.Visual.placeInk) {
@@ -1068,9 +1104,31 @@ var Retoma = (function () {
     if (el.retomarBtn) el.retomarBtn.addEventListener('click', doRetomar);
     if (el.startFreshBtn) el.startFreshBtn.addEventListener('click', doStartFresh);
     if (el.leaveNote) {
+      el.leaveNoteSaved = document.getElementById('leaveNoteSaved');
       try { el.leaveNote.value = loadNote(); } catch (e) { /* noop */ }
+      growLeaveNote();
+      el.leaveNote.addEventListener('input', function () {
+        var n = el.leaveNote;
+        var clean = cleanNoteText(n.value);
+        if (clean !== n.value) n.value = clean;
+        stashNoteSaved();
+        growLeaveNote();
+        scheduleNoteSave();
+      });
       el.leaveNote.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); saveNote(el.leaveNote.value); }
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          if (noteSavedTimer) { clearTimeout(noteSavedTimer); noteSavedTimer = null; }
+          var n = el.leaveNote;
+          var clean = cleanNoteText(n.value);
+          if (clean !== n.value) n.value = clean;
+          saveNote(n.value);
+          growLeaveNote();
+          showNoteSaved();
+          n.blur();
+          return;
+        }
+        stashNoteSaved();
       });
       el.leaveNote.addEventListener('blur', function () { saveNote(el.leaveNote.value); });
     }

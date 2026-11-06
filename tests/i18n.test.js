@@ -88,7 +88,7 @@ async function englishLeftovers(page) {
 
   console.log('i18n: static copy');
   ok(await txt(page, '#tabBtnAhora') === 'Ahora' && await txt(page, '#tabBtnHoy') === 'Hoy' && await txt(page, '#tabBtnPriv') === 'Privacidad', 'tabs: Ahora / Hoy / Privacidad');
-  ok(await txt(page, 'label[for="leaveNote"]') === 'Siguiente paso (una línea)', 'note label in Spanish', await txt(page, 'label[for="leaveNote"]'));
+  ok(await txt(page, 'label[for="leaveNote"]') === 'Siguiente paso', 'note label in Spanish', await txt(page, 'label[for="leaveNote"]'));
   ok(/vuelvas/i.test(await page.getAttribute('#leaveNote', 'placeholder')), 'note placeholder in Spanish', await page.getAttribute('#leaveNote', 'placeholder'));
   const sim = {
     switch: 'Cambiar de app', whatsapp: 'Llega un WhatsApp', away: 'Alejarme 25 min', return: 'Volver',
