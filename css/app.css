@@ -457,25 +457,21 @@ body.is-live .dock { display: none; }
   [data-mood] .now-ring, [data-mood] .now-ring__svg, [data-mood] .brand-mark { animation: none !important; }
 }
 
-/* --- Guided tour: one caption card above the dock, one highlighted thing ------
+/* --- Guided tour: the caption card takes Free mode's place in the controls bar ---
+   (those buttons are disabled while the tour runs), so it never covers a window or the dock.
    Markup (index.html): #tourCard.tour-card > .tour-card__text (#tourStep, #subtitle, #tourWhy)
    + .tour-card__nav (#tourBack, #tourNext). The tour never advances on its own. */
-.desktop-area #subtitle { all: unset; }            /* the old floating pill is retired */
 .tour-card {
-  position: absolute; left: 50%; bottom: calc(44px + var(--sp-2) * 2 + var(--sp-4));
-  z-index: calc(var(--z-stage) + 2);
-  width: min(720px, calc(100% - var(--sp-12)));
   display: none;
   align-items: center; gap: var(--sp-6);
   padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-6);
   background: var(--surface-card);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-float);
-  transform: translateX(-50%);
 }
 .tour-card.is-open { display: flex; animation: tour-in var(--dur-enter) var(--ease-enter) both; }
-@keyframes tour-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.tour-card.is-open + #freeMode { display: none; }
+@keyframes tour-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .tour-card__text { flex: 1; min-width: 0; display: grid; gap: var(--sp-1); }
 .tour-card #tourStep {
   font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
@@ -483,8 +479,8 @@ body.is-live .dock { display: none; }
   color: var(--ink-muted);
 }
 .tour-card #subtitle {
-  display: block; margin: 0;
-  font: var(--weight-medium) var(--text-base) / var(--leading-base) var(--font-sans);
+  margin: 0;
+  font: var(--weight-medium) var(--text-lg) / var(--leading-lg) var(--font-sans);
   color: var(--ink-strong);
 }
 .tour-card #tourWhy {
@@ -493,7 +489,7 @@ body.is-live .dock { display: none; }
   color: var(--ink-muted);
 }
 .tour-card__nav { display: flex; gap: var(--sp-2); flex-shrink: 0; }
-.tour-card__nav .btn { min-height: 40px; padding: 0 var(--sp-4); }
+.sim-panel .tour-card__nav .btn { padding: var(--sp-2) var(--sp-4); font-size: var(--text-sm); line-height: var(--leading-sm); }
 
 /* the spotlight: a lime ring on the one thing the step is about (lime = focus) */
 .is-tour-focus {
@@ -502,6 +498,10 @@ body.is-live .dock { display: none; }
   animation: tour-focus-in var(--dur-enter) var(--ease-enter) both;
 }
 @keyframes tour-focus-in { from { outline-offset: 12px; outline-color: transparent; } to { outline-offset: 4px; } }
+/* during the tour lime means only "look here": the active window's lime border goes quiet (CR-203) */
+body:has(.tour-card.is-open) .window.is-focused:not(.is-tour-focus) { border-color: var(--line-strong); }
+/* inside the panel the tab clips anything outside the card, so draw the ring on its inner edge */
+.retoma-panel .is-tour-focus:is(.resume-card, .proposal-card) { outline-offset: -2px; animation: none; }
 
 /* keyboard focus everywhere, for controls nobody styled */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }

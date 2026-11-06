@@ -45,9 +45,10 @@ var I18n = (function () {
     'A simulated desktop for the demo. Click a window to focus it.': 'Un escritorio simulado para la demo. Haz clic en una ventana para enfocarla.',
     'Live: tracking this PC': 'Live: siguiendo este equipo',
     'Demo controls': 'Controles de demo',
-    'Guided tour, 60 seconds': 'Tour guiado, 60 segundos',
+    'Guided tour, 7 steps': 'Tour guiado, 7 pasos',
     'Guided tour': 'Tour guiado',
     'Messages · Ana': 'Mensajes · Ana',
+    'fix the citation in paragraph 3': 'corregir la cita del párrafo 3',
     'Data · Tracker': 'Datos · Tracker',
     'Running': 'En curso',
     'Pause': 'Pausar',
@@ -177,7 +178,17 @@ var I18n = (function () {
     'Dock': 'Dock',
     'Live tracking': 'Seguimiento en vivo',
     'Start fresh': 'Empezar de cero',
-    'How I decided: longest block Document 40 min \u00b7 first interruption WhatsApp 9:52 \u00b7 window 9:00\u20139:40': 'Cómo decidí: bloque más largo Document 40 min \u00b7 primera interrupción WhatsApp 9:52 \u00b7 ventana 9:00\u20139:40'
+    'How I decided: longest block Document 40 min \u00b7 first interruption WhatsApp 9:52 \u00b7 window 9:00\u20139:40': 'Cómo decidí: bloque más largo Document 40 min \u00b7 primera interrupción WhatsApp 9:52 \u00b7 ventana 9:00\u20139:40',
+    'It reads the app and the window title, so it knows you were in the report without reading the report.': 'Lee la app y el título de la ventana: sabe que estabas en el informe sin leer el informe.',
+    'A message pulled you into WhatsApp. Retoma only remembers what you were doing before it.': 'Un mensaje te llevó a WhatsApp. Retoma solo recuerda lo que hacías antes.',
+    'The clock jumps 25 minutes. Long enough to lose the thread.': 'El reloj salta 25 minutos. Suficiente para perder el hilo.',
+    'One card with the task, the paragraph and the note you left yourself.': 'Una tarjeta con la tarea, el párrafo y la nota que te dejaste.',
+    'Resume brings back the three work windows you had open.': 'Retomar trae de vuelta las tres ventanas de trabajo que tenías abiertas.',
+    'At the end of the day it proposes one block for tomorrow and shows how it decided.': 'Al final del día propone un bloque para mañana y muestra cómo lo decidió.',
+    'Everything stays on this device and is deleted after 7 days, or right now with one button.': 'Todo queda en este dispositivo y se borra a los 7 días, o ahora mismo con un botón.',
+    'Next': 'Siguiente',
+    'Back': 'Atrás',
+    'Finish': 'Terminar',
   };
 
   var PATTERNS = [
@@ -511,6 +522,9 @@ var I18n = (function () {
     }
   }
 
-  return { mount: mount, setLang: setLang, getLang: getLang };
+  /* t(): the string in the current language, for values that are not DOM text (an input's value). */
+  function t(s) { return lang === 'es' ? translateString(s) : s; }
+
+  return { mount: mount, setLang: setLang, getLang: getLang, t: t };
 })();
 window.I18n = I18n;

@@ -358,13 +358,14 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await fixPage.click('#freeMode [data-act="return"]');
   await settle(fixPage, 500);
   ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && document.getElementById('resumeCard').classList.contains('is-visible')), 'Come back auto-opens panel with resume card');
-  // hero is first element in panel
+  // hero is the first content under the tabs (tabs sit above it so they never jump, unslop pass 2026-11-06)
   const heroFirst = await fixPage.evaluate(() => {
-    const panel = document.getElementById('retomaPanel');
-    const first = panel.firstElementChild;
-    return first && first.id === 'resumeCard';
+    const tabs = document.querySelector('#retomaPanel > .retoma-tabs');
+    const card = document.getElementById('resumeCard');
+    const next = tabs && tabs.nextElementSibling;
+    return !!next && next.id === 'resumeCard' && card.getBoundingClientRect().top >= tabs.getBoundingClientRect().bottom;
   });
-  ok(heroFirst, 'resume card is first and largest element in panel');
+  ok(heroFirst, 'resume card is the first content under the tabs');
 
   head('11 · FIX 2: resume hero type');
   // ensure hero visible for checks
@@ -820,7 +821,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(/9:00 to 9:40/.test(nums.proposal), 'seed proposal window is 9:00-9:40', nums.proposal.slice(0, 100));
   // FIX 4: sim buttons readable + hittable
   const simBtns = await f3.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('.sim-panel .btn'));
+    const els = Array.from(document.querySelectorAll('.sim-panel .btn')).filter(e => e.getClientRects().length); // visible ones (the tour card is closed)
     return els.map(e => {
       const cs = getComputedStyle(e);
       const r = e.getBoundingClientRect();

@@ -76,19 +76,20 @@
 
 .timeline-legend {
   display: flex; flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-3);
+  gap: var(--sp-2) var(--sp-4);
   padding-top: var(--sp-1);
 }
 .timeline-legend__item {
-  display: inline-flex; align-items: flex-start; gap: var(--sp-2);
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  white-space: nowrap;
   font-size: var(--text-sm); line-height: var(--leading-sm);
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 .timeline-legend__item--major { color: var(--ink-muted); }
 .timeline-legend__sub {
-  display: block;
-  margin-top: var(--sp-0-5);
+  display: inline;
+  margin-left: var(--sp-2);
   font-size: var(--text-xs); line-height: var(--leading-xs);
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
@@ -96,7 +97,6 @@
 .timeline-legend__dot {
   display: inline-block;
   width: 8px; height: 8px;
-  margin-top: var(--sp-1);
   border-radius: var(--radius-pill);
   flex-shrink: 0;
 }

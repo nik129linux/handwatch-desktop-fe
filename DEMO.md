@@ -6,7 +6,7 @@
   (under Wayland the smoke test uses `xvfb-run -a node tests/electron-smoke.js`).
 
 ## Presenter script
-1. **Guided tour (0:00).** Click **▶ Guided tour**. Say: "Retoma watches which app and window title are in use — never what I type. It notices the interruption, the time away, and offers one resume card." Let it run to the end (~60 s, or **Skip to end**).
+1. **Guided tour (0:00).** Click **▶ Guided tour**. It moves only when you press **Next** (or →); **Back** (or ←) replays the previous step. Each of the 7 steps shows "N / 7", one line for you to say and one line explaining why, and outlines in lime the thing it is about. Say: "Retoma watches which app and window title are in use — never what I type. It notices the interruption, the time away, and offers one resume card." Take your time on each step; **Skip to end** jumps to the final state.
 2. **Resume (0:45).** Click **Resume**. Say: "One click reopens exactly the three work windows, staggered, and the suggestion for tomorrow appears under Today with its reasoning attached."
 3. **Privacy (1:15).** Open the eye icon → **Privacy** tab. Say: "Only app names and titles ever leave a trace; content, screen, camera and microphone are off limits. History auto-deletes after 7 days; **Delete everything** asks first and empties the on-device store."
 4. **Theme (1:45).** Click the sun/moon toggle. Say: "Light and dark share one token file — flipping the primary color re-skins the whole app, both themes."

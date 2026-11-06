@@ -47,7 +47,7 @@ async function open(b, lang) {
     ok(await txt(p, '.sim-section[aria-label="Guided tour"] .sim-label') === 'Guided tour, 7 steps', 'label says 7 steps, no false duration', await txt(p, '.sim-section[aria-label="Guided tour"] .sim-label'));
     ok(await p.evaluate(() => !document.getElementById('storyPause')), 'no tour Pause button (nothing runs on its own)');
     ok(await p.evaluate(() => !document.getElementById('storyClock') && !/Status:/.test(document.querySelector('.sim-panel').textContent)), 'no "Status:" line');
-    ok(await p.evaluate(() => { const c = document.getElementById('tourCard'); return !!c && getComputedStyle(c).display === 'none' || (c && c.getAttribute('aria-hidden') === 'true'); }), 'caption card hidden before the tour');
+    ok(await p.evaluate(() => { const c = document.getElementById('tourCard'); return !!c && getComputedStyle(c).display === 'none' && getComputedStyle(document.getElementById('freeMode')).display !== 'none'; }), 'caption hidden and free mode shown before the tour');
     await p.close();
   }
 
@@ -89,6 +89,15 @@ async function open(b, lang) {
       await p.waitForTimeout(2500);
       ok(await p.evaluate(() => Desk.isVisible('Document') && Desk.isVisible('Browser')), 'step 5 pressed Resume and reopened the work windows');
     }
+    if (i === 5) {
+      const limes = await p.evaluate(() => {
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--focus-ring').trim();
+        const probe = document.createElement('i'); probe.style.color = accent; document.body.appendChild(probe);
+        const rgb = getComputedStyle(probe).color; probe.remove();
+        return Array.from(document.querySelectorAll('.window')).filter(w => !w.classList.contains('is-tour-focus') && getComputedStyle(w).borderTopColor === rgb).length;
+      });
+      ok(limes === 0, 'during the tour no window border competes with the spotlight', 'lime windows: ' + limes);
+    }
     if (i === 5) ok(await p.evaluate(() => !document.getElementById('proposalCard').classList.contains('is-hidden')), 'step 6 shows the suggestion');
   }
   ok(new Set(whys).size === 7, 'seven different why lines');
@@ -96,14 +105,22 @@ async function open(b, lang) {
   await p.waitForTimeout(2500);
   ok(await p.evaluate(() => Retoma.state.empty === true), 'step 7 deletes the history');
 
-  console.log('tour: the caption never covers the dock');
+  console.log('tour: the caption never covers the stage');
   const boxes = await p.evaluate(() => {
     const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
-    return { card: r(document.getElementById('tourCard')), dock: r(document.querySelector('.dock')), stage: r(document.querySelector('.desktop-area')) };
+    return {
+      card: r(document.getElementById('tourCard')),
+      dock: r(document.querySelector('.dock')),
+      wins: Array.from(document.querySelectorAll('.window')).filter(w => w.offsetParent).map(r),
+      inPanel: !!document.getElementById('tourCard').closest('.sim-panel'),
+      freeHidden: getComputedStyle(document.getElementById('freeMode')).display === 'none'
+    };
   });
   const hit = (a, c) => a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b;
-  ok(!hit(boxes.card, boxes.dock), 'caption and dock do not overlap', JSON.stringify(boxes));
-  ok(boxes.card.l >= boxes.stage.l && boxes.card.r <= boxes.stage.r && boxes.card.b <= boxes.stage.b, 'caption sits inside the stage', JSON.stringify(boxes));
+  ok(!hit(boxes.card, boxes.dock), 'caption and dock do not overlap', JSON.stringify(boxes.card));
+  ok(boxes.wins.length > 0 && boxes.wins.every(w => !hit(boxes.card, w)), 'caption overlaps no window', JSON.stringify(boxes));
+  ok(boxes.inPanel && boxes.freeHidden, 'caption takes the place of the (disabled) free mode while the tour runs');
+  ok(await p.evaluate(() => { const r = document.getElementById('tourStep').getBoundingClientRect(); const e = document.elementFromPoint(r.left + 4, r.top + r.height / 2); return !!e && e.closest('#tourCard') !== null; }), 'the counter is not covered by anything');
 
   await p.click('#tourNext');
   await p.waitForTimeout(400);
@@ -150,6 +167,7 @@ async function open(b, lang) {
     ok(w && w !== why1 && /[áéíóúñ]|\b(la|el|que|de)\b/.test(w), 'ES why line is Spanish', w);
     ok(/Siguiente/.test(await txt(es, '#tourNext')) && /Atrás/.test(await txt(es, '#tourBack')), 'ES Next/Back', (await txt(es, '#tourNext')) + ' / ' + (await txt(es, '#tourBack')));
     ok(await txt(es, '#tourStep') === '1 / 7', 'ES counter');
+    ok(await es.evaluate(() => document.getElementById('leaveNote').value) === 'corregir la cita del párrafo 3', 'ES demo note is Spanish');
     for (let i = 0; i < 6; i++) { await es.click('#tourNext'); await es.waitForTimeout(i === 1 ? 3500 : 400); }
     ok(/Terminar/.test(await txt(es, '#tourNext')), 'ES last step reads Terminar', await txt(es, '#tourNext'));
     ok(esErrs.length === 0, 'ES no page errors', esErrs.join(' | '));

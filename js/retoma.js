@@ -744,7 +744,7 @@ var Retoma = (function () {
         var c = appFirstColor[app];
         var label = app + ' · ' + merged[app] + ' min';
         if (app === longestSingle.app) {
-          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span>' + label + '<span class="timeline-legend__sub">longest block ' + longestSingle.duration + ' min</span></span></span>';
+          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span class="timeline-legend__label">' + label + '</span><span class="timeline-legend__sub">longest block ' + longestSingle.duration + ' min</span></span>';
         }
         return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
       }).join('');
@@ -856,6 +856,23 @@ var Retoma = (function () {
         e.style.left = (inset + (ix % 2) * (colW + gap)) + 'px';
         e.style.top = (top + Math.floor(ix / 2) * (Math.max(rowH, 180) + gap)) + 'px';
         e.style.width = colW + 'px';
+      });
+      /* Both windows in a row share one height, whatever the language makes
+       * the text do: measure the natural height of the pair, then let the
+       * shorter one stretch (min-height) to match the taller. */
+      var stacked = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+      [['win-doc', 'win-browser'], ['win-whatsapp', 'win-sheet']].forEach(function (ids) {
+        var wins = ids.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+        wins.forEach(function (w) { w.style.minHeight = ''; });
+        if (stacked || wins.length < 2) return;
+        var tallest = 0;
+        wins.forEach(function (w) {
+          var b = w.getBoundingClientRect();
+          if (b.height > tallest) tallest = b.height;
+        });
+        if (!tallest) return;
+        var h = Math.ceil(tallest) + 'px';
+        wins.forEach(function (w) { w.style.minHeight = h; });
       });
     });
   }
@@ -1059,6 +1076,11 @@ var Retoma = (function () {
     closePanel();
     startTick();
     window.addEventListener('resize', syncDesktopLayout);
+    /* i18n swaps the window text in place; re-balance the row heights after it. */
+    if (window.MutationObserver && document.getElementById('desktopWorkspace')) {
+      new MutationObserver(function () { syncDesktopLayout(); })
+        .observe(document.getElementById('desktopWorkspace'), { childList: true, subtree: true, characterData: true });
+    }
 
     // expose for tests/story
     window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode };
