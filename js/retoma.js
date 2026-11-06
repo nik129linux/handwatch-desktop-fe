@@ -21,7 +21,7 @@ var Retoma = (function () {
     liveEmpty: true,
     proposalDismissed: false,
     aiMode: 'off',
-    aiConsent: { local: false, cloud: false },
+    aiConsent: { local: false, cloud: false, server: false },
     aiBusy: false,
     aiToken: 0,
     cloudAvailable: false,
@@ -210,7 +210,7 @@ var Retoma = (function () {
     var token = ++resumeAiToken;
     if (window.retoma && window.retoma.resumeLine) {
       var ctx = { app: state.prevApp, title: state.prevTitle, note: note, awayMinutes: state.awayMinutes };
-      var opts = { mode: state.aiMode, consent: state.aiConsent };
+      var opts = { mode: state.aiMode, consent: state.aiConsent, lang: uiLang() };
       try {
         window.retoma.resumeLine(ctx, opts).then(function (res) {
           if (token !== resumeAiToken) return;
@@ -303,7 +303,7 @@ var Retoma = (function () {
       if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
       return null;
     }
-    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'cloud') && state.aiConsent[state.aiMode];
+    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'server') && state.aiConsent[state.aiMode];
     if (!useProvider) {
       var p = computeProposal(data);
       if (!p) {
@@ -322,7 +322,7 @@ var Retoma = (function () {
     if (card) card.classList.add('is-loading');
     if (textEl) textEl.innerHTML = '<span class="skeleton-bar"></span><span class="skeleton-bar skeleton-bar--short"></span>';
     if (howEl) howEl.textContent = '';
-    window.retoma.propose(summary, { mode: state.aiMode, consent: state.aiConsent }).then(function (res) {
+    window.retoma.propose(summary, { mode: state.aiMode, consent: state.aiConsent, lang: uiLang() }).then(function (res) {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
@@ -366,9 +366,9 @@ var Retoma = (function () {
   function loadAiPrefs() {
     try {
       var m = window.localStorage.getItem('retoma-ai-mode');
-      if (m === 'off' || m === 'local' || m === 'cloud') state.aiMode = m;
+      if (m === 'off' || m === 'local' || m === 'cloud' || m === 'server') state.aiMode = m;
       var c = JSON.parse(window.localStorage.getItem('retoma-ai-consent') || '{}');
-      if (c) { state.aiConsent.local = !!c.local; state.aiConsent.cloud = !!c.cloud; }
+      if (c) { state.aiConsent.local = !!c.local; state.aiConsent.cloud = !!c.cloud; state.aiConsent.server = !!c.server; }
     } catch (e) { /* prefs stay default */ }
   }
 
@@ -391,6 +391,9 @@ var Retoma = (function () {
       } else if (m === 'local') {
         b.disabled = !hasBridge();
         b.title = hasBridge() ? '' : 'Local model needs the desktop app';
+      } else if (m === 'server') {
+        b.disabled = !hasBridge();
+        b.title = hasBridge() ? '' : 'Retoma server needs the desktop app';
       }
     }
     var reason = document.getElementById('aiModeReason');
@@ -398,9 +401,49 @@ var Retoma = (function () {
       var msg = '';
       if (state.aiMode === 'cloud' && !state.cloudAvailable) msg = state.cloudReason;
       if (state.aiMode === 'local' && !hasBridge()) msg = 'Local model needs the desktop app';
+      if (state.aiMode === 'server' && !hasBridge()) msg = 'Retoma server needs the desktop app';
       reason.textContent = msg;
       reason.classList.toggle('is-hidden', !msg);
     }
+    refreshServerStatusLine();
+  }
+
+  var habitsPatched = false;
+  function patchHabitsStatus() {
+    if (habitsPatched) return;
+    try {
+      if (window.HabitsUI && HabitsUI.refreshStatus) {
+        habitsPatched = true;
+        var orig = HabitsUI.refreshStatus;
+        HabitsUI.refreshStatus = function () {
+          if (state.aiMode === 'server') { refreshServerStatusLineInner(); return; }
+          return orig.apply(this, arguments);
+        };
+      }
+    } catch (e) { /* noop */ }
+  }
+
+  function refreshServerStatusLineInner() {
+    var st = document.getElementById('aiStatus');
+    if (!st) return;
+    if (!hasBridge() || !(window.retoma && window.retoma.serverStatus)) return;
+    window.retoma.serverStatus().then(function (s) {
+      if (state.aiMode !== 'server') return;
+      if (s && s.reachable) {
+        st.textContent = 'Retoma server: ready (' + (s.model || '') + ')';
+      } else {
+        st.textContent = 'Retoma server: offline, using on-device rules';
+      }
+    }, function () {
+      if (state.aiMode !== 'server') return;
+      st.textContent = 'Retoma server: offline, using on-device rules';
+    });
+  }
+
+  function refreshServerStatusLine() {
+    patchHabitsStatus();
+    if (state.aiMode !== 'server') return;
+    refreshServerStatusLineInner();
   }
 
   function refreshCapabilities() {
@@ -415,7 +458,7 @@ var Retoma = (function () {
       state.cloudAvailable = !!(caps && caps.cloudAvailable);
       state.cloudReason = (caps && caps.cloudReason) || '';
       if (state.aiMode === 'cloud' && !state.cloudAvailable) state.aiMode = 'off';
-      if (state.aiMode === 'local' && !hasBridge()) state.aiMode = 'off';
+      if ((state.aiMode === 'local' || state.aiMode === 'server') && !hasBridge()) state.aiMode = 'off';
       paintAiMode();
     }, function () { paintAiMode(); });
   }
@@ -429,6 +472,14 @@ var Retoma = (function () {
     var box = document.getElementById('aiConsent');
     var pre = document.getElementById('aiPayload');
     if (!box || !pre) return;
+    var copy = box.querySelector('.panel-section__text--muted');
+    if (copy) {
+      if (mode === 'server') {
+        copy.textContent = "Your note, the app name and the window title go to Retoma's server, which asks gemma on Ollama cloud. Nothing is stored there.";
+      } else {
+        copy.textContent = 'This exact payload is sent. Nothing else leaves this device.';
+      }
+    }
     var entries = activeEntries();
     var summary = entries.length
       ? Ai.buildSummary(entries)
@@ -448,10 +499,10 @@ var Retoma = (function () {
   }
 
   function selectAiMode(mode) {
-    if (mode !== 'off' && mode !== 'local' && mode !== 'cloud') return;
+    if (mode !== 'off' && mode !== 'local' && mode !== 'cloud' && mode !== 'server') return;
     if (mode === 'cloud' && !state.cloudAvailable) { paintAiMode(); return; }
-    if (mode === 'local' && !hasBridge()) { paintAiMode(); return; }
-    if ((mode === 'local' || mode === 'cloud') && !state.aiConsent[mode]) {
+    if ((mode === 'local' || mode === 'server') && !hasBridge()) { paintAiMode(); return; }
+    if ((mode === 'local' || mode === 'cloud' || mode === 'server') && !state.aiConsent[mode]) {
       state.pendingMode = mode;
       showConsent(mode);
       return;
@@ -528,6 +579,11 @@ var Retoma = (function () {
   function doStartFresh() {
     clearNote();
     hideResume();
+  }
+
+  /* The model answers in the language the person reads the app in. */
+  function uiLang() {
+    try { return (window.I18n && I18n.getLang && I18n.getLang() === 'es') ? 'es' : 'en'; } catch (e) { return 'en'; }
   }
 
   var RING_BLOCK_MIN = 25;

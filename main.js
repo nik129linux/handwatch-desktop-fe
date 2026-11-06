@@ -285,8 +285,9 @@ function showReturnNotification(info) {
 }
 
 function setupIpc() {
-  ipcMain.handle('retoma:propose', (ev, summary, opts) => providers.propose(summary, opts));
-  ipcMain.handle('retoma:resume-line', (ev, ctx, opts) => (providers.resumeLine ? providers.resumeLine(ctx, opts) : null));
+  ipcMain.handle('retoma:propose', (ev, summary, opts) => providers.propose(summary, Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts)));
+  ipcMain.handle('retoma:resume-line', (ev, ctx, opts) => (providers.resumeLine ? providers.resumeLine(ctx, Object.assign({ apiBase: process.env.RETOMA_API_BASE }, opts)) : null));
+  ipcMain.handle('retoma:server:status', () => providers.serverStatus({ apiBase: process.env.RETOMA_API_BASE }));
   ipcMain.handle('retoma:preview', (ev, summary, mode) => providers.previewPayload(summary, mode));
   ipcMain.handle('retoma:capabilities', () => providers.capabilities());
   function fileForArg(arg) {
