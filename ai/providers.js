@@ -20,6 +20,28 @@ function geminiKey() {
   return process.env.GEMINI_API_KEY || '';
 }
 
+/* Shared app key the Retoma server checks (X-App-Key, 401 without it).
+ * Main process only: RETOMA_APP_KEY, else ai/app-key.json written at build
+ * time (gitignored). Like the APK's key, it stops scanners, not someone who
+ * unpacks the app. */
+function appKey() {
+  if (process.env.RETOMA_APP_KEY) return String(process.env.RETOMA_APP_KEY);
+  try {
+    var raw = require('fs').readFileSync(require('path').join(__dirname, 'app-key.json'), 'utf8');
+    var key = JSON.parse(raw).key;
+    return typeof key === 'string' ? key : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function serverHeaders() {
+  var h = { 'Content-Type': 'application/json' };
+  var key = appKey();
+  if (key) h['X-App-Key'] = key;
+  return h;
+}
+
 function apiBaseFor(o) {
   if (o && o.apiBase) return String(o.apiBase).replace(/\/+$/, '');
   var env = process.env.RETOMA_API_BASE;
@@ -328,7 +350,7 @@ function serverPropose(summary, opts) {
   var lang = o.lang || 'en';
   var body = { summary: summary, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/propose',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: serverHeaders(), body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
       return readBody(res).then(function (json) {
@@ -361,7 +383,7 @@ function serverResumeLine(ctx, opts) {
   if (String(c.note || '').trim()) sendCtx.note = c.note;
   var body = { ctx: sendCtx, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/resume-line',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: serverHeaders(), body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
       return readBody(res).then(function (json) {
@@ -392,7 +414,7 @@ function serverHabits(metrics, opts) {
   var lang = o.lang || 'en';
   var body = { metrics: metrics, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/habits',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: serverHeaders(), body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
       return readBody(res).then(function (json) {
@@ -430,7 +452,7 @@ function serverAsk(metrics, question, opts) {
   var q = String(question || '').slice(0, 200);
   var body = { metrics: metrics, question: q, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/ask',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: serverHeaders(), body: JSON.stringify(body) },
     ms, impl)
     .then(function (res) {
       return readBody(res).then(function (json) {
@@ -851,6 +873,8 @@ module.exports = {
   resumeLine: resumeLine,
   DEFAULT_API_BASE: DEFAULT_API_BASE,
   serverStatus: serverStatus,
+  serverPropose: serverPropose,
+  serverResumeLine: serverResumeLine,
   serverHabits: serverHabits,
   serverAsk: serverAsk,
   quotaFrom: quotaFrom

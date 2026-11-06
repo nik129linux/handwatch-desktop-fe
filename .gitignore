@@ -7,3 +7,4 @@ dist/
 .brief-run.md
 .last-test.log
 FIX-AUTO.md
+ai/app-key.json
