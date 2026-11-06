@@ -189,11 +189,15 @@ var I18n = (function () {
     'Next': 'Siguiente',
     'Back': 'Atrás',
     'Finish': 'Terminar',
+    'Earlier': 'Antes',
+    'Later': 'Después',
   };
 
   var PATTERNS = [
     [/^You were in (.+)$/, 'Estabas en $1'],
     [/^(\d+) min here$/, '$1 min aquí'],
+    [/^Was here (\d+) min$/, 'Estabas aquí $1 min'],
+    [/^Earlier, (\d+) of (\d+)$/, 'Antes, $1 de $2'],
     [/^Next: (.*)$/, 'Siguiente: $1'],
     [/^(.+) interrupted you \u00b7 (\d+) min$/, '$1 te interrumpió \u00b7 $2 min'],
     [/^(.+) interrupted you$/, '$1 te interrumpió'],

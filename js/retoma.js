@@ -34,6 +34,18 @@ var Retoma = (function () {
   var tickTimer = null;
   var activeTab = 'ahora';
   var resumeAiToken = 0;
+  /* -1 is the live view; 1 is the newest timeline entry, N the oldest. */
+  var browseIndex = -1;
+  var browseSig = '';
+
+  function timelineSig() {
+    return activeEntries().map(function (e) { return e.app + ':' + e.duration + ':' + (e.title || ''); }).join('|');
+  }
+
+  function resetBrowse() {
+    browseIndex = -1;
+    browseSig = '';
+  }
 
   function isLiveMode() {
     try {
@@ -107,6 +119,7 @@ var Retoma = (function () {
     state.currentApp = next.label;
     state.currentTitle = next.title;
     state.timeInCurrent = 0;
+    resetBrowse();
     Desk.focus(next.label);
     renderAhora();
     renderTimeline();
@@ -126,6 +139,7 @@ var Retoma = (function () {
   function goAway(minutes) {
     if (isLiveMode()) return;
     minutes = minutes || 25;
+    resetBrowse();
     state.away = true;
     state.awayMinutes = minutes;
     state.prevApp = state.currentApp;
@@ -138,6 +152,7 @@ var Retoma = (function () {
 
   function comeBack() {
     if (!state.away) return;
+    resetBrowse();
     state.away = false;
     if (state.paused) {
       // paused mid-away cancels the episode: no clock jump, no resume card.
@@ -541,6 +556,7 @@ var Retoma = (function () {
         }
       }
       hideResume();
+      resetBrowse();
       renderAhora();
       renderTimeline();
       if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
@@ -550,6 +566,8 @@ var Retoma = (function () {
   }
 
   function hideResume() {
+    resetBrowse();
+    updateBrowseControls();
     if (!el.resumeCard) return;
     resumeAiToken++;
     if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
@@ -605,8 +623,56 @@ var Retoma = (function () {
       : 'Not tracking right now');
   }
 
+  function renderBrowse() {
+    var entries = activeEntries();
+    if (browseIndex > entries.length) browseIndex = entries.length;
+    var e = entries[entries.length - browseIndex];
+    if (!e) { resetBrowse(); renderAhora(); return; }
+    renderRing(e.duration);
+    el.nowApp.textContent = e.app;
+    if (el.nowTitle) el.nowTitle.textContent = e.title || '';
+    if (el.nowTime) el.nowTime.textContent = 'Was here ' + e.duration + ' min';
+    if (el.nowWhen) el.nowWhen.textContent = 'Earlier, ' + browseIndex + ' of ' + entries.length;
+    updateBrowseControls();
+  }
+
+  function updateBrowseControls() {
+    var n = activeEntries().length;
+    if (el.nowPrev) el.nowPrev.disabled = n === 0 || browseIndex >= n;
+    if (el.nowNext) el.nowNext.disabled = browseIndex < 0;
+  }
+
+  function goEarlier() {
+    var n = activeEntries().length;
+    if (!n) { resetBrowse(); updateBrowseControls(); return; }
+    if (browseIndex < 0) {
+      browseIndex = 1;
+      browseSig = timelineSig();
+    } else if (browseIndex < n) {
+      browseIndex += 1;
+    }
+    renderAhora();
+  }
+
+  function goLater() {
+    if (browseIndex < 0) return;
+    if (browseIndex > 1) browseIndex -= 1;
+    else resetBrowse();
+    renderAhora();
+  }
+
   function renderAhora() {
     if (!el.nowApp) return;
+    if (browseIndex >= 0) {
+      if (!hasTimelineEntries() || state.paused || state.away || timelineSig() !== browseSig) {
+        resetBrowse();
+      } else {
+        renderBrowse();
+        return;
+      }
+    }
+    updateBrowseControls();
+    if (el.nowWhen) el.nowWhen.textContent = '';
     renderRing(null);
     if (isLiveMode() && !hasTimelineEntries() && !(window.Live && Live.state && Live.state.liveApp)) {
       /* Live with no live events: never show the demo's Document. */
@@ -646,6 +712,8 @@ var Retoma = (function () {
     if (el.nowTitle) el.nowTitle.textContent = 'Out · ' + state.awayMinutes + ' min';
     if (el.nowTime) el.nowTime.textContent = formatClock();
     if (el.nowDesc) el.nowDesc.textContent = 'Coming back shows where you left off.';
+    if (el.nowWhen) el.nowWhen.textContent = '';
+    updateBrowseControls();
   }
 
   function togglePause() {
@@ -808,6 +876,8 @@ var Retoma = (function () {
       state.awayMinutes = 0;
       clearNote();
       hideResume();
+      resetBrowse();
+      updateBrowseControls();
       renderTimeline();
       dismissProposal();
       if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
@@ -823,6 +893,8 @@ var Retoma = (function () {
     state.awayMinutes = 0;
     clearNote();
     hideResume();
+    resetBrowse();
+    updateBrowseControls();
     renderTimeline();
     dismissProposal();
     Persist.removeAll('demo');
@@ -921,7 +993,36 @@ var Retoma = (function () {
     }, 1000);
   }
 
+  function buildBrowseRow() {
+    var hero = document.querySelector('#retomaTabAhora .now-hero');
+    if (!hero || document.getElementById('nowPrev')) return;
+    var row = document.createElement('div');
+    row.className = 'now-history';
+    var prev = document.createElement('button');
+    prev.type = 'button';
+    prev.id = 'nowPrev';
+    prev.className = 'now-history__btn';
+    prev.setAttribute('aria-label', 'Earlier');
+    prev.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"></path></svg>';
+    var when = document.createElement('span');
+    when.id = 'nowWhen';
+    when.className = 'now-history__when';
+    var next = document.createElement('button');
+    next.type = 'button';
+    next.id = 'nowNext';
+    next.className = 'now-history__btn';
+    next.setAttribute('aria-label', 'Later');
+    next.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6"></path></svg>';
+    row.appendChild(prev);
+    row.appendChild(when);
+    row.appendChild(next);
+    hero.appendChild(row);
+    prev.addEventListener('click', goEarlier);
+    next.addEventListener('click', goLater);
+  }
+
   function mount() {
+    buildBrowseRow();
     el.deskClock = document.getElementById('deskClock');
     el.menuBar = document.getElementById('menuBar');
     el.nowApp = document.getElementById('nowApp');
@@ -929,6 +1030,9 @@ var Retoma = (function () {
     el.nowDesc = document.getElementById('nowDesc');
     el.nowTime = document.getElementById('nowTime');
     el.nowClock = document.getElementById('nowClock');
+    el.nowPrev = document.getElementById('nowPrev');
+    el.nowNext = document.getElementById('nowNext');
+    el.nowWhen = document.getElementById('nowWhen');
     el.toggleBtn = document.getElementById('retomaToggle');
     el.retomaPanel = document.getElementById('retomaPanel');
     el.resumeCard = document.getElementById('resumeCard');

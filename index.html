@@ -63,6 +63,7 @@
 
       <!-- Resume card is the hero, NOT a tab: first and largest content when it exists. Tabs sit above it so they never jump. -->
       <div id="resumeCard" class="resume-card is-hidden" aria-live="polite" aria-atomic="true">
+        <div class="resume-face" aria-hidden="true"><span class="ring-face" aria-hidden="true"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span></div>
         <div class="resume-card__eyebrow">Retoma</div>
         <h3 id="resumeHero" class="resume-card__hero">You were in Document</h3>
         <p id="resumeAi" class="resume-card__ai is-hidden"></p>
@@ -98,7 +99,7 @@
               <circle class="now-ring__track" cx="60" cy="60" r="52"></circle>
               <circle class="now-ring__fill" cx="60" cy="60" r="52" pathLength="100"></circle>
             </svg>
-            <span id="nowRingLabel" class="now-ring__label tabular">0<small>min</small></span>
+            <span class="ring-face" aria-hidden="true"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span>
           </div>
           <div class="now-row">
             <span id="nowApp" class="now-app">Document</span>

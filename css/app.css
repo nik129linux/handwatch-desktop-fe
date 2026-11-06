@@ -455,7 +455,25 @@ body.is-live .dock { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   [data-mood] .now-ring, [data-mood] .now-ring__svg, [data-mood] .brand-mark { animation: none !important; }
+  .ring-eye { animation: none !important; }
 }
+
+/* --- The ring has a face: two eyes and a smile (html[data-mood] sets the mood) --- */
+.ring-face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: var(--sp-4); }
+.ring-eye { display: block; width: 10px; height: 16px; background: var(--ink-strong); border-radius: var(--radius-pill); transform-origin: 50% 50%; animation: eye-blink 4s linear infinite; }
+.ring-mouth { position: absolute; left: 50%; bottom: 22%; width: 20px; height: 10px; border-bottom: 2px solid var(--ink-strong); border-radius: 0 0 var(--radius-pill) var(--radius-pill); opacity: 0; transform: translateX(-50%); transition: opacity var(--dur-state) var(--ease-enter); }
+.resume-face { position: relative; width: 56px; height: 56px; flex: none; border: 3px solid var(--line-strong); border-radius: var(--radius-pill); }  /* the same character as the Now ring, small */
+.resume-face .ring-face { gap: var(--sp-2); }
+.resume-face .ring-eye { width: 8px; height: 12px; }
+.resume-face .ring-mouth { width: 16px; height: 8px; }
+@keyframes eye-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+[data-mood="watching"] .ring-eye { animation: eye-blink 4s linear infinite; transform: scaleY(1); }
+[data-mood="thinking"] .ring-eye { animation: eye-blink 4s linear infinite; translate: 3px -3px; }
+[data-mood="paused"] .ring-eye, [data-mood="away"] .ring-eye { animation: none; transform: scaleY(0.15); }
+[data-mood="back"] .ring-eye { animation: none; transform: scaleY(1); }
+[data-mood="back"] .ring-mouth { opacity: 1; }
+[data-mood="accepted"] .ring-eye { animation: none; transform: scaleY(1); }
+[data-mood="accepted"] .ring-eye:last-child { animation: eye-blink 600ms var(--ease-enter) 1; }
 
 /* --- Guided tour: the caption card takes Free mode's place in the controls bar ---
    (those buttons are disabled while the tour runs), so it never covers a window or the dock.
