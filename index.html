@@ -393,6 +393,7 @@
 <script src="js/presence.js"></script>
 <script src="js/visual.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/mood.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     Desk.mount();
@@ -404,6 +405,7 @@
     Presence.mount();
     Visual.mount();
     if (window.I18n && I18n.mount) I18n.mount();
+    if (window.Mood && Mood.mount) Mood.mount();
   });
 </script>
 </body>
