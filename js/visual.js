@@ -345,10 +345,6 @@ var Visual = (function () {
       Retoma.togglePause = function () {
         origPause();
         blinkEye();
-        if (window.Presence) {
-          if (Retoma.isPaused()) Presence.freeze();
-          else Presence.thaw();
-        }
       };
     }
   }

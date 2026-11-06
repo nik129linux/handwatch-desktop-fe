@@ -270,7 +270,7 @@ body.is-live .app > .sim-panel { display: none; }
 
 /* --- Resume card: the moment you come back ---------------------------------- */
 .retoma-panel .resume-card {
-  order: -1;
+  order: 0;   /* DOM order: tabs first, so they never jump when the card appears */
   position: relative;
   margin: 0 0 var(--sp-6);
   padding: var(--sp-8);
@@ -373,6 +373,10 @@ body.is-live .app > .sim-panel { display: none; }
   color: var(--ink-muted);
 }
 .sim-panel .story-controls, .sim-panel .btn-row, .sim-panel .btn-row--trio { display: contents; }
+/* free mode: 4 + 3 buttons beside the label, so nothing ends up alone on a row */
+.sim-panel #freeMode { display: grid; grid-template-columns: 144px repeat(4, max-content); justify-content: start; }
+.sim-panel #freeMode .sim-label { grid-row: span 2; align-self: start; padding-top: var(--sp-3); }
+@media (max-width: 900px) { .sim-panel #freeMode { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sim-panel #freeMode .sim-label { grid-row: auto; grid-column: 1 / -1; padding-top: 0; } }
 .sim-panel .btn { min-height: 40px; padding: var(--sp-2) var(--sp-3); flex: none; min-width: 0; }
 .sim-panel #storyPlay { min-height: 40px; padding: var(--sp-2) var(--sp-4); font-size: var(--text-sm); line-height: var(--leading-sm); }
 .sim-panel #storyPlay svg { width: 12px; height: 12px; }
@@ -451,4 +455,60 @@ body.is-live .dock { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   [data-mood] .now-ring, [data-mood] .now-ring__svg, [data-mood] .brand-mark { animation: none !important; }
+}
+
+/* --- Guided tour: one caption card above the dock, one highlighted thing ------
+   Markup (index.html): #tourCard.tour-card > .tour-card__text (#tourStep, #subtitle, #tourWhy)
+   + .tour-card__nav (#tourBack, #tourNext). The tour never advances on its own. */
+.desktop-area #subtitle { all: unset; }            /* the old floating pill is retired */
+.tour-card {
+  position: absolute; left: 50%; bottom: calc(44px + var(--sp-2) * 2 + var(--sp-4));
+  z-index: calc(var(--z-stage) + 2);
+  width: min(720px, calc(100% - var(--sp-12)));
+  display: none;
+  align-items: center; gap: var(--sp-6);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-6);
+  background: var(--surface-card);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+  transform: translateX(-50%);
+}
+.tour-card.is-open { display: flex; animation: tour-in var(--dur-enter) var(--ease-enter) both; }
+@keyframes tour-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.tour-card__text { flex: 1; min-width: 0; display: grid; gap: var(--sp-1); }
+.tour-card #tourStep {
+  font: var(--weight-medium) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+.tour-card #subtitle {
+  display: block; margin: 0;
+  font: var(--weight-medium) var(--text-base) / var(--leading-base) var(--font-sans);
+  color: var(--ink-strong);
+}
+.tour-card #tourWhy {
+  margin: 0;
+  font: var(--weight-regular) var(--text-sm) / var(--leading-sm) var(--font-sans);
+  color: var(--ink-muted);
+}
+.tour-card__nav { display: flex; gap: var(--sp-2); flex-shrink: 0; }
+.tour-card__nav .btn { min-height: 40px; padding: 0 var(--sp-4); }
+
+/* the spotlight: a lime ring on the one thing the step is about (lime = focus) */
+.is-tour-focus {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 4px;
+  animation: tour-focus-in var(--dur-enter) var(--ease-enter) both;
+}
+@keyframes tour-focus-in { from { outline-offset: 12px; outline-color: transparent; } to { outline-offset: 4px; } }
+
+/* keyboard focus everywhere, for controls nobody styled */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-card.is-open, .is-tour-focus { animation: none; }
+}
+@media (max-width: 900px) {
+  .tour-card { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
 }

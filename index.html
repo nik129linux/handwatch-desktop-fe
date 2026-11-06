@@ -55,7 +55,13 @@
       </div>
     </header>
     <main id="retomaPanel" class="retoma-panel is-open" aria-label="Retoma">
-      <!-- Resume card is hero, NOT a tab: first and largest when exists -->
+      <div class="retoma-tabs" role="tablist" aria-label="Retoma sections">
+        <button class="retoma-tabs__btn is-active" role="tab" aria-selected="true" data-tab="ahora" id="tabBtnAhora">Now</button>
+        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="hoy" id="tabBtnHoy">Today</button>
+        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="priv" id="tabBtnPriv">Privacy</button>
+      </div>
+
+      <!-- Resume card is the hero, NOT a tab: first and largest content when it exists. Tabs sit above it so they never jump. -->
       <div id="resumeCard" class="resume-card is-hidden" aria-live="polite" aria-atomic="true">
         <div class="resume-card__eyebrow">Retoma</div>
         <h3 id="resumeHero" class="resume-card__hero">You were in Document</h3>
@@ -71,12 +77,6 @@
           <button id="retomarBtn" class="btn btn--primary">Resume</button>
           <button id="startFreshBtn" class="btn btn--ghost">Start fresh</button>
         </div>
-      </div>
-
-      <div class="retoma-tabs" role="tablist" aria-label="Retoma sections">
-        <button class="retoma-tabs__btn is-active" role="tab" aria-selected="true" data-tab="ahora" id="tabBtnAhora">Now</button>
-        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="hoy" id="tabBtnHoy">Today</button>
-        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="priv" id="tabBtnPriv">Privacy</button>
       </div>
 
       <div id="retomaTabAhora" class="retoma-tab is-active" role="tabpanel" aria-labelledby="tabBtnAhora">
@@ -390,7 +390,6 @@
 <script src="js/habits.js"></script>
 <script src="js/story.js"></script>
 <script src="js/theme.js"></script>
-<script src="js/presence.js"></script>
 <script src="js/visual.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/mood.js"></script>
@@ -402,7 +401,6 @@
     if (window.HabitsUI && HabitsUI.mount) HabitsUI.mount();
     Story.mount();
     Theme.mount();
-    Presence.mount();
     Visual.mount();
     if (window.I18n && I18n.mount) I18n.mount();
     if (window.Mood && Mood.mount) Mood.mount();

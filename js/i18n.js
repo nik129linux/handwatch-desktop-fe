@@ -47,6 +47,8 @@ var I18n = (function () {
     'Demo controls': 'Controles de demo',
     'Guided tour, 60 seconds': 'Tour guiado, 60 segundos',
     'Guided tour': 'Tour guiado',
+    'Messages · Ana': 'Mensajes · Ana',
+    'Data · Tracker': 'Datos · Tracker',
     'Running': 'En curso',
     'Pause': 'Pausar',
     'Resume': 'Retomar',

@@ -139,11 +139,13 @@ async function englishLeftovers(page) {
   ok((await englishLeftovers(page)).length === 0, 'no English left on Privacy', JSON.stringify(await englishLeftovers(page)));
 
   console.log('i18n: story subtitles');
-  await page.evaluate(() => { window.__storySpeed = 20; });
   await page.click('#storyPlay');
   await page.waitForTimeout(700);
   const sub = await txt(page, '#subtitle');
   ok(sub.length > 0 && !ENGLISH.test(sub), 'story subtitle in Spanish', sub);
+  const why = await txt(page, '#tourWhy');
+  ok(why && why.length > 0 && !ENGLISH.test(why), 'story why line in Spanish', why);
+  await page.click('#storySkip');
   await page.waitForFunction(() => !document.getElementById('storyPlay').disabled, null, { timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(400);
 

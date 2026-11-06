@@ -613,9 +613,6 @@ body.is-live .window {
   .grain {
     display: none;
   }
-  #presenceField {
-    display: none;
-  }
   .timeline-scrub,
   .timeline-readout {
     display: none;

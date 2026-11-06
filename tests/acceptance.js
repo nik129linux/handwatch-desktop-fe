@@ -160,11 +160,12 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('6 · guided story runs to end');
   const storyPage = await ctx.newPage();
   const storyErrs = watchErrors(storyPage);
-  await storyPage.addInitScript(() => { window.__storySpeed = 20; });
   await storyPage.goto(INDEX, { waitUntil: 'load' });
   await storyPage.waitForSelector('#deskClock');
   await storyPage.click('#storyPlay');
-  await storyPage.waitForFunction(() => window.__storyDone === true, { timeout: 60000 });
+  // step by step: 6 Next clicks reach step 7, the 7th (Finish) ends it; Next completes a running step first
+  for (let i = 0; i < 7; i++) { await settle(storyPage, 300); await storyPage.click('#tourNext'); }
+  await storyPage.waitForFunction(() => window.__storyDone === true, { timeout: 15000 });
   ok(true, 'guided story reached end');
   await settle(storyPage, 400);
   const storyEmpty = await storyPage.evaluate(() => Retoma.state.empty);
@@ -838,11 +839,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   });
   ok(/Guided tour/.test(heroPill.text) && heroPill.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(heroPill.radius) > 10, 'Guided tour is one clear primary pill', JSON.stringify(heroPill));
   const trioRow = await f3.evaluate(() => {
-    const ids = ['storyPause', 'storySkip', 'storyRestart'];
+    const ids = ['storySkip', 'storyRestart'];
     const tops = ids.map(id => Math.round(document.getElementById(id).getBoundingClientRect().top));
     return { tops: tops, oneRow: Math.max.apply(null, tops) - Math.min.apply(null, tops) < 12 };
   });
-  ok(trioRow.oneRow, 'Pause/Skip/Restart on one row', JSON.stringify(trioRow));
+  ok(trioRow.oneRow, 'Skip/Restart on one row', JSON.stringify(trioRow));
   await f3.close();
 
   head('24 · D1: propose() off-mode is valid with zero network');
@@ -1239,23 +1240,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const d4Tag = (await d4.locator('#proposalTag').textContent()) || '';
   ok(/On-device rules|Local model ·|Cloud · Gemini/.test(d4Tag), 'proposal tag names the real source', d4Tag);
   ok(/On-device rules/.test(d4Tag), 'off-mode proposal reads On-device rules', d4Tag);
-  // 31e particle field is ink-derived and animating in both themes
-  for (const th of ['dark', 'light']) {
-    await d4.evaluate((t) => Theme.apply(t, false), th);
-    await settle(d4, 600);
-    const field = await d4.evaluate(() => ({
-      canvas: !!document.getElementById('presenceField'),
-      frames: window.__presenceFrames || 0,
-      pal: window.__presencePalette || null
-    }));
-    ok(field.canvas && field.frames > 0, '[' + th + '] particle field present and animating', 'frames ' + field.frames);
-    const lum = (c) => Math.round((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * 10) / 10;
-    if (th === 'light') {
-      ok(field.pal && lum(field.pal.paper) < 120, '[light] particles tinted with dark ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
-    } else {
-      ok(field.pal && lum(field.pal.paper) > 200, '[dark] particles tinted with light ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
-    }
-  }
+  // 31e the particle field was removed in the unslop pass (2026-11-06): the ring carries the mood
+  ok(await d4.evaluate(() => !document.getElementById('presenceField')), 'no particle field on the stage');
   await d4.evaluate(() => Theme.apply('dark', false));
   await d4.close();
 
