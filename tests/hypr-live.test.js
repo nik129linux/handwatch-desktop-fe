@@ -131,6 +131,17 @@ async function main() {
     assert.ok(!/lock|dpms|brightness|suspend/i.test(c), 'never locks, dims or suspends anything');
   });
 
+  /* Measured on Hyprland 2026-11-06: with only general.ignore_dbus_inhibit the
+   * listener logs "ignore_inhibit: false" and never idles while any app holds an
+   * inhibitor, so Live never went away and the resume card never showed. */
+  await test('idleConf: inhibitors (video, browser, apps) never hide that you left', function () {
+    var c = hypr.idleConf('/tmp/x/state', 60);
+    assert.ok(/listener\s*\{[^}]*ignore_inhibit\s*=\s*true/.test(c), 'listener ignores inhibitors: ' + c);
+    ['ignore_dbus_inhibit', 'ignore_systemd_inhibit', 'ignore_wayland_inhibit'].forEach(function (k) {
+      assert.ok(new RegExp('general\\s*\\{[^}]*' + k + '\\s*=\\s*true').test(c), k + ' in general: ' + c);
+    });
+  });
+
   console.log('hypr-live: focus');
 
   await test('focus: initial window from hyprctl, then socket events; status ready', async function () {

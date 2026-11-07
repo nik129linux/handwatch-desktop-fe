@@ -50,11 +50,16 @@ function parseHyprEvent(line) {
 function idleConf(stateFile, sec) {
   // Inhibitors (a video playing) must not hide that nobody is at the keyboard:
   // LIVE.md documents that a video playing while you are gone counts as away.
+  // The general flags alone are not enough: hypridle logs "ignore_inhibit: false"
+  // for the listener and never idles while any app holds an inhibitor.
   return 'general {\n' +
     '    ignore_dbus_inhibit = true\n' +
+    '    ignore_systemd_inhibit = true\n' +
+    '    ignore_wayland_inhibit = true\n' +
     '}\n' +
     'listener {\n' +
     '    timeout = ' + sec + '\n' +
+    '    ignore_inhibit = true\n' +
     '    on-timeout = printf idle > ' + stateFile + '\n' +
     '    on-resume = printf active > ' + stateFile + '\n' +
     '}\n';
