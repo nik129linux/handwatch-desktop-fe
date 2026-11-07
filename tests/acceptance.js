@@ -136,7 +136,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   await page.evaluate(() => document.getElementById('proposalAccept').click());
   await settle(page, 300);
-  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'Accept closes proposal');
+  ok(await page.locator('#proposalCard.is-accepted').count() === 1 && await page.locator('#proposalCard.is-hidden').count() === 0, 'Accept keeps the card as Planned (accept-more)');
 
   await page.click('#freeMode [data-act="endday"]');
   await settle(page, 300);

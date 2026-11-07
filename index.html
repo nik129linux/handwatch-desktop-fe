@@ -147,6 +147,7 @@
             </div>
             <p id="proposalText" class="proposal-card__text">Tomorrow: 40 min for the report, 9:00 to 9:40, before the messages arrive.</p>
             <p id="proposalHow" class="proposal-card__how">How I decided: longest block Document 40 min · first interruption WhatsApp 9:52 · window 9:00–9:40</p>
+            <p id="proposalAccepted" class="proposal-accepted is-hidden" aria-live="polite"></p>
             <div id="aiProof" class="ai-proof is-hidden">
               <p id="aiProofLine" class="ai-proof__line"></p>
               <details class="ai-suggest-details">
@@ -154,7 +155,7 @@
                 <pre id="aiProofPayload" class="ai-payload"></pre>
               </details>
             </div>
-            <div class="proposal-actions">
+            <div id="proposalActions" class="proposal-actions">
               <button id="proposalAccept" class="btn btn--primary">Accept</button>
               <button id="proposalAdjust" class="btn btn--ghost" type="button">Adjust</button>
               <button id="proposalDecline" class="btn btn--ghost">No, thanks</button>

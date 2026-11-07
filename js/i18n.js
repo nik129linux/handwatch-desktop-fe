@@ -204,6 +204,7 @@ var I18n = (function () {
     [/^(.+) interrupted you \u00b7 (\d+) min$/, '$1 te interrumpió \u00b7 $2 min'],
     [/^(.+) interrupted you$/, '$1 te interrumpió'],
     [/Tomorrow:/, 'Mañana:'],
+    [/^Planned for tomorrow, (.+)$/, 'Planeado para mañana, $1'],
     [/Planned:/, 'Planeado:'],
     [/Actual:/, 'Real:'],
     [/How I decided:/, 'Cómo decidí:'],

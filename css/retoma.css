@@ -216,6 +216,23 @@
   color: var(--ink-muted);
 }
 .proposal-actions { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); }
+.proposal-actions.is-hidden { display: none; }
+
+/* Accepted: the plan stays on the card, the AI button offers another idea */
+.proposal-accepted {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink-strong);
+}
+.proposal-accepted::before {
+  content: ""; flex: none;
+  width: 10px; height: 5px; margin-top: -3px;
+  border-left: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+.proposal-accepted.is-hidden { display: none; }
 
 /* Adjust: inline editor under Accept / Adjust / No, thanks */
 .proposal-adjust {

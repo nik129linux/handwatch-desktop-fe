@@ -32,6 +32,7 @@ var Retoma = (function () {
     quota: null,
     currentProposal: null,
     acceptedBlock: null,
+    proposalAccepted: false,
     adjust: null
   };
 
@@ -474,7 +475,27 @@ var Retoma = (function () {
   }
 
   function suggestCopy() {
+    if (state.proposalAccepted) return uiLang() === 'es' ? 'Sugerir otra con IA' : 'Suggest another with AI';
     return uiLang() === 'es' ? 'Sugerir con IA' : 'Suggest with AI';
+  }
+
+  /* Accepted: the card stays, says what is planned, and the AI button offers
+   * another idea. A new suggestion (or a new day) clears it. */
+  function setAccepted(on) {
+    state.proposalAccepted = !!on;
+    var card = document.getElementById('proposalCard');
+    if (card) card.classList.toggle('is-accepted', state.proposalAccepted);
+    var actions = document.getElementById('proposalActions');
+    if (actions) actions.classList.toggle('is-hidden', state.proposalAccepted);
+    var line = document.getElementById('proposalAccepted');
+    if (line) {
+      var b = state.acceptedBlock;
+      line.textContent = state.proposalAccepted && b
+        ? 'Planned for tomorrow, ' + b.start + '\u2013' + fmtClock(Ai.parseClock(b.start) + b.minutes)
+        : '';
+      line.classList.toggle('is-hidden', !state.proposalAccepted);
+    }
+    paintSuggestCopy();
   }
 
   function paintSuggestCopy() {
@@ -559,8 +580,10 @@ var Retoma = (function () {
     hideSuggestConsent();
     var token = ++state.aiToken;
     window.retoma.propose(summary, { mode: 'server', consent: state.aiConsent, lang: uiLang() }).then(function (res) {
+      if (token === state.aiToken) state.proposalAccepted = false;
       restoreSuggestButton();
       if (token !== state.aiToken) return;
+      setAccepted(false);
       if (card) card.classList.remove('is-loading');
       if (res && res.quota) setQuota(res.quota);
       var real = isServerSource(res && res.source) && !res.fallback;
@@ -581,8 +604,10 @@ var Retoma = (function () {
       }
       paintSuggestPayload(summary, 'server', 'aiProofPayload');
     }, function () {
+      if (token === state.aiToken) state.proposalAccepted = false;
       restoreSuggestButton();
       if (token !== state.aiToken) return;
+      setAccepted(false);
       if (card) card.classList.remove('is-loading');
       paintRulesProposal(proposalData());
       setProofLine('The server did not answer, so on-device rules made this one.');
@@ -1221,7 +1246,7 @@ var Retoma = (function () {
         ? 'Tracked today: ' + total + ' min on this PC'
         : 'Planned: 2 h on the report · Actual: 1 h 20 min';
     }
-    renderProposal(data);
+    if (!state.proposalAccepted) renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');
     if (!state.proposalDismissed && el.proposalCard) {
@@ -1237,6 +1262,7 @@ var Retoma = (function () {
   function showEndOfDay() {
     if (isLiveMode()) {
       state.proposalDismissed = false;
+      setAccepted(false);
       renderTimeline();
       if (el.timeline) el.timeline.classList.remove('is-hidden');
       openPanel();
@@ -1248,6 +1274,7 @@ var Retoma = (function () {
       state.timeline.push({ app: state.currentApp, duration: state.timeInCurrent || 10 });
     }
     state.proposalDismissed = false;
+    setAccepted(false);
     renderTimeline();
     persistTimeline();
     if (el.timeline) el.timeline.classList.remove('is-hidden');
@@ -1258,6 +1285,7 @@ var Retoma = (function () {
 
   function dismissProposal() {
     state.proposalDismissed = true;
+    setAccepted(false);
     endAdjust();
     if (el.proposalCard) el.proposalCard.classList.add('is-hidden');
   }
@@ -1289,9 +1317,17 @@ var Retoma = (function () {
         howEl.textContent = baseHow + ' \u00b7 adjusted to ' + start + '\u2013' + end;
       }
       endAdjust();
+      setAccepted(true);
       return;
     }
-    dismissProposal();
+    var cp = state.currentProposal;
+    if (!cp) { dismissProposal(); return; }
+    state.acceptedBlock = { start: cp.start, minutes: cp.minutes };
+    try {
+      window.localStorage.setItem('retoma-block-' + (isLiveMode() ? 'live' : 'demo'),
+        JSON.stringify(state.acceptedBlock));
+    } catch (e) { /* session only */ }
+    setAccepted(true);
   }
 
   function deleteAll() {
