@@ -1415,8 +1415,14 @@ var Retoma = (function () {
     updateBrowseControls();
   }
 
-  function togglePause() {
-    state.paused = !state.paused;
+  var PAUSE_MINUTES = 30;
+  var pauseTimer = null;
+
+  function clearPauseTimer() {
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+  }
+
+  function paintPauseUi() {
     if (window.retoma && window.retoma.setPaused) {
       try { window.retoma.setPaused(state.paused); } catch (e) { /* demo keeps going */ }
     }
@@ -1424,6 +1430,7 @@ var Retoma = (function () {
     if (btn) {
       btn.classList.toggle('is-paused', state.paused);
       btn.setAttribute('aria-pressed', String(state.paused));
+      btn.setAttribute('aria-label', settingsText(state.paused ? 'Resume Retoma' : 'Pause Retoma'));
       var eyeOpen = btn.querySelector('.eye-open');
       var eyeClosed = btn.querySelector('.eye-closed');
       if (eyeOpen && eyeClosed) {
@@ -1435,6 +1442,34 @@ var Retoma = (function () {
     if (el.simPause) el.simPause.textContent = state.paused ? 'Resume' : 'Pause';
     renderAhora();
     Events.emit('retoma:pause', state.paused);
+  }
+
+  function resumeIfPauseExpired() {
+    if (!state.paused) return false;
+    if (!state.pausedUntil || nowMs() < state.pausedUntil) return false;
+    state.paused = false;
+    state.pausedUntil = 0;
+    clearPauseTimer();
+    paintPauseUi();
+    return true;
+  }
+
+  function togglePause() {
+    if (state.paused) {
+      state.paused = false;
+      state.pausedUntil = 0;
+      clearPauseTimer();
+    } else {
+      state.paused = true;
+      state.pausedUntil = nowMs() + PAUSE_MINUTES * 60000;
+      clearPauseTimer();
+      var wait = Math.max(0, state.pausedUntil - nowMs());
+      pauseTimer = setTimeout(function () {
+        pauseTimer = null;
+        resumeIfPauseExpired();
+      }, wait);
+    }
+    paintPauseUi();
   }
 
   function isPaused() { return state.paused; }
@@ -1744,6 +1779,7 @@ var Retoma = (function () {
   function startTick() {
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(function () {
+      if (resumeIfPauseExpired()) return;
       if (state.paused || state.away) return;
       state.timeInCurrent += 1;
       if (state.timeInCurrent % 2 === 0) {
@@ -2004,7 +2040,7 @@ var Retoma = (function () {
     }
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired };
   }
 
   function openConfirm() {
@@ -2029,5 +2065,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired };
 })();
