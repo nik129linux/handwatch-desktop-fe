@@ -1304,17 +1304,13 @@ var Retoma = (function () {
   var RING_BLOCK_MIN = 25;
   function renderRing(minutes) {
     var ring = document.getElementById('nowRing');
-    var label = document.getElementById('nowRingLabel');
-    if (!ring || !label) return;
+    if (!ring) return;
     var known = typeof minutes === 'number' && isFinite(minutes) && minutes >= 0;
     var p = known ? Math.min(1, minutes / RING_BLOCK_MIN) : 0;
     ring.style.setProperty('--p', String(p));
     ring.classList.toggle('is-full', p >= 1);
-    label.textContent = '';
-    label.appendChild(document.createTextNode(known ? String(minutes) : '0'));
-    var unit = document.createElement('small');
-    unit.textContent = 'min';
-    label.appendChild(unit);
+    /* No number inside the face: minutes live in #nowTime. The ring is the
+     * only visual progress, and it actually fills as the task goes on. */
     ring.setAttribute('aria-label', known
       ? minutes + ' minutes in this task. The ring fills at ' + RING_BLOCK_MIN + ' minutes.'
       : 'Not tracking right now');
