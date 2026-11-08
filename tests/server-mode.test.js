@@ -64,7 +64,8 @@ async function main() {
     assert.strictEqual(f.calls.length, 1);
     assert.strictEqual(f.calls[0].url, BASE + '/api/retoma/resume-line');
     assert.strictEqual(f.calls[0].method, 'POST');
-    assert.deepStrictEqual(f.calls[0].body, { ctx: CTX, lang: 'es' });
+    assert.deepStrictEqual(f.calls[0].body, { ctx: { app: 'Document', awayMinutes: 25 }, lang: 'es' });
+    assert.ok(!('title' in f.calls[0].body.ctx) && !('note' in f.calls[0].body.ctx), 'server never receives title or note');
   });
 
   await test('resumeLine: an empty title is not sent', async function () {
