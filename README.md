@@ -10,7 +10,7 @@ A desktop companion that helps you pick up where you left off. English UI, light
 ## How it works
 - `main.js` — Electron shell: window, tray (Pause/Resume), return notification, global shortcut, IPC for AI/persistence.
 - `index.html` + `js/` — simulated desktop (Document, Browser, WhatsApp, Spreadsheet), resume card, Today timeline, Privacy tab, 60-second guided tour plus free-mode controls.
-- `ai/` — providers (off / local Ollama / cloud Gemini, consent-gated, zero network without consent), JSON event store with 7-day retention, native helpers (tray, notifications).
+- `ai/` — providers (off / local Ollama / cloud Gemini, consent-gated, zero network without consent; server mode sends only app names and minutes, never titles or notes), JSON event store with 7-day retention, native helpers (tray, notifications).
 - `css/tokens.css` — the only file with raw colors; change `--color-primary-500` and both themes follow.
 
 ## Demo

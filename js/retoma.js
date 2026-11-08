@@ -844,7 +844,34 @@ var Retoma = (function () {
     return !!(state.aiConsent && (state.aiConsent.local || state.aiConsent.server || state.aiConsent.cloud));
   }
 
+  /* Privacy copy must be literally true in every mode. Only local Ollama
+   * runs on this machine; server AI receives app names and minutes with
+   * consent, so the "everything stays" promise gets its one exception. */
+  function paintPrivacyTruth() {
+    var serverAi = (state.aiMode === 'server' || state.aiMode === 'cloud') &&
+      !!(state.aiConsent && state.aiConsent[state.aiMode]);
+    var foot = document.getElementById('privacyFootText');
+    if (foot) {
+      foot.textContent = settingsText(serverAi
+        ? 'Everything stays on this device, except what you send to the AI with your permission.'
+        : 'Everything stays on this device.');
+    }
+    var settingsPrivacy = document.getElementById('settingsPrivacyText');
+    if (settingsPrivacy) {
+      settingsPrivacy.textContent = settingsText(serverAi
+        ? 'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days.'
+        : 'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.');
+    }
+    var simFoot = document.getElementById('simPrivacyFoot');
+    if (simFoot) {
+      simFoot.textContent = settingsText(serverAi
+        ? 'Everything stays on this device, except what you send to the AI with your permission. Pause anytime.'
+        : 'Everything stays on this device. Pause anytime.');
+    }
+  }
+
   function paintSettings() {
+    paintPrivacyTruth();
     var lang = (window.I18n && I18n.getLang) ? I18n.getLang() : 'es';
     document.querySelectorAll('[data-settings-lang]').forEach(function (b) {
       var on = b.getAttribute('data-settings-lang') === lang;

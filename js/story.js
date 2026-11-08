@@ -157,7 +157,7 @@ var Story = (function () {
     },
     {
       sub: 'Your history is yours. Deleted in one gesture.',
-      why: 'Everything stays on this device and is deleted after 7 days, or right now with one button.',
+      why: 'Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days, or right now with one button.',
       target: '#privacyDelete',
       act: function (fast) {
         if (Retoma.switchTab) Retoma.switchTab('priv');

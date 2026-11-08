@@ -378,9 +378,10 @@ function serverResumeLine(ctx, opts) {
   var impl = o.fetchImpl;
   var ms = o.timeoutMs === undefined ? TIMEOUT_MS : o.timeoutMs;
   var lang = o.lang || 'en';
+  /* Privacy contract: the server only ever sees the app name and how long
+   * the person was away. Titles and notes stay on this device (local Ollama
+   * is the only mode allowed to read them). */
   var sendCtx = { app: c.app, awayMinutes: c.awayMinutes };
-  if (String(c.title || '').trim()) sendCtx.title = c.title;
-  if (String(c.note || '').trim()) sendCtx.note = c.note;
   var body = { ctx: sendCtx, lang: lang };
   var p = fetchWithTimeout(base + '/api/retoma/resume-line',
     { method: 'POST', headers: serverHeaders(), body: JSON.stringify(body) },

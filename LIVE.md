@@ -24,7 +24,7 @@ Live mode tracks the apps on this PC. Demo mode only tracks the fake windows ins
 
 ## What is recorded
 
-App name plus minutes per app. Window titles only if you turn on **Include window titles** (off by default; kept to 60 characters). Blocked apps (Privacy tab) are stored as **Private app** with no title. Everything stays in this device's settings folder for 7 days, then it is deleted.
+App name plus minutes per app. Window titles only if you turn on **Include window titles** (off by default; kept to 60 characters). Blocked apps (Privacy tab) are stored as **Private app** with no title. Everything stays in this device's settings folder for 7 days, then it is deleted. The one exception is opt-in server AI: it receives app names and minutes, never titles or notes.
 
 ## Honest limits
 

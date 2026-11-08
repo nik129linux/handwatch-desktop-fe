@@ -42,8 +42,8 @@ var Guide = (function () {
     {
       title: ['Private by default', 'Privada por defecto'],
       body: [
-        'Retoma sees app names and window titles, never what you type, never your screen. Everything stays on this device and is deleted after 7 days. AI is off until you allow it.',
-        'Retoma ve nombres de apps y títulos de ventana, nunca lo que escribes ni tu pantalla. Todo queda en este dispositivo y se borra a los 7 días. La IA está apagada hasta que la permitas.'
+        'Retoma sees app names and window titles, never what you type, never your screen. Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days. AI is off until you allow it.',
+        'Retoma ve nombres de apps y títulos de ventana, nunca lo que escribes ni tu pantalla. Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso, y se borra a los 7 días. La IA está apagada hasta que la permitas.'
       ]
     }
   ];

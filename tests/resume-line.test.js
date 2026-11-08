@@ -205,6 +205,31 @@ async function main() {
     assert.ok(!/distract/i.test(r.reason));
   });
 
+  await test('server resume-line sends only app + awayMinutes (no title, no note)', async function () {
+    var calls = [];
+    var impl = function (url, opts) {
+      calls.push({ url: String(url), body: opts && opts.body ? String(opts.body) : '' });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: function () { return null; } },
+        json: function () {
+          return Promise.resolve({ ok: true, text: 'You were in Document; next, keep going.', source: 'Retoma server · gemma4:31b', fallback: false });
+        }
+      });
+    };
+    var r = await providers.resumeLine(CTX, { mode: 'server', consent: { server: true }, fetchImpl: impl });
+    assert.strictEqual(r.fallback, false, JSON.stringify(r));
+    var gen = calls.filter(function (c) { return /resume-line$/.test(c.url); })[0];
+    assert.ok(gen, 'server was called');
+    var body = JSON.parse(gen.body);
+    assert.deepStrictEqual(Object.keys(body.ctx).sort(), ['app', 'awayMinutes']);
+    assert.strictEqual(body.ctx.app, 'Document');
+    assert.strictEqual(body.ctx.awayMinutes, 25);
+    assert.ok(!/Quality report/.test(gen.body), 'title never leaves');
+    assert.ok(!/fix the citation/.test(gen.body), 'note never leaves');
+  });
+
   await test('existing propose() still works (no regression in the export list)', async function () {
     assert.strictEqual(typeof providers.propose, 'function');
     assert.strictEqual(typeof providers.resumeLine, 'function');
