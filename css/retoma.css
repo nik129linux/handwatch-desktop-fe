@@ -643,3 +643,144 @@
   .ring-face.is-thinking .ring-eye { animation: none !important; }
   .proposal-card__text.is-fresh { animation: none !important; }
 }
+
+/* --- Settings: the canonical home for language, theme, AI and privacy --- */
+.retoma-panel .retoma-tabs { gap: var(--sp-3); flex-wrap: wrap; }
+.retoma-panel .retoma-tabs__btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.retoma-tabs__btn--settings svg { width: 16px; height: 16px; display: block; }
+#retomaTabConfig .panel-section { gap: var(--sp-4); padding: var(--sp-4) 0; }
+.settings { gap: var(--sp-6); }
+.settings-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.settings-group__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs); line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-muted);
+}
+.settings .seg { min-height: 52px; padding: var(--sp-1); }
+.settings .seg__btn { min-height: 44px; }
+.settings .btn { min-height: 44px; }
+.settings-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.settings-actions > .btn { flex: 1 1 0; min-width: 140px; }
+
+/* Level 3: Help reference inside Settings */
+.help { scroll-margin-top: var(--sp-6); }
+.help:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-sm); }
+.help__body { display: flex; flex-direction: column; gap: var(--sp-6); }
+.help__section { display: flex; flex-direction: column; gap: var(--sp-2); }
+.help__title {
+  margin: 0;
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-strong);
+}
+.help__list { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+.help__term {
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink-strong);
+  margin-top: var(--sp-2);
+}
+.help__desc {
+  margin: 0;
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+  color: var(--ink-muted);
+}
+
+/* --- Level 1: welcome guide (modal) ------------------------------------ */
+.guide-overlay {
+  position: fixed; inset: 0;
+  z-index: var(--z-toast);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-4);
+  background: var(--surface-scrim);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity var(--dur-state) var(--ease-enter);
+}
+.guide-overlay.is-hidden { display: none; }
+.guide-card {
+  width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-8);
+  background: var(--surface-card);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-float);
+  animation: guide-in var(--dur-enter) var(--ease-enter);
+}
+@keyframes guide-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.guide-count {
+  margin: 0;
+  font-size: var(--text-xs); line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.guide-dots { display: flex; gap: var(--sp-2); }
+.guide-dot {
+  width: 8px; height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+  transition: background-color var(--dur-state) var(--ease-enter), transform var(--dur-state) var(--ease-enter);
+}
+.guide-dot.is-active { background: var(--accent); transform: scale(1.25); }
+.guide-card__title {
+  margin: 0;
+  font-size: var(--text-2xl); line-height: var(--leading-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-title);
+  color: var(--ink-strong);
+  text-wrap: balance;
+}
+.guide-card__body {
+  margin: 0;
+  font-size: var(--text-base); line-height: var(--leading-base);
+  color: var(--ink-muted);
+}
+.guide-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+.guide-actions__spacer { flex: 1 1 auto; }
+.guide-actions .btn { min-height: 44px; }
+
+/* --- Level 2: coach mark anchored to a feature ------------------------- */
+.coach-tip {
+  position: fixed;
+  z-index: var(--z-toast);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: var(--surface-card);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  animation: guide-in var(--dur-enter) var(--ease-enter);
+}
+.coach-tip.is-hidden { display: none; }
+.coach-tip__text {
+  margin: 0;
+  font-size: var(--text-sm); line-height: var(--leading-sm);
+  color: var(--ink-strong);
+}
+.coach-tip .btn { align-self: flex-end; min-height: 44px; }
+.coach-spot {
+  position: fixed;
+  width: 12px; height: 12px;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: 0 0 0 6px var(--accent-soft);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+body.guide-open { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-overlay, .guide-card, .coach-tip, .guide-dot { transition: none !important; animation: none !important; }
+}

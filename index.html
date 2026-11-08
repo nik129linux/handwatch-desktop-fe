@@ -1,9 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retoma</title>
+<script>
+  /* Paint the right theme before first paint: light unless the person chose otherwise. */
+  (function () {
+    var mode = 'light';
+    try { mode = window.localStorage.getItem('retoma-theme') || 'light'; } catch (e) { mode = 'light'; }
+    if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'light';
+    var eff = mode === 'system'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : mode;
+    document.documentElement.setAttribute('data-theme', eff);
+    document.documentElement.setAttribute('data-theme-mode', mode);
+  })();
+</script>
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/desk.css">
@@ -28,8 +41,8 @@
           <button class="mode-switch__btn" data-mode="live" aria-pressed="false">Live</button>
         </div>
         <div class="lang-switch" role="group" aria-label="Language">
-          <button class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
-          <button class="lang-switch__btn" data-lang="es" aria-pressed="false">ES</button>
+          <button class="lang-switch__btn" data-lang="en" aria-pressed="false">EN</button>
+          <button class="lang-switch__btn is-active" data-lang="es" aria-pressed="true">ES</button>
         </div>
         <button id="themeToggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme" aria-pressed="false">
           <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -59,6 +72,10 @@
         <button class="retoma-tabs__btn is-active" role="tab" aria-selected="true" data-tab="ahora" id="tabBtnAhora">Now</button>
         <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="hoy" id="tabBtnHoy">Today</button>
         <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="priv" id="tabBtnPriv">Privacy</button>
+        <button class="retoma-tabs__btn retoma-tabs__btn--settings" role="tab" aria-selected="false" data-tab="config" id="tabBtnConfig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+          <span>Settings</span>
+        </button>
       </div>
 
       <!-- Resume card is the hero, NOT a tab: first and largest content when it exists. Tabs sit above it so they never jump. -->
@@ -293,6 +310,67 @@
           </div>
         </section>
       </div>
+
+      <div id="retomaTabConfig" class="retoma-tab" role="tabpanel" aria-labelledby="tabBtnConfig">
+        <section class="panel-section settings" aria-label="Settings">
+          <div class="panel-section__label">Settings</div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Language</h4>
+            <div class="seg" role="group" aria-label="Language">
+              <button class="seg__btn" type="button" data-settings-lang="es">Español</button>
+              <button class="seg__btn" type="button" data-settings-lang="en">English</button>
+            </div>
+            <p class="panel-section__text--muted">Changes the whole app at once, without reloading or losing what you were doing.</p>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Theme</h4>
+            <div class="seg" role="group" aria-label="Theme">
+              <button class="seg__btn" type="button" data-theme-choice="light">Light</button>
+              <button class="seg__btn" type="button" data-theme-choice="dark">Dark</button>
+              <button class="seg__btn" type="button" data-theme-choice="system">System</button>
+            </div>
+            <p class="panel-section__text--muted">System follows this computer. Light is the default.</p>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Artificial intelligence</h4>
+            <div class="seg" role="group" aria-label="Artificial intelligence">
+              <button class="seg__btn" type="button" data-settings-ai="on">On</button>
+              <button class="seg__btn" type="button" data-settings-ai="off">Off</button>
+            </div>
+            <p id="settingsAiStatus" class="panel-section__text--muted" aria-live="polite">Artificial intelligence is off</p>
+            <p class="panel-section__text--muted">When it is on, only app names and minutes go to the server. Never titles, never notes.</p>
+            <div class="settings-actions">
+              <button id="settingsAiConsent" class="btn btn--secondary" type="button">Revoke permission</button>
+              <button id="settingsSeePayload" class="btn btn--ghost" type="button">See what is sent</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Privacy</h4>
+            <p class="panel-section__text--muted">It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.</p>
+            <div class="settings-actions">
+              <button id="settingsExport" class="btn btn--secondary" type="button">Export my data</button>
+              <button id="settingsDelete" class="btn btn--destructive" type="button">Delete everything</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Guide</h4>
+            <div class="settings-actions">
+              <button id="guideReplay" class="btn btn--secondary" type="button">See the guide again</button>
+              <button id="helpOpen" class="btn btn--ghost" type="button">Help</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="helpPanel" class="panel-section help" aria-labelledby="helpTitle" tabindex="-1">
+          <h3 id="helpTitle" class="settings-group__title">Help</h3>
+          <div id="helpBody" class="help__body"></div>
+        </section>
+      </div>
     </main>
   <section class="desktop-area" aria-label="Your desktop">
 
@@ -431,6 +509,26 @@
   </aside>
 </div>
 
+<div id="guideOverlay" class="guide-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="guideTitle" aria-describedby="guideBody">
+  <div class="guide-card">
+    <p class="guide-count" id="guideCount">1 / 3</p>
+    <div class="guide-dots" id="guideDots" aria-hidden="true"></div>
+    <h2 id="guideTitle" class="guide-card__title">Welcome to Retoma</h2>
+    <p id="guideBody" class="guide-card__body"></p>
+    <div class="guide-actions">
+      <button id="guideSkip" class="btn btn--ghost" type="button">Skip</button>
+      <span class="guide-actions__spacer"></span>
+      <button id="guideBack" class="btn btn--secondary" type="button">Back</button>
+      <button id="guideNext" class="btn btn--primary" type="button">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="coachTip" class="coach-tip is-hidden" role="status" aria-live="polite">
+  <p id="coachTipText" class="coach-tip__text"></p>
+  <button id="coachTipClose" class="btn btn--ghost" type="button">Got it</button>
+</div>
+
 <div id="confirmOverlay" class="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
   <div class="confirm-box">
     <h3>Delete everything?</h3>
@@ -442,6 +540,7 @@
   </div>
 </div>
 
+<script src="js/i18n.js"></script>
 <script src="js/events.js"></script>
 <script src="js/ai.js"></script>
 <script src="ai/habits.js"></script>
@@ -453,7 +552,7 @@
 <script src="js/story.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/visual.js"></script>
-<script src="js/i18n.js"></script>
+<script src="js/guide.js"></script>
 <script src="js/mood.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -465,6 +564,7 @@
     Theme.mount();
     Visual.mount();
     if (window.I18n && I18n.mount) I18n.mount();
+    if (window.Guide && Guide.mount) Guide.mount();
     if (window.Mood && Mood.mount) Mood.mount();
   });
 </script>

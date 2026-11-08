@@ -680,9 +680,10 @@ var Retoma = (function () {
       if (bar) bar.setAttribute('aria-valuenow', String(Math.round(pct)));
       var reached = q.left <= 0;
       if (text) {
+        var leftN = I18n && I18n.formatNumber ? I18n.formatNumber(q.left) : String(q.left);
         text.textContent = reached
-          ? 'AI limit reached. Connect Ollama to keep going.'
-          : 'AI requests: ' + q.left + ' left';
+          ? settingsText('AI limit reached. Connect Ollama to keep going.')
+          : settingsText(q.left === 1 ? 'AI requests: 1 left' : 'AI requests: ' + leftN + ' left');
       }
       if (btn) btn.classList.toggle('is-hidden', !reached);
     });
@@ -829,7 +830,128 @@ var Retoma = (function () {
     }
     refreshServerStatusLine();
     paintQuota();
+    paintSettings();
     if (state.aiMode === 'server') refreshQuota();
+  }
+
+  /* --- Settings (canonical home for language, theme, AI, privacy) -------- */
+
+  function settingsText(en) {
+    return (window.I18n && I18n.t) ? I18n.t(en) : en;
+  }
+
+  function anyConsent() {
+    return !!(state.aiConsent && (state.aiConsent.local || state.aiConsent.server || state.aiConsent.cloud));
+  }
+
+  function paintSettings() {
+    var lang = (window.I18n && I18n.getLang) ? I18n.getLang() : 'es';
+    document.querySelectorAll('[data-settings-lang]').forEach(function (b) {
+      var on = b.getAttribute('data-settings-lang') === lang;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var mode = (window.Theme && Theme.getMode) ? Theme.getMode() : 'light';
+    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+      var on = b.getAttribute('data-theme-choice') === mode;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var aiOn = state.aiMode !== 'off' && state.aiMode !== '';
+    document.querySelectorAll('[data-settings-ai]').forEach(function (b) {
+      var want = b.getAttribute('data-settings-ai');
+      var on = want === 'on' ? aiOn : !aiOn;
+      b.textContent = want === 'on' ? settingsText('On') : settingsText('Off');
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var status = document.getElementById('settingsAiStatus');
+    if (status) {
+      var msg;
+      if (aiOn) {
+        msg = settingsText('Artificial intelligence is on. Only app names and minutes are sent.');
+      } else if (!hasBridge()) {
+        msg = settingsText('Artificial intelligence is off. It needs the desktop app to turn on.');
+      } else {
+        msg = settingsText('Artificial intelligence is off.');
+      }
+      status.textContent = msg;
+    }
+    var consentBtn = document.getElementById('settingsAiConsent');
+    if (consentBtn) {
+      consentBtn.textContent = anyConsent()
+        ? settingsText('Revoke permission')
+        : settingsText('Grant permission');
+      consentBtn.disabled = !hasBridge() && !anyConsent();
+    }
+    var payloadBtn = document.getElementById('settingsSeePayload');
+    if (payloadBtn) payloadBtn.disabled = !hasBridge();
+  }
+
+  function revokeAiConsent() {
+    state.aiConsent.local = false;
+    state.aiConsent.cloud = false;
+    state.aiConsent.server = false;
+    state.pendingMode = null;
+    state.aiToken++;
+    state.aiMode = 'off';
+    saveAiPrefs();
+    hideConsent();
+    paintAiMode();
+    renderTimeline();
+    paintSettings();
+  }
+
+  function grantAiFromSettings() {
+    if (!hasBridge()) { paintSettings(); return; }
+    switchTab('priv');
+    var box = document.getElementById('aiConsent');
+    var pre = document.getElementById('aiPayload');
+    if (!box || !pre) return;
+    /* Show the exact payload before anything leaves the device. */
+    if (!anyConsent()) { state.pendingMode = 'server'; showConsent('server'); }
+    else switchTab('priv');
+    paintSettings();
+  }
+
+  function mountSettings() {
+    document.querySelectorAll('[data-settings-lang]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (window.I18n && I18n.setLang) I18n.setLang(b.getAttribute('data-settings-lang'));
+      });
+    });
+    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (window.Theme && Theme.setMode) Theme.setMode(b.getAttribute('data-theme-choice'));
+      });
+    });
+    document.querySelectorAll('[data-settings-ai]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var on = b.getAttribute('data-settings-ai') === 'on';
+        if (!on) { selectAiMode('off'); paintSettings(); return; }
+        if (!hasBridge()) { paintSettings(); return; }
+        if (state.aiMode === 'off') selectAiMode('server');
+        paintSettings();
+      });
+    });
+    var consentBtn = document.getElementById('settingsAiConsent');
+    if (consentBtn) consentBtn.addEventListener('click', function () {
+      if (anyConsent()) revokeAiConsent(); else grantAiFromSettings();
+    });
+    var payloadBtn = document.getElementById('settingsSeePayload');
+    if (payloadBtn) payloadBtn.addEventListener('click', function () {
+      if (!hasBridge()) return;
+      switchTab('priv');
+      showConsent('server');
+    });
+    var exportBtn = document.getElementById('settingsExport');
+    if (exportBtn) exportBtn.addEventListener('click', function () { Persist.exportData(state.timeline); });
+    var deleteBtn = document.getElementById('settingsDelete');
+    if (deleteBtn) deleteBtn.addEventListener('click', function () { openConfirm(); });
+    if (window.I18n && I18n.onChange) I18n.onChange(paintSettings);
+    if (window.I18n && I18n.onChange) I18n.onChange(paintQuota);
+    if (window.Theme && Theme.onChange) Theme.onChange(paintSettings);
+    paintSettings();
   }
 
   var habitsPatched = false;
@@ -1426,7 +1548,7 @@ var Retoma = (function () {
   }
 
   function switchTab(name) {
-    if (!['ahora','hoy','priv'].includes(name)) return;
+    if (!['ahora','hoy','priv','config'].includes(name)) return;
     activeTab = name;
     document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
       var is = b.getAttribute('data-tab') === name;
@@ -1434,11 +1556,14 @@ var Retoma = (function () {
       b.setAttribute('aria-selected', is ? 'true' : 'false');
     });
     document.querySelectorAll('.retoma-tab').forEach(function (p) {
-      var idMap = { ahora: 'retomaTabAhora', hoy: 'retomaTabHoy', priv: 'retomaTabPriv' };
+      var idMap = { ahora: 'retomaTabAhora', hoy: 'retomaTabHoy', priv: 'retomaTabPriv', config: 'retomaTabConfig' };
       var target = idMap[name];
       if (p.id === target) p.classList.add('is-active'); else p.classList.remove('is-active');
     });
     if (name === 'ahora') growLeaveNote();
+    if (window.Guide && Guide.visit) {
+      Guide.visit(name === 'ahora' ? 'note' : name === 'hoy' ? 'today' : name === 'priv' ? 'privacy' : 'settings');
+    }
     // keep the sliding tab ink under the active tab on every path
     // (button clicks and internal calls, not only the wrapped global).
     if (window.Visual && window.Visual.placeInk) {
@@ -1488,8 +1613,7 @@ var Retoma = (function () {
 
   function mount() {
     buildBrowseRow();
-    el.deskClock = document.getElementById('deskClock');
-    el.menuBar = document.getElementById('menuBar');
+    el.deskClock = document.getElementById('deskClock');    el.menuBar = document.getElementById('menuBar');
     el.nowApp = document.getElementById('nowApp');
     el.nowTitle = document.getElementById('nowTitle');
     el.nowNote = document.getElementById('nowNote');
@@ -1618,6 +1742,7 @@ var Retoma = (function () {
     state.timeline = Events.seedTimeline.slice();
     loadAiPrefs();
     paintAiMode();
+    mountSettings();
     refreshCapabilities();
     document.querySelectorAll('[data-ai-mode]').forEach(function (b) {
       b.addEventListener('click', function () { selectAiMode(b.getAttribute('data-ai-mode')); });
