@@ -32,6 +32,7 @@ var Retoma = (function () {
     quota: null,
     currentProposal: null,
     acceptedBlock: null,
+    todayPlan: null,
     proposalAccepted: false,
     adjust: null
   };
@@ -341,6 +342,93 @@ var Retoma = (function () {
     return h + ':' + String(m).padStart(2, '0');
   }
 
+  /* --- Accepted plan: what Accept leaves for tomorrow ------------------- */
+  /* Tests inject a clock with window.__retomaNow so "tomorrow" is provable
+   * without waiting a day. */
+  function nowMs() {
+    try {
+      if (typeof window.__retomaNow === 'function') {
+        var t = Number(window.__retomaNow());
+        if (isFinite(t)) return t;
+      }
+    } catch (e) { /* fall through to the real clock */ }
+    return Date.now();
+  }
+
+  function dayKey(ms) {
+    var d = new Date(ms);
+    function p2(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  }
+
+  function addDays(ms, days) { return ms + days * 24 * 3600 * 1000; }
+
+  function planKey() { return 'retoma-block-' + (isLiveMode() ? 'live' : 'demo'); }
+
+  function readPlanBlock() {
+    try {
+      var raw = window.localStorage.getItem(planKey());
+      var b = raw ? JSON.parse(raw) : null;
+      return b && typeof b === 'object' ? b : null;
+    } catch (e) { return null; }
+  }
+
+  function writePlanBlock(block) {
+    try { window.localStorage.setItem(planKey(), JSON.stringify(block)); } catch (e) { /* session only */ }
+  }
+
+  function clearPlanBlock() {
+    try { window.localStorage.removeItem(planKey()); } catch (e) { /* noop */ }
+    state.todayPlan = null;
+  }
+
+  function planDue(block) {
+    return !!(block && block.start && block.minutes && block.plannedFor && dayKey(nowMs()) >= block.plannedFor);
+  }
+
+  function renderPlanCard() {
+    var card = document.getElementById('planCard');
+    if (!card) return;
+    var block = state.todayPlan;
+    if (!block || !planDue(block)) {
+      state.todayPlan = null;
+      card.classList.add('is-hidden');
+      return;
+    }
+    var textEl = document.getElementById('planText');
+    if (textEl) {
+      var app = block.app || state.currentApp || '';
+      textEl.textContent = app + ' \u00b7 ' + block.start + ' \u00b7 ' + block.minutes + ' min';
+    }
+    card.classList.remove('is-hidden');
+  }
+
+  function checkPlanCard() {
+    var block = readPlanBlock();
+    state.todayPlan = planDue(block) ? block : null;
+    renderPlanCard();
+  }
+
+  function startPlan() {
+    var block = state.todayPlan;
+    if (!block) return;
+    var parts = String(block.start || '').split(':');
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    if (isFinite(h) && isFinite(m)) setClock(h, m);
+    if (!isLiveMode()) {
+      var app = Events.findByLabel(block.app || state.currentApp);
+      if (app) switchApp(app);
+    }
+    clearPlanBlock();
+    renderPlanCard();
+    switchTab('ahora');
+  }
+
+  function dismissPlan() {
+    clearPlanBlock();
+    renderPlanCard();
+  }
+
   function computeProposal(data) {
     if (!data || !data.length) {
       if (isLiveMode()) return null;
@@ -385,6 +473,7 @@ var Retoma = (function () {
     state.currentProposal = {
       start: fmtClock(p.winStart),
       minutes: Math.max(15, Math.min(180, Math.round(p.longest.duration))),
+      app: p.longest.app,
       reason: p.how
     };
     var textEl = document.getElementById('proposalText');
@@ -402,7 +491,9 @@ var Retoma = (function () {
     var howEl = document.getElementById('proposalHow');
     var tagEl = document.getElementById('proposalTag');
     var f = Ai.formatProposal(res);
-    state.currentProposal = { start: res.start, minutes: res.minutes, reason: res.reason };
+    var longest = proposalData()[0] || { app: state.currentApp };
+    proposalData().forEach(function (e) { if (e.duration > longest.duration) longest = e; });
+    state.currentProposal = { start: res.start, minutes: res.minutes, app: res.app || longest.app, reason: res.reason };
     if (textEl) textEl.textContent = f.text;
     if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
     if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
@@ -1136,6 +1227,7 @@ var Retoma = (function () {
       renderTimeline();
       if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
       if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
+      checkPlanCard();
       return true;
     });
   }
@@ -1449,11 +1541,13 @@ var Retoma = (function () {
       if (!validateAdjust()) return;
       var start = String(state.adjust.start || '').trim();
       var minutes = state.adjust.minutes;
-      state.acceptedBlock = { start: start, minutes: minutes };
-      try {
-        window.localStorage.setItem('retoma-block-' + (isLiveMode() ? 'live' : 'demo'),
-          JSON.stringify(state.acceptedBlock));
-      } catch (e) { /* session only */ }
+      state.acceptedBlock = {
+        start: start,
+        minutes: minutes,
+        app: (state.currentProposal && state.currentProposal.app) || state.currentApp,
+        plannedFor: dayKey(addDays(nowMs(), 1))
+      };
+      writePlanBlock(state.acceptedBlock);
       var end = fmtClock(Ai.parseClock(start) + minutes);
       var textEl = document.getElementById('proposalText');
       if (textEl) {
@@ -1476,11 +1570,13 @@ var Retoma = (function () {
     }
     var cp = state.currentProposal;
     if (!cp) { dismissProposal(); return; }
-    state.acceptedBlock = { start: cp.start, minutes: cp.minutes };
-    try {
-      window.localStorage.setItem('retoma-block-' + (isLiveMode() ? 'live' : 'demo'),
-        JSON.stringify(state.acceptedBlock));
-    } catch (e) { /* session only */ }
+    state.acceptedBlock = {
+      start: cp.start,
+      minutes: cp.minutes,
+      app: cp.app || state.currentApp,
+      plannedFor: dayKey(addDays(nowMs(), 1))
+    };
+    writePlanBlock(state.acceptedBlock);
     setAccepted(true);
   }
 
@@ -1671,6 +1767,9 @@ var Retoma = (function () {
     el.timelineBar = document.getElementById('timelineBar');
     el.timelineLegend = document.getElementById('timelineLegend');
     el.timelineText = document.getElementById('timelineText');
+    el.planCard = document.getElementById('planCard');
+    el.planStart = document.getElementById('planStart');
+    el.planDismiss = document.getElementById('planDismiss');
     el.proposalCard = document.getElementById('proposalCard');
     el.proposalAccept = document.getElementById('proposalAccept');
     el.proposalDecline = document.getElementById('proposalDecline');
@@ -1725,6 +1824,8 @@ var Retoma = (function () {
       });
       el.leaveNote.addEventListener('blur', function () { saveNote(el.leaveNote.value); });
     }
+    if (el.planStart) el.planStart.addEventListener('click', startPlan);
+    if (el.planDismiss) el.planDismiss.addEventListener('click', dismissPlan);
     if (el.proposalAccept) el.proposalAccept.addEventListener('click', acceptProposal);
     if (el.proposalDecline) el.proposalDecline.addEventListener('click', dismissProposal);
     if (el.proposalAdjust) el.proposalAdjust.addEventListener('click', function () {
@@ -1850,6 +1951,7 @@ var Retoma = (function () {
     renderTimeline();
     hideResume();
     switchTab('ahora');
+    checkPlanCard();
     closePanel();
     startTick();
     window.addEventListener('resize', syncDesktopLayout);
@@ -1860,7 +1962,7 @@ var Retoma = (function () {
     }
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan };
   }
 
   function openConfirm() {
@@ -1885,5 +1987,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan };
 })();

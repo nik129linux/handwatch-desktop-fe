@@ -133,6 +133,14 @@
             </div>
             <textarea id="leaveNote" rows="1" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note"></textarea>
           </div>
+          <div id="planCard" class="proposal-card plan-card is-hidden" aria-live="polite">
+            <div class="proposal-card__label">Today's plan</div>
+            <p id="planText" class="proposal-card__text"></p>
+            <div class="proposal-actions">
+              <button id="planStart" class="btn btn--primary" type="button">Start plan</button>
+              <button id="planDismiss" class="btn btn--ghost" type="button">Dismiss plan</button>
+            </div>
+          </div>
         </section>
       </div>
 
