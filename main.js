@@ -176,12 +176,19 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, 'index.html'));
 
-  const menu = Menu.buildFromTemplate([
+  refreshMenu();
+  // Esc closes nothing extra: no Escape handler registered.
+}
+
+/* The native menu follows the app language, like the tray and notifications. */
+function refreshMenu() {
+  const es = appLang === 'es';
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
-      label: 'View',
+      label: es ? 'Ver' : 'View',
       submenu: [
         {
-          label: 'Toggle theme',
+          label: es ? 'Cambiar tema' : 'Toggle theme',
           accelerator: 'Ctrl+Shift+L',
           click: () => {
             if (win && !win.isDestroyed()) {
@@ -192,7 +199,7 @@ function createWindow() {
           }
         },
         {
-          label: 'Toggle fullscreen',
+          label: es ? 'Pantalla completa' : 'Toggle fullscreen',
           accelerator: 'F11',
           click: () => {
             if (win && !win.isDestroyed()) win.setFullScreen(!win.isFullScreen());
@@ -200,9 +207,7 @@ function createWindow() {
         }
       ]
     }
-  ]);
-  Menu.setApplicationMenu(menu);
-  // Esc closes nothing extra: no Escape handler registered.
+  ]));
 }
 
 function trayIconPath(isPaused) {
@@ -437,7 +442,11 @@ function setupIpc() {
     st.gated = false;
     return st;
   });
-  ipcMain.on('retoma:lang', (ev, l) => { appLang = l === 'es' ? 'es' : 'en'; refreshTray(); });
+  ipcMain.on('retoma:lang', (ev, l) => {
+    appLang = l === 'es' ? 'es' : 'en';
+    refreshTray();
+    try { refreshMenu(); } catch (e) { /* no window yet */ }
+  });
   ipcMain.on('retoma:paused', (ev, isPaused) => {    paused = !!isPaused;
     try {
       var next = persistSettings({ paused: paused });
