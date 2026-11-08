@@ -323,6 +323,7 @@ var I18n = (function () {
     [/Small reps keep it going\./, 'Los pequeños repasos lo mantienen.'],
     [/^Your longest block was (.+) (\d+) min \(median (.+) min\)\.?$/, 'Tu bloque más largo fue $1 $2 min (mediana $3 min).'],
     [/^(\d+) blocks, about (.+) switches per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
+    [/^1 block, about 1 switch per hour\.?$/, '1 bloque, unos 1 cambio por hora.'],
     [/^1 block, about (.+) switch(es)? per hour\.?$/, '1 bloque, unos $1 cambios por hora.'],
     [/^(\d+) blocks?, about (.+) switch(es)? per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
     [/^Messages and browsing: (\d+) min \((\d+)% of tracked time\)\.?$/, 'Mensajes y navegación: $1 min ($2% del tiempo registrado).'],

@@ -249,6 +249,18 @@ async function dismissTipIfAny(page) {
   await scanScreen(page, 'Settings in Spanish', ENGLISH);
   ok(await page.evaluate(() => document.documentElement.lang) === 'es', 'back to Spanish');
   ok(await page.evaluate(() => I18n.formatNumber(1234)) === '1.234', 'Spanish numbers use Intl (1.234)', await page.evaluate(() => I18n.formatNumber(1234)));
+  const plurals = await page.evaluate(() => {
+    const m1 = { totalMinutes: 40, count: 1, switchesPerHour: 1, longest: { app: 'Document', minutes: 40, count: 1 }, median: 40 };
+    const m2 = { totalMinutes: 80, count: 2, switchesPerHour: 2, longest: { app: 'Document', minutes: 40, count: 2 }, median: 40 };
+    return {
+      en1: Habits.rulesAsk(m1, 'context switches?'),
+      en2: Habits.rulesAsk(m2, 'context switches?'),
+      es1: I18n.t(Habits.rulesAsk(m1, 'context switches?')),
+      es2: I18n.t(Habits.rulesAsk(m2, 'context switches?'))
+    };
+  });
+  ok(/1 block/.test(plurals.en1) && /2 blocks/.test(plurals.en2), 'English plurals: 1 block / 2 blocks', JSON.stringify(plurals));
+  ok(/1 bloque/.test(plurals.es1) && /2 bloques/.test(plurals.es2), 'Spanish plurals: 1 bloque / 2 bloques', JSON.stringify(plurals));
   await page.evaluate(() => { Retoma.state.aiMode = 'server'; Retoma.setQuota({ left: 1, limit: 10 }); Retoma.switchTab('hoy'); });
   await page.waitForTimeout(200);
   ok((await txt(page, '#quotaTextHoy')).indexOf('1 disponible') !== -1, 'Spanish singular quota', await txt(page, '#quotaTextHoy'));
