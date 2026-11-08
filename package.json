@@ -4,7 +4,7 @@
   "description": "Retoma: a desktop companion that helps you pick up where you left off",
   "main": "main.js",
   "scripts": {
-    "start": "electron . --no-sandbox",
+    "start": "electron .",
     "test": "for f in tests/*.js; do case $f in *electron-smoke*) xvfb-run -a node $f;; *design-lint*) node $f;; *) node $f;; esac; done",
     "dist": "electron-builder --linux dir",
     "dist:win": "electron-builder --win nsis --x64"

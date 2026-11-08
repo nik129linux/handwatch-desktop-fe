@@ -1548,14 +1548,30 @@ var Retoma = (function () {
         if (!merged.hasOwnProperty(e.app)) { merged[e.app] = 0; order.push(e.app); appFirstColor[e.app] = colors[i % colors.length]; }
         merged[e.app] += e.duration;
       });
-      el.timelineLegend.innerHTML = order.map(function (app) {
+      /* Live app names are data, never markup: build the legend with DOM
+       * nodes so a window title like <img onerror> stays literal text. */
+      el.timelineLegend.innerHTML = '';
+      order.forEach(function (app) {
         var c = appFirstColor[app];
-        var label = app + ' · ' + merged[app] + ' min';
+        var item = document.createElement('span');
+        item.className = 'timeline-legend__item';
+        var dot = document.createElement('span');
+        dot.className = 'timeline-legend__dot';
+        dot.style.background = c;
+        var label = document.createElement('span');
+        label.className = 'timeline-legend__label';
+        label.textContent = app + ' · ' + merged[app] + ' min';
+        item.appendChild(dot);
+        item.appendChild(label);
         if (app === longestSingle.app) {
-          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span class="timeline-legend__label">' + label + '</span><span class="timeline-legend__sub">longest block ' + longestSingle.duration + ' min</span></span>';
+          item.classList.add('timeline-legend__item--major');
+          var sub = document.createElement('span');
+          sub.className = 'timeline-legend__sub';
+          sub.textContent = 'longest block ' + longestSingle.duration + ' min';
+          item.appendChild(sub);
         }
-        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
-      }).join('');
+        el.timelineLegend.appendChild(item);
+      });
     }
     var dayStatement = document.getElementById('dayStatement');
     if (dayStatement && !isLiveMode()) {
