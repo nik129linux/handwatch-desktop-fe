@@ -1115,7 +1115,12 @@ var Retoma = (function () {
   function reloadForMode(mode) {
     var m = mode === 'live' ? 'live' : 'demo';
     return Persist.load(m).then(function (events) {
-      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      /* Keep ts end to end: dropping it here re-stamps every old event with
+       * "now" on the next save, so 7-day retention could never prune. */
+      var list = (events || []).map(function (e) {
+        if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+        return { app: e.app, duration: e.duration };
+      });
       if (m === 'live') {
         state.liveTimeline = list.slice(-12);
         state.liveEmpty = state.liveTimeline.length === 0;
@@ -1817,14 +1822,20 @@ var Retoma = (function () {
     }
     Persist.load('demo').then(function (events) {
       if (events && events.length) {
-        state.timeline = events.slice(-12).map(function (e) { return { app: e.app, duration: e.duration }; });
+        state.timeline = events.slice(-12).map(function (e) {
+          if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+          return { app: e.app, duration: e.duration };
+        });
         state.empty = false;
         if (!isLiveMode()) renderTimeline();
         persistTimeline();
       }
     });
     Persist.load('live').then(function (events) {
-      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      var list = (events || []).map(function (e) {
+        if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+        return { app: e.app, duration: e.duration };
+      });
       if (list.length) {
         state.liveTimeline = list.slice(-12);
         state.liveEmpty = false;
