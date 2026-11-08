@@ -99,6 +99,13 @@ function setupLive() {
       advance: function (ms) { this.t += ms; }
     };
   }
+  /* Demo is the launch default. A saved Live only survives when this profile
+   * chose it and the helper is installed (or a scripted fake is driving). */
+  if (initial.mode === 'live' && !fakeSamples &&
+      installer.needsHelper(process.platform, process.env) && !installer.isInstalled(fs)) {
+    initial = persistSettings({ mode: 'demo' });
+    persisted = initial;
+  }
   var focusSrc = null;
   var idleSrc = null;
   if (!fakeSamples) {

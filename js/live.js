@@ -63,6 +63,20 @@ var Live = (function () {
     return Promise.resolve(state);
   }
 
+  /* A fresh launch is Demo unless this profile explicitly chose Live and the
+   * helper is actually available. A saved Live with no helper falls back to
+   * Demo instead of opening an empty Live screen. */
+  function enforceLaunchMode(next) {
+    if (!next || next.mode !== 'live') return Promise.resolve(next);
+    if (!hasBridge()) return saveSettings({ mode: 'demo' });
+    if (!window.retoma.helperCheck) return saveSettings({ mode: 'demo' });
+    return window.retoma.helperCheck().then(function (res) {
+      var ready = !!(res && (res.needsHelper === false || res.installed || res.status === 'ready'));
+      if (ready) return next;
+      return saveSettings({ mode: 'demo' });
+    }, function () { return saveSettings({ mode: 'demo' }); });
+  }
+
   function applySettings(next) {
     if (!next) return;
     state.mode = next.mode === 'live' ? 'live' : 'demo';
@@ -118,28 +132,24 @@ var Live = (function () {
   }
 
   function setMode(mode) {
-    if (mode !== 'demo' && mode !== 'live') return;
+    if (mode !== 'demo' && mode !== 'live') return Promise.resolve(state);
     if (mode === state.mode) {
-      if (window.Retoma && Retoma.reloadForMode) Retoma.reloadForMode(mode);
-      return;
-    }
-    saveSettings({ mode: mode }).then(function () {
       if (window.Retoma && Retoma.reloadForMode) {
-        try {
-          var r = Retoma.reloadForMode(mode);
-          if (r && r.then) {
-            r.then(function () {
-              if (mode === 'live' && hasBridge()) {
-                try { window.retoma.liveReady(); } catch (e) { /* main starts playback */ }
-              }
-            });
-            return;
-          }
-        } catch (e) { /* fall through */ }
+        try { return Promise.resolve(Retoma.reloadForMode(mode)).then(function () { return state; }); } catch (e) { /* fall through */ }
       }
-      if (mode === 'live' && hasBridge()) {
-        try { window.retoma.liveReady(); } catch (e) { /* main starts playback */ }
+      return Promise.resolve(state);
+    }
+    return saveSettings({ mode: mode }).then(function () {
+      var reloaded = null;
+      if (window.Retoma && Retoma.reloadForMode) {
+        try { reloaded = Retoma.reloadForMode(mode); } catch (e) { reloaded = null; }
       }
+      return Promise.resolve(reloaded).then(function () {
+        if (mode === 'live' && hasBridge()) {
+          try { window.retoma.liveReady(); } catch (e) { /* main starts playback */ }
+        }
+        return state;
+      });
     });
   }
 
@@ -531,7 +541,7 @@ var Live = (function () {
     }
     window.addEventListener('resize', placeModeInk);
 
-    loadSettings().then(function (next) {
+    loadSettings().then(enforceLaunchMode).then(function (next) {
       applySettings(next || {});
       /* Starting in Live: show ONLY the live store, never the demo seed. */
       if (window.Retoma && Retoma.reloadForMode && state.mode === 'live') {

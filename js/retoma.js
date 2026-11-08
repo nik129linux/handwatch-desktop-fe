@@ -1101,6 +1101,8 @@ var Retoma = (function () {
     if (exportBtn) exportBtn.addEventListener('click', function () { Persist.exportData(state.timeline); });
     var deleteBtn = document.getElementById('settingsDelete');
     if (deleteBtn) deleteBtn.addEventListener('click', function () { openConfirm(); });
+    var resetBtn = document.getElementById('resetDemo');
+    if (resetBtn) resetBtn.addEventListener('click', function () { resetDemo(); });
     if (window.I18n && I18n.onChange) I18n.onChange(paintSettings);
     if (window.I18n && I18n.onChange) I18n.onChange(paintQuota);
     if (window.Theme && Theme.onChange) Theme.onChange(paintSettings);
@@ -1695,6 +1697,37 @@ var Retoma = (function () {
     try { window.localStorage.removeItem('retoma-exp-demo'); } catch (e) { /* noop */ }
   }
 
+  /* Settings -> Demo mode: back to Demo, a clean demo history, and level 1
+   * of the guide again. Live history is untouched. */
+  function resetDemo() {
+    function finish() {
+      state.timeline = [];
+      state.empty = true;
+      state.away = false;
+      state.awayMinutes = 0;
+      state.proposalDismissed = false;
+      state.todayPlan = null;
+      state.acceptedBlock = null;
+      state.proposalAccepted = false;
+      try { window.localStorage.removeItem('retoma-block-demo'); } catch (e) { /* noop */ }
+      Persist.removeAll('demo');
+      resetBrowse();
+      updateBrowseControls();
+      renderTimeline();
+      renderAhora();
+      if (window.Guide && Guide.replay) {
+        try { Guide.replay(); } catch (e) { /* welcome is best-effort */ }
+      }
+    }
+    if (window.Live && Live.setMode) {
+      try {
+        var r = Live.setMode('demo');
+        if (r && typeof r.then === 'function') { r.then(finish); return; }
+      } catch (e) { /* fall through to the local reset */ }
+    }
+    finish();
+  }
+
   function hasTimelineEntries() {
     if (isLiveMode()) return !state.liveEmpty && state.liveTimeline.length > 0;
     return !state.empty && state.timeline.length > 0;
@@ -2043,7 +2076,7 @@ var Retoma = (function () {
     }
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired, resetDemo: resetDemo };
   }
 
   function openConfirm() {
@@ -2068,5 +2101,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired, resetDemo: resetDemo };
 })();

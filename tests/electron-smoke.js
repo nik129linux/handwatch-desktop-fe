@@ -165,6 +165,9 @@ async function seedProfile(w) {
   // A · no fake: default demo, switch to live, waiting state, persist, pause.
   const HOME_A = fs.mkdtempSync(path.join(os.tmpdir(), 'retoma-homeA-'));
   const PROFILE_A = fs.mkdtempSync(path.join(os.tmpdir(), 'retoma-liveA-'));
+  // Phase B: Live only survives a restart when the helper is installed, so
+  // this profile installs it before switching modes.
+  installerMod.installHelper({ fs: fs, home: HOME_A, confirm: true });
   let runA = await launchL2(PROFILE_A, { HOME: HOME_A });
   ok(await runA.window.evaluate(() => window.Live && window.Live.getMode()) === 'demo', 'L2 default mode is demo', 'got ' + await runA.window.evaluate(() => window.Live && window.Live.getMode()));
   ok(await runA.window.evaluate(() => !document.body.classList.contains('is-live')), 'L2 demo shows fake windows');
