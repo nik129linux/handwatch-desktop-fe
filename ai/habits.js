@@ -231,6 +231,8 @@
 
   /* Deterministic fallback: worst pattern wins, templated coaching note
    * plus one tiny experiment in implementation-intention form. */
+  function blocksWord(n) { return n === 1 ? ' block' : ' blocks'; }
+
   function rulesReport(metrics) {
     if (!metrics || !metrics.totalMinutes) return null;
     var pattern = pickPattern(metrics);
@@ -238,8 +240,8 @@
     var exp = null;
     if (pattern === 'switches') {
       note = 'Many quick switches today (' + metrics.switchesPerHour +
-        ' per hour across ' + metrics.count +
-        ' blocks). Short single-app stretches can help ideas settle.';
+        ' per hour across ' + metrics.count + blocksWord(metrics.count) +
+        '). Short single-app stretches can help ideas settle.';
       exp = {
         trigger: 'I finish a message check',
         action: 'keep one window open',
@@ -285,8 +287,8 @@
       };
     } else {
       note = 'Steady day: longest ' + metrics.longest.minutes + ' min in ' +
-        metrics.longest.app + ' across ' + metrics.count +
-        ' blocks. Small reps keep it going.';
+        metrics.longest.app + ' across ' + metrics.count + blocksWord(metrics.count) +
+        '. Small reps keep it going.';
       exp = {
         trigger: 'I start work',
         action: 'do one focused stretch',
