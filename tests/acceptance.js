@@ -4,6 +4,7 @@ const fs = require('fs');
 const { pathToFileURL } = require('url');
 const { chromium } = require('playwright');
 
+const seed = require('./support/seed');
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'shots');
 const INDEX = pathToFileURL(path.join(ROOT, 'index.html')).href;
@@ -33,6 +34,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   const errs = watchErrors(page);
+  await seed(page, { lang: 'en' });
   await page.goto(INDEX, { waitUntil: 'load' });
   await page.waitForSelector('#deskClock');
   // screenshots and state checks start only once the entrance choreography is done
@@ -160,6 +162,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('6 · guided story runs to end');
   const storyPage = await ctx.newPage();
   const storyErrs = watchErrors(storyPage);
+  await seed(storyPage, { lang: 'en' });
   await storyPage.goto(INDEX, { waitUntil: 'load' });
   await storyPage.waitForSelector('#deskClock');
   await storyPage.click('#storyPlay');
@@ -312,6 +315,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('10 · APP FIRST: the Retoma column is the app (always on screen)');
   // reload fresh for panel checks
   const fixPage = await ctx.newPage();
+  await seed(fixPage, { lang: 'en' });
   await fixPage.goto(INDEX, { waitUntil: 'load' });
   await fixPage.waitForSelector('#deskClock');
   await settle(fixPage, 400);
@@ -338,7 +342,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // tabs: only one active
   const tabsActive = await fixPage.evaluate(() => document.querySelectorAll('.retoma-tab.is-active').length);
   ok(tabsActive === 1, 'only one tab section visible', 'found ' + tabsActive);
-  ok(await fixPage.evaluate(() => document.querySelectorAll('.retoma-tabs__btn').length === 3), '3 tabs present');
+  ok(await fixPage.evaluate(() => document.querySelectorAll('.retoma-tabs__btn').length === 4), '4 tabs present (Now / Today / Privacy / Settings)');
+  ok(await fixPage.evaluate(() => !!document.getElementById('tabBtnConfig')), 'Settings tab is reachable from the main navigation');
   // resume card not inside tabs
   const resumeInsideTab = await fixPage.evaluate(() => !!document.querySelector('.retoma-tab #resumeCard'));
   ok(!resumeInsideTab, 'resume card NOT inside tab (is hero)');
@@ -481,6 +486,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('15 · FIX 6: responsive 390 no horizontal scroll');
   const ctx390 = await browser.newContext({ viewport: { width: 390, height: 900 } });
   const p390 = await ctx390.newPage();
+  await seed(p390, { lang: 'en' });
   await p390.goto(INDEX, { waitUntil: 'load' });
   await p390.waitForSelector('#deskClock');
   await settle(p390, 400);
@@ -514,6 +520,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('16 · FIX 7: pause state visible');
   const paPage = await ctx.newPage();
+  await seed(paPage, { lang: 'en' });
   await paPage.goto(INDEX, { waitUntil: 'load' });
   await paPage.waitForSelector('#deskClock');
   await settle(paPage, 300);
@@ -543,6 +550,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('17 · FIX2 round2-1: windows left of panel + staggered reopen');
   const r2Page = await ctx.newPage();
+  await seed(r2Page, { lang: 'en' });
   await r2Page.goto(INDEX, { waitUntil: 'load' });
   await r2Page.waitForSelector('#deskClock');
   await settle(r2Page, 400);
@@ -607,6 +615,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('18 · FIX2 round2-2: 390 compact stacked list');
   const c390b = await browser.newContext({ viewport: { width: 390, height: 900 } });
   const p390b = await c390b.newPage();
+  await seed(p390b, { lang: 'en' });
   await p390b.goto(INDEX, { waitUntil: 'load' });
   await p390b.waitForSelector('#deskClock');
   await settle(p390b, 400);
@@ -661,6 +670,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('19 · FIX2 round2-3: kicker single line normal-case');
   const r2k = await ctx.newPage();
+  await seed(r2k, { lang: 'en' });
   await r2k.goto(INDEX, { waitUntil: 'load' });
   await r2k.waitForSelector('#deskClock');
   await settle(r2k, 300);
@@ -689,6 +699,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('20 · FIX2 round2-4: proposal buttons reachable via scroll');
   const r2p = await ctx.newPage();
+  await seed(r2p, { lang: 'en' });
   await r2p.goto(INDEX, { waitUntil: 'load' });
   await r2p.waitForSelector('#deskClock');
   await settle(r2p, 300);
@@ -720,6 +731,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('21 · FIX2 round2-5: timeline legend merged');
   const r2l = await ctx.newPage();
+  await seed(r2l, { lang: 'en' });
   await r2l.goto(INDEX, { waitUntil: 'load' });
   await r2l.waitForSelector('#deskClock');
   await settle(r2l, 300);
@@ -743,6 +755,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // extra screenshots — final states at both viewports
   head('22 · DESIGN PASS: motion with intent (headline blur-in, parallax, fly-in, timeline draw)');
   const moPage = await ctx.newPage();
+  await seed(moPage, { lang: 'en' });
   await moPage.goto(INDEX, { waitUntil: 'load' });
   await moPage.waitForSelector('#deskClock');
   await settle(moPage, 300);
@@ -779,6 +792,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('23 · FIXES-3: dock clearance, numbers agree, sim hit targets');
   const f3 = await ctx.newPage();
+  await seed(f3, { lang: 'en' });
   await f3.goto(INDEX, { waitUntil: 'load' });
   await f3.waitForSelector('#deskClock');
   await settle(f3, 400);
@@ -989,6 +1003,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('29 · D1: Smart suggestions UI in Privacy tab');
   const d1 = await ctx.newPage();
   const d1Errs = watchErrors(d1);
+  await seed(d1, { lang: 'en' });
   await d1.goto(INDEX, { waitUntil: 'load' });
   await d1.waitForSelector('#deskClock');
   await settle(d1, 500);
@@ -1019,6 +1034,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('30 · D3 QA regressions (hostile-user fixes)');
   const qa = await ctx.newPage();
   const qaErrs = watchErrors(qa);
+  await seed(qa, { lang: 'en' });
   await qa.goto(INDEX, { waitUntil: 'load' });
   await qa.waitForSelector('#deskClock');
   await settle(qa, 400);
@@ -1093,6 +1109,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   // 30f contrast >= 4.5 across 12 elements per theme
   const qa2 = await ctx.newPage();
+  await seed(qa2, { lang: 'en' });
   await qa2.goto(INDEX, { waitUntil: 'load' });
   await qa2.waitForSelector('#deskClock');
   const probeSrc12 = `(() => {
@@ -1142,6 +1159,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // 30g reduced motion: no stagger delays, hero readable, no parallax loop
   const ctxRM = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const rmPage = await ctxRM.newPage();
+  await seed(rmPage, { lang: 'en' });
   await rmPage.goto(INDEX, { waitUntil: 'load' });
   await rmPage.waitForSelector('#deskClock');
   await rmPage.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
@@ -1159,6 +1177,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('31 · D4 polish: collapsed Now, source tags, entrance, particles');
   const d4 = await ctx.newPage();
+  await seed(d4, { lang: 'en' });
   await d4.goto(INDEX, { waitUntil: 'load' });
   await d4.waitForSelector('#deskClock');
   // 31a entrance finishes with all 4 windows visible (Document included)
@@ -1249,6 +1268,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('32 · L3 live honesty (browser, helper missing)');
   const l3 = await ctx.newPage();
   const l3Errs = watchErrors(l3);
+  await seed(l3, { lang: 'en' });
   await l3.goto(INDEX, { waitUntil: 'load' });
   await l3.waitForSelector('#deskClock');
   await l3.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1393,6 +1413,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('33 · AI quota bar, Adjust, and Ask limits');
   const qp = await ctx.newPage();
   const qpErrs = watchErrors(qp);
+  await seed(qp, { lang: 'en' });
   await qp.goto(INDEX, { waitUntil: 'load' });
   await qp.waitForSelector('#deskClock');
   await qp.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1505,6 +1526,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
       capabilities: function () { return Promise.resolve({ cloudAvailable: false }); }
     };
   });
+  await seed(asPage, { lang: 'en' });
   await asPage.goto(INDEX, { waitUntil: 'load' });
   await asPage.waitForSelector('#deskClock');
   await asPage.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1582,6 +1604,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });
     const p = await c.newPage();
+  await seed(p, { lang: 'en' });
     await p.goto(INDEX, { waitUntil: 'load' });
     await p.waitForSelector('#deskClock');
     await p.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1621,6 +1644,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await capture(390, 'shot');
 
   // extra screenshots
+  await seed(page, { lang: 'en' });
   await page.goto(INDEX, { waitUntil:'load' });
   await page.waitForSelector('#deskClock');
   await settle(page, 600);

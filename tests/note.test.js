@@ -13,6 +13,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
+const seed = require('./support/seed');
 const INDEX = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
 let passed = 0;
 let failed = 0;
@@ -22,6 +23,7 @@ function ok(cond, name, detail) {
 }
 
 async function boot(page) {
+  await seed(page, { lang: 'en' });
   await page.goto(INDEX, { waitUntil: 'load' });
   await page.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'), null, { timeout: 10000 });
   await page.waitForTimeout(300);

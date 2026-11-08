@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const seed = require('./support/seed');
 let passed = 0, failed = 0;
 function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { failed++; console.log('  FAIL ' + n + (d ? '\n       ' + d : '')); } }
 const INDEX = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
@@ -13,6 +14,7 @@ const dis = (p, s) => p.evaluate((x) => { const e = document.querySelector(x); r
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await seed(p, { lang: 'en' });
   await p.goto(INDEX);
   await p.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'));
   await p.waitForTimeout(500);
@@ -42,6 +44,7 @@ const dis = (p, s) => p.evaluate((x) => { const e = document.querySelector(x); r
   await p.close();
   const es = await b.newPage({ viewport: { width: 1440, height: 900 } });
   await es.addInitScript(() => localStorage.setItem('retoma.lang', 'es'));
+  await seed(es, { lang: 'es' });
   await es.goto(INDEX);
   await es.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'));
   await es.waitForTimeout(500);

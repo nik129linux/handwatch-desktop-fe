@@ -40,6 +40,21 @@ function xorOk(xor, wantLive, label) {
 }
 const DEMO_STRINGS = ['Quality report', 'Brightspace', '40 min'];
 
+/* These runs assert the English copy and do not exercise the guide: seed a
+ * profile that opens in English with the welcome and coach marks seen. */
+async function seedProfile(w) {
+  await w.evaluate(() => {
+    try {
+      localStorage.setItem('retoma.lang', 'en');
+      localStorage.setItem('retoma-guide-v1', '1');
+      localStorage.setItem('retoma-tips-v1', JSON.stringify({ note: 1, today: 1, privacy: 1, settings: 1 }));
+    } catch (e) { /* profile is writable in every supported runner */ }
+  });
+  await w.reload();
+  await w.waitForSelector('#deskClock', { timeout: 15000 });
+  await w.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 15000 });
+}
+
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
   const electronPath = require('electron');
@@ -47,7 +62,7 @@ const DEMO_STRINGS = ['Quality report', 'Brightspace', '40 min'];
   const GNOME_ENV = Object.assign({}, process.env, { HYPRLAND_INSTANCE_SIGNATURE: '' });
   const app = await _electron.launch({ executablePath: electronPath, args: ['.', '--no-sandbox', '--user-data-dir=' + PROFILE], cwd: ROOT, env: GNOME_ENV });
   const window = await app.firstWindow();
-  await window.waitForSelector('#deskClock', { timeout: 15000 });
+  await seedProfile(window);
   // screenshots and state checks start only once the entrance choreography is done
   await window.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 15000 });
 
@@ -133,7 +148,7 @@ const DEMO_STRINGS = ['Quality report', 'Brightspace', '40 min'];
     });
     const w = await a.firstWindow();
     watchL2(w);
-    await w.waitForSelector('#deskClock', { timeout: 15000 });
+    await seedProfile(w);
     await w.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 15000 });
     return { app: a, window: w };
   }

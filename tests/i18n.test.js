@@ -2,7 +2,8 @@
  * Contract:
  *   Titlebar: <div class="lang-switch" role="group" aria-label="Language"> with two buttons
  *     .lang-switch__btn[data-lang="en"] "EN" and [data-lang="es"] "ES", aria-pressed on the active one,
- *     same look as the Demo/Live .mode-switch. Default language: English (deterministic for tests).
+ *     same look as the Demo/Live .mode-switch. Default language: Spanish for a fresh profile,
+ *     whatever the browser locale says (the app's product default).
  *   Choice persists in localStorage 'retoma.lang' (try/catch). <html lang> follows it.
  *   Spanish covers static AND dynamic copy (resume card, Now, Today, Privacy, demo controls, story
  *   subtitles, demo windows), plus placeholder / aria-label / title attributes.
@@ -67,6 +68,13 @@ async function englishLeftovers(page) {
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
+  /* This file tests copy, not the first-run guide: mark the guide seen. */
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem('retoma-guide-v1', '1');
+      localStorage.setItem('retoma-tips-v1', JSON.stringify({ note: 1, today: 1, privacy: 1, settings: 1 }));
+    } catch (e) { /* storage unavailable */ }
+  });
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));
@@ -75,16 +83,23 @@ async function englishLeftovers(page) {
 
   console.log('i18n: switch');
   ok(await page.locator('#menuBar .lang-switch[role="group"]').count() === 1, 'language switch lives in the titlebar');
-  ok(await page.locator('.lang-switch__btn[data-lang="en"]').getAttribute('aria-pressed') === 'true', 'English is the default');
-  ok(await page.evaluate(() => document.documentElement.lang) === 'en', '<html lang="en"> by default');
+  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'Spanish is the default (browser locale en-US)');
+  ok(await page.evaluate(() => document.documentElement.lang) === 'es', '<html lang="es"> by default');
   ok(await txt(page, '.lang-switch__btn[data-lang="es"]') === 'ES' && await txt(page, '.lang-switch__btn[data-lang="en"]') === 'EN', 'buttons read EN / ES');
-  ok(await page.evaluate(() => getComputedStyle(document.querySelector('.lang-switch__btn[data-lang="en"]')).backgroundColor ===
+  ok(await page.evaluate(() => getComputedStyle(document.querySelector('.lang-switch__btn[data-lang="es"]')).backgroundColor ===
       getComputedStyle(document.querySelector('.mode-switch__btn.is-active')).backgroundColor), 'active language looks like the active Demo/Live segment');
+  ok(await txt(page, '#tabBtnAhora') === 'Ahora', 'fresh profile shows Spanish tabs');
+
+  await setLang(page, 'en');
+  ok(await page.locator('.lang-switch__btn[data-lang="en"]').getAttribute('aria-pressed') === 'true', 'EN pressed after click');
+  ok(await page.evaluate(() => document.documentElement.lang) === 'en', '<html lang="en"> after the switch');
+  ok(await page.evaluate(() => { try { return localStorage.getItem('retoma.lang'); } catch (e) { return null; } }) === 'en', "stored in localStorage 'retoma.lang'");
+  ok(await txt(page, '#tabBtnAhora') === 'Now', 'tabs follow the switch to English');
 
   await setLang(page, 'es');
-  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES pressed after click');
-  ok(await page.evaluate(() => document.documentElement.lang) === 'es', '<html lang="es">');
-  ok(await page.evaluate(() => { try { return localStorage.getItem('retoma.lang'); } catch (e) { return null; } }) === 'es', "stored in localStorage 'retoma.lang'");
+  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES pressed again');
+  ok(await page.evaluate(() => document.documentElement.lang) === 'es', '<html lang="es"> again');
+  ok(await page.evaluate(() => { try { return localStorage.getItem('retoma.lang'); } catch (e) { return null; } }) === 'es', "Spanish stored in localStorage 'retoma.lang'");
 
   console.log('i18n: static copy');
   ok(await txt(page, '#tabBtnAhora') === 'Ahora' && await txt(page, '#tabBtnHoy') === 'Hoy' && await txt(page, '#tabBtnPriv') === 'Privacidad', 'tabs: Ahora / Hoy / Privacidad');
@@ -116,7 +131,7 @@ async function englishLeftovers(page) {
   await page.click('#freeMode [data-act="return"]');
   await page.waitForSelector('#resumeCard.is-visible', { timeout: 3000 });
   await page.waitForTimeout(500);
-  ok(/^Estabas en Document$/.test(await txt(page, '#resumeHero')), 'hero: Estabas en Document', await txt(page, '#resumeHero'));
+  ok(/^Estabas en Documento$/.test(await txt(page, '#resumeHero')), 'hero: Estabas en Documento (app name translated)', await txt(page, '#resumeHero'));
   ok(/te interrumpió/.test(await txt(page, '#resumeInter')) && /25 min/.test(await txt(page, '#resumeInter')), 'interruption line in Spanish', await txt(page, '#resumeInter'));
   ok(await txt(page, '#resumeNote') === 'Siguiente: corregir la cita del párrafo 3', 'note line: Siguiente: ...', await txt(page, '#resumeNote'));
   ok(await txt(page, '#retomarBtn') === 'Retomar' && await txt(page, '#startFreshBtn') === 'Empezar de cero', 'Retomar / Empezar de cero');

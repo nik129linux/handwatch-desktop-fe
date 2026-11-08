@@ -6,6 +6,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const seed = require('./support/seed');
 let passed = 0, failed = 0;
 function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { failed++; console.log('  FAIL ' + n + (d ? '\n       ' + d : '')); } }
 
@@ -31,6 +32,7 @@ function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { fai
       capabilities: function () { return Promise.resolve({ cloudAvailable: false }); }
     };
   });
+  await seed(p, { lang: 'en' });
   await p.goto(pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href);
   await p.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'));
   await p.evaluate(() => { Retoma.state.aiMode = 'server'; Retoma.state.aiConsent.server = true; Retoma.showEndOfDay(); });

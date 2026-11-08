@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const seed = require('./support/seed');
 let passed = 0, failed = 0;
 function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { failed++; console.log('  FAIL ' + n + (d ? '\n       ' + d : '')); } }
 const INDEX = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
@@ -14,6 +15,7 @@ async function open(b, opts) {
   const errs = [];
   p.on('pageerror', e => errs.push(e.message));
   await p.addInitScript((o) => { if (o.lang) localStorage.setItem('retoma.lang', o.lang); if (o.theme) localStorage.setItem('retoma-theme', o.theme); }, opts);
+  await seed(p, { lang: opts.lang || 'en' });
   await p.goto(INDEX);
   await p.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'));
   await p.waitForTimeout(500);

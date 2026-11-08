@@ -18,6 +18,7 @@
 'use strict';
 
 var assert = require('assert');
+const seed = require('./support/seed');
 var path = require('path');
 var fs = require('fs');
 var ROOT = path.resolve(__dirname, '..');
@@ -136,6 +137,7 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errs = [];
   page.on('pageerror', function (e) { errs.push(e.message); });
+  await seed(page, { lang: 'en' });
   await page.goto(pathToFileURL(path.join(ROOT, 'index.html')).href);
   await page.waitForFunction(function () { return window.Retoma && !document.body.classList.contains('is-launch'); });
   await page.evaluate(function () { Retoma.switchTab('priv'); });

@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const seed = require('./support/seed');
 let passed = 0, failed = 0;
 function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { failed++; console.log('  FAIL ' + n + (d ? '\n       ' + d : '')); } }
 const INDEX = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
@@ -15,6 +16,7 @@ const LONG = 'revisar la bibliografía y mandar el borrador a Ana antes del vier
     const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
     const errs = []; p.on('pageerror', e => errs.push(e.message));
     await p.addInitScript((l) => { localStorage.clear(); localStorage.setItem('retoma.lang', l); }, lang);
+  await seed(p, { lang: lang });
     await p.goto(INDEX);
     await p.waitForFunction(() => window.Retoma && !document.body.classList.contains('is-launch'));
     await p.waitForTimeout(400);
