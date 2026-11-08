@@ -165,6 +165,7 @@ async function dismissTipIfAny(page) {
   ok(await page.evaluate(() => !document.getElementById('coachTip').classList.contains('is-hidden')), 'a coach mark appears after the welcome');
   const tipText = await txt(page, '#coachTip');
   ok(tipText.length > 10, 'coach mark has copy', tipText);
+  await scanScreen(page, 'coach mark in Spanish', ENGLISH);
   await dismissTipIfAny(page);
   ok(await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('retoma-tips-v1')).note === 1; } catch (e) { return false; } }), 'coach mark is persisted as seen');
 
@@ -247,6 +248,14 @@ async function dismissTipIfAny(page) {
   await goTab(page, 'Config');
   await scanScreen(page, 'Settings in Spanish', ENGLISH);
   ok(await page.evaluate(() => document.documentElement.lang) === 'es', 'back to Spanish');
+  ok(await page.evaluate(() => I18n.formatNumber(1234)) === '1.234', 'Spanish numbers use Intl (1.234)', await page.evaluate(() => I18n.formatNumber(1234)));
+  await page.evaluate(() => { Retoma.state.aiMode = 'server'; Retoma.setQuota({ left: 1, limit: 10 }); Retoma.switchTab('hoy'); });
+  await page.waitForTimeout(200);
+  ok((await txt(page, '#quotaTextHoy')).indexOf('1 disponible') !== -1, 'Spanish singular quota', await txt(page, '#quotaTextHoy'));
+  await page.evaluate(() => Retoma.setQuota({ left: 2, limit: 10 }));
+  ok((await txt(page, '#quotaTextHoy')).indexOf('2 disponibles') !== -1, 'Spanish plural quota', await txt(page, '#quotaTextHoy'));
+  await page.evaluate(() => { Retoma.state.aiMode = 'off'; Retoma.switchTab('config'); });
+  await page.waitForTimeout(150);
 
   console.log('settings-guide: level 3 Help');
   await page.click('#helpOpen');
@@ -255,12 +264,14 @@ async function dismissTipIfAny(page) {
   ok(await page.locator('#helpBody .help__term').count() >= 12, 'Help lists every feature and icon');
   const help = await txt(page, '#helpPanel');
   ok(/Glosario/.test(help) && /Bloque/.test(help), 'Help has a glossary');
+  await scanScreen(page, 'Help in Spanish', ENGLISH);
   ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'helpPanel'), 'Help takes focus');
 
   console.log('settings-guide: replay + focus trap');
   await page.click('#guideReplay');
   await page.waitForTimeout(150);
   ok(await page.evaluate(() => !document.getElementById('guideOverlay').classList.contains('is-hidden')), 'See the guide again replays level 1');
+  await scanScreen(page, 'welcome in Spanish', ENGLISH);
   const inside = [];
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab');
