@@ -14,6 +14,7 @@ var Retoma = (function () {
     prevApp: null,
     prevTitle: null,
     prevWindows: [],
+    prevAppBeforeSwitch: null,
     interruptionApp: 'WhatsApp',
     timeline: [],
     empty: false,
@@ -178,6 +179,7 @@ var Retoma = (function () {
       state.timeline.push({ app: prev, duration: dur });
       if (state.timeline.length > 12) state.timeline.shift();
     }
+    state.prevAppBeforeSwitch = prev;
     state.currentApp = next.label;
     state.currentTitle = next.title;
     state.timeInCurrent = 0;
@@ -204,9 +206,29 @@ var Retoma = (function () {
     resetBrowse();
     state.away = true;
     state.awayMinutes = minutes;
-    state.prevApp = state.currentApp;
+
+    var open = (window.Desk && Desk.visibleApps) ? Desk.visibleApps() : [];
+    var departing = state.currentApp;
+    var interruption;
+    if (departing && open.indexOf(departing) === -1) {
+      /* An app took focus while its window was not on the desk: that app is
+       * the interruption, and the work app before it is what to resume. */
+      interruption = departing;
+      state.prevApp = state.prevAppBeforeSwitch || state.prevApp || departing;
+    } else if (departing === 'WhatsApp') {
+      interruption = departing || 'WhatsApp';
+      state.prevApp = state.prevAppBeforeSwitch || state.prevApp || departing;
+    } else {
+      /* A plain break from the work app still has the usual messages
+       * interruption in the demo. */
+      interruption = state.interruptionApp || 'WhatsApp';
+      state.prevApp = departing;
+    }
+    if (!state.prevApp) state.prevApp = departing;
     state.prevTitle = state.currentTitle;
-    state.prevWindows = ['Document', 'Browser', 'Spreadsheet'];
+    state.interruptionApp = interruption;
+    state.prevWindows = open.filter(function (app) { return app !== interruption; });
+    if (!state.prevWindows.length) state.prevWindows = [state.prevApp].filter(Boolean);
     hideResume();
     Desk.minimize('Document');
     renderAhoraAway();
