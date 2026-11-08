@@ -19,7 +19,7 @@ var Events = (function () {
   }
 
   var APPS = [
-    { id: 'documento', label: 'Document', title: 'Quality report (paragraph 3)' },
+    { id: 'documento', label: 'Document', title: 'Quality report, paragraph 3' },
     { id: 'navegador', label: 'Browser', title: 'Brightspace · Course 4B' },
     { id: 'whatsapp', label: 'WhatsApp', title: 'Messages · Ana' },
     { id: 'hoja', label: 'Spreadsheet', title: 'Data · Tracker' }

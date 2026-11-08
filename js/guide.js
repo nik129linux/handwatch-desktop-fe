@@ -14,7 +14,8 @@ var Guide = (function () {
   var lastFocus = null;
   var tipOpen = null;
   var tipKey = null;
-  var pendingFeature = null;
+  var tipQueue = [];
+  var tipsSuppressed = false;
   var fromInvoker = false;
   var listeners = [];
 
@@ -187,21 +188,21 @@ var Guide = (function () {
 
   function afterWelcome() {
     try { window.dispatchEvent(new CustomEvent('retoma:guide-done')); } catch (e) { /* noop */ }
-    var key = pendingFeature || 'note';
-    pendingFeature = null;
     if (fromInvoker) {
       /* Replayed from Settings: stay where the person was, so focus can go
        * back to the button that opened the guide. */
       fromInvoker = false;
       var active = document.querySelector('.retoma-tabs__btn.is-active');
       var tab = active ? active.getAttribute('data-tab') : 'ahora';
-      visit(tab === 'ahora' ? 'note' : tab === 'hoy' ? 'today' : tab === 'priv' ? 'privacy' : 'settings');
+      enqueue(tab === 'ahora' ? 'note' : tab === 'hoy' ? 'today' : tab === 'priv' ? 'privacy' : 'settings');
+      pump();
       return;
     }
     if (window.Retoma && Retoma.switchTab) {
       try { Retoma.switchTab('ahora'); } catch (e) { /* noop */ }
     }
-    showTip(key);
+    if (!tipQueue.length && !readTips().note) enqueue('note');
+    pump();
   }
 
   function replay(invoker) {
@@ -209,6 +210,111 @@ var Guide = (function () {
   }
 
   /* --- level 2: coach marks ------------------------------------------ */
+
+  function isTargetVisible(target) {
+    if (!target || !document.contains(target)) return false;
+    if (target.closest && target.closest('.is-hidden, [hidden], [inert]')) return false;
+    var tab = target.closest && target.closest('.retoma-tab');
+    if (tab && !tab.classList.contains('is-active')) return false;
+    var cs = window.getComputedStyle ? window.getComputedStyle(target) : null;
+    if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) return false;
+    var r = target.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  function resumeCardBusy() {
+    var card = document.getElementById('resumeCard');
+    if (!card) return false;
+    if (card.classList.contains('is-hidden')) return false;
+    return card.classList.contains('is-visible') || card.getBoundingClientRect().height > 0;
+  }
+
+  function visibleButtons() {
+    var out = [];
+    var nodes = document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], a[href]');
+    Array.prototype.forEach.call(nodes, function (b) {
+      if (el.tip && el.tip.contains(b)) return;
+      if (b.disabled) return;
+      if (b.closest && b.closest('.is-hidden, [hidden], [inert]')) return;
+      var cs = window.getComputedStyle ? window.getComputedStyle(b) : null;
+      if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0')) return;
+      var r = b.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return;
+      if (r.right <= 0 || r.bottom <= 0 || r.left >= window.innerWidth || r.top >= window.innerHeight) return;
+      out.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    });
+    return out;
+  }
+
+  function overlaps(a, b) {
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }
+
+  function clamp(v, lo, hi) { return Math.min(Math.max(v, lo), Math.max(lo, hi)); }
+
+  function placeTip(target) {
+    if (!el.tip || !target) return;
+    var old = document.querySelector('.coach-spot');
+    if (old) old.remove();
+    var r = target.getBoundingClientRect();
+    var m = 16;
+    var w = Math.min(320, Math.max(240, window.innerWidth - 32));
+    el.tip.style.width = w + 'px';
+    var h = el.tip.offsetHeight || 140;
+    var buttons = visibleButtons();
+    /* Never cover the anchor itself either: a tip goes beside or below it. */
+    buttons.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    var maxX = Math.max(m, window.innerWidth - w - m);
+    var maxY = Math.max(m, window.innerHeight - h - m);
+    var cx = r.left + r.width / 2;
+    var cy = r.top + r.height / 2;
+    var tries = [
+      { left: r.right + 14, top: cy - h / 2 },          /* right */
+      { left: r.left - w - 14, top: cy - h / 2 },       /* left */
+      { left: cx - w / 2, top: r.bottom + 14 },         /* below */
+      { left: cx - w / 2, top: r.top - h - 14 },        /* above */
+      { left: r.right - w, top: r.bottom + 14 },        /* below, right-aligned */
+      { left: r.left, top: r.bottom + 14 },             /* below, left-aligned */
+      { left: r.right - w, top: r.top - h - 14 },       /* above, right-aligned */
+      { left: r.left, top: r.top - h - 14 }             /* above, left-aligned */
+    ];
+
+    function valid(x, y) {
+      x = clamp(x, m, maxX);
+      y = clamp(y, m, maxY);
+      var box = { left: x, right: x + w, top: y, bottom: y + h };
+      for (var i = 0; i < buttons.length; i++) if (overlaps(box, buttons[i])) return null;
+      return { left: x, top: y };
+    }
+
+    var found = null;
+    for (var i = 0; i < tries.length && !found; i++) found = valid(tries[i].left, tries[i].top);
+    if (!found) {
+      /* Last resort: scan the viewport and take the free spot closest to the
+       * anchor. A collision-free tip is mandatory; proximity is secondary. */
+      var best = null;
+      var bestD = Infinity;
+      for (var y = m; y <= maxY; y += 16) {
+        for (var x = m; x <= maxX; x += 16) {
+          var spot = valid(x, y);
+          if (!spot) continue;
+          var d = Math.pow(spot.left + w / 2 - cx, 2) + Math.pow(spot.top + h / 2 - cy, 2);
+          if (d < bestD) { bestD = d; best = spot; }
+        }
+      }
+      found = best;
+    }
+    if (!found) found = { left: clamp(cx - w / 2, m, maxX), top: clamp(r.bottom + 14, m, maxY) };
+    el.tip.style.left = Math.round(found.left) + 'px';
+    el.tip.style.top = Math.round(found.top) + 'px';
+
+    var spotEl = document.createElement('span');
+    spotEl.className = 'coach-spot';
+    spotEl.setAttribute('aria-hidden', 'true');
+    spotEl.style.left = Math.round(cx) + 'px';
+    spotEl.style.top = Math.round(r.top + Math.min(r.height, 40) / 2) + 'px';
+    document.body.appendChild(spotEl);
+  }
 
   function hideTip() {
     if (el.tip) el.tip.classList.add('is-hidden');
@@ -218,15 +324,29 @@ var Guide = (function () {
     if (spot) spot.remove();
   }
 
-  function showTip(key) {
+  function enqueue(key) {
+    if (!TIPS[key] || readTips()[key]) return;
+    if (key === tipOpen || key === tipKey) return;
+    if (tipQueue.indexOf(key) === -1) tipQueue.push(key);
+  }
+
+  /* Only one coach mark is ever open. Dismissing it opens the next queued tip
+   * that has a visible anchor. */
+  function pump() {
+    if (open || tipOpen || tipsSuppressed) return;
+    while (tipQueue.length) {
+      var key = tipQueue.shift();
+      if (!TIPS[key] || readTips()[key]) continue;
+      var target = document.querySelector(TIPS[key].target);
+      if (!target || !isTargetVisible(target)) continue;
+      showTipNow(key, target);
+      return;
+    }
+  }
+
+  function showTipNow(key, target) {
     var tip = TIPS[key];
     if (!tip || !el.tip) return;
-    var tips = readTips();
-    if (tips[key]) return;
-    if (open) { pendingFeature = key; return; }
-    if (tipOpen) return;
-    var target = document.querySelector(tip.target);
-    if (!target) return;
     tipOpen = key;
     tipKey = key;
     if (el.tipText) el.tipText.textContent = isEs() ? tip.text[1] : tip.text[0];
@@ -240,25 +360,13 @@ var Guide = (function () {
     }, 30);
   }
 
-  function placeTip(target) {
-    if (!el.tip || !target) return;
-    var old = document.querySelector('.coach-spot');
-    if (old) old.remove();
-    var r = target.getBoundingClientRect();
-    var w = Math.min(300, Math.max(220, window.innerWidth - 32));
-    el.tip.style.width = w + 'px';
-    var left = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), window.innerWidth - w - 16);
-    var h = el.tip.offsetHeight || 120;
-    var top = r.bottom + 14;
-    if (top + h > window.innerHeight - 16) top = Math.max(16, r.top - h - 14);
-    el.tip.style.left = left + 'px';
-    el.tip.style.top = top + 'px';
-    var spot = document.createElement('span');
-    spot.className = 'coach-spot';
-    spot.setAttribute('aria-hidden', 'true');
-    spot.style.left = Math.round(r.left + r.width / 2) + 'px';
-    spot.style.top = Math.round(r.top + Math.min(r.height, 40) / 2) + 'px';
-    document.body.appendChild(spot);
+  function showTip(key) {
+    if (!TIPS[key] || !el.tip) return;
+    if (readTips()[key]) return;
+    if (open || tipOpen || tipsSuppressed) { enqueue(key); return; }
+    var target = document.querySelector(TIPS[key].target);
+    if (!target || !isTargetVisible(target)) return;
+    showTipNow(key, target);
   }
 
   function dismissTip() {
@@ -267,15 +375,49 @@ var Guide = (function () {
     var back = null;
     try { back = document.getElementById(tipKey === 'settings' ? 'tabBtnConfig' : (tipKey === 'privacy' ? 'tabBtnPriv' : 'leaveNote')); } catch (e) { back = null; }
     hideTip();
-    if (back && typeof back.focus === 'function') { try { back.focus(); } catch (e) { /* noop */ } }
+    if (back && typeof back.focus === 'function' && back.offsetParent !== null) { try { back.focus(); } catch (e) { /* noop */ } }
+    pump();
+  }
+
+  /* The resume card owns the screen while it first appears. Step aside until
+   * the person has acted once (Resume, Start fresh or editing the note). */
+  function suspendForResume() {
+    tipsSuppressed = true;
+    if (tipOpen) { markTip(tipOpen); hideTip(); }
+    var spot = document.querySelector('.coach-spot');
+    if (spot) spot.remove();
+  }
+
+  function resumeActed() {
+    tipsSuppressed = false;
+    pump();
+  }
+
+  /* A tab change closes the open tip (and counts it as seen) before the new
+   * tab can ask for its own. */
+  function tabChanged() {
+    if (tipOpen) { markTip(tipOpen); hideTip(); }
+  }
+
+  function refreshTip() {
+    if (!tipOpen) return;
+    var tip = TIPS[tipOpen];
+    var target = tip ? document.querySelector(tip.target) : null;
+    if (!target || !isTargetVisible(target)) {
+      if (resumeCardBusy()) { hideTip(); return; }
+      markTip(tipKey);
+      hideTip();
+      pump();
+      return;
+    }
+    placeTip(target);
   }
 
   /* Called by the app the first time a feature is reached. */
   function visit(feature) {
     if (!TIPS[feature]) return;
-    var tips = readTips();
-    if (tips[feature]) return;
-    if (open) { pendingFeature = feature; return; }
+    if (readTips()[feature]) return;
+    if (open || tipOpen || tipsSuppressed) { enqueue(feature); return; }
     /* The 7-step demo tour brings its own captions: never stack a tip on it. */
     if (document.querySelector('#tourCard.is-open')) return;
     showTip(feature);
@@ -439,13 +581,9 @@ var Guide = (function () {
     if (el.replay) el.replay.addEventListener('click', function () { replay(el.replay); });
     if (el.helpOpen) el.helpOpen.addEventListener('click', openHelp);
     document.addEventListener('keydown', onKeydown);
-    window.addEventListener('resize', function () {
-      if (tipOpen) {
-        var tip = TIPS[tipOpen];
-        var target = tip ? document.querySelector(tip.target) : null;
-        if (target) placeTip(target);
-      }
-    });
+    window.addEventListener('resize', refreshTip);
+    window.addEventListener('scroll', refreshTip, true);
+    setInterval(function () { if (tipOpen) refreshTip(); }, 500);
     if (window.I18n && I18n.onChange) I18n.onChange(onLangChange);
     renderHelp();
     paintSettingsButtons();
@@ -460,6 +598,10 @@ var Guide = (function () {
     renderHelp: renderHelp,
     showTip: showTip,
     dismissTip: dismissTip,
+    suspendForResume: suspendForResume,
+    resumeActed: resumeActed,
+    tabChanged: tabChanged,
+    refreshTip: refreshTip,
     isOpen: function () { return open; },
     reset: function () {
       try { window.localStorage.removeItem(SEEN_KEY); window.localStorage.removeItem(TIPS_KEY); } catch (e) { /* noop */ }

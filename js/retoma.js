@@ -4,7 +4,7 @@ var Retoma = (function () {
 
   var state = {
     currentApp: 'Document',
-    currentTitle: 'Quality report (paragraph 3)',
+    currentTitle: 'Quality report, paragraph 3',
     timeInCurrent: 0,
     paused: false,
     pausedUntil: 0,
@@ -170,6 +170,13 @@ var Retoma = (function () {
     if (el.nowClock) el.nowClock.textContent = formatClock();
   }
 
+  /* The window title that belongs to an app. The resume subtitle must name
+   * the window of the app in the hero, never the interruption's title. */
+  function titleForApp(app) {
+    var ev = Events.findByLabel(app);
+    return (ev && ev.title) ? ev.title : state.currentTitle;
+  }
+
   function switchApp(next) {
     if (state.paused) return;
     if (isLiveMode()) return;
@@ -225,7 +232,7 @@ var Retoma = (function () {
       state.prevApp = departing;
     }
     if (!state.prevApp) state.prevApp = departing;
-    state.prevTitle = state.currentTitle;
+    state.prevTitle = state.prevApp === departing ? state.currentTitle : titleForApp(state.prevApp);
     state.interruptionApp = interruption;
     state.prevWindows = open.filter(function (app) { return app !== interruption; });
     if (!state.prevWindows.length) state.prevWindows = [state.prevApp].filter(Boolean);
@@ -260,6 +267,7 @@ var Retoma = (function () {
 
   function showResume() {
     if (!el.resumeCard) return;
+    if (window.Guide && Guide.suspendForResume) Guide.suspendForResume();
     var live = window.Live && Live.isLive && Live.isLive();
     if (el.retomaPanel) el.retomaPanel.classList.add('has-resume');
     el.resumeCard.classList.remove('is-hidden');
@@ -1288,12 +1296,14 @@ var Retoma = (function () {
       // Live on Wayland cannot reopen windows: the card only reminds.
       clearNote();
       hideResume();
+      if (window.Guide && Guide.resumeActed) Guide.resumeActed();
       return;
     }
     if (state.empty) return;
     Desk.reopen(state.prevWindows, true);
     clearNote();
     hideResume();
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
     var app = Events.findByLabel(state.prevApp);
     if (app) switchApp(app);
   }
@@ -1301,6 +1311,7 @@ var Retoma = (function () {
   function doStartFresh() {
     clearNote();
     hideResume();
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
   }
 
   /* The model answers in the language the person reads the app in. */
@@ -1603,6 +1614,7 @@ var Retoma = (function () {
   }
 
   function showEndOfDay() {
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
     if (isLiveMode()) {
       state.proposalDismissed = false;
       setAccepted(false);
@@ -1806,6 +1818,7 @@ var Retoma = (function () {
 
   function switchTab(name) {
     if (!['ahora','hoy','priv','config'].includes(name)) return;
+    if (window.Guide && Guide.tabChanged) Guide.tabChanged();
     activeTab = name;
     document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
       var is = b.getAttribute('data-tab') === name;
