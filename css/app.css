@@ -415,10 +415,11 @@ body.is-live .app > .sim-panel { display: none; }
   color: var(--ink-muted);
 }
 .sim-panel .story-controls, .sim-panel .btn-row, .sim-panel .btn-row--trio { display: contents; }
-/* free mode: 4 + 3 buttons beside the label, so nothing ends up alone on a row */
-.sim-panel #freeMode { display: grid; grid-template-columns: 144px repeat(4, max-content); justify-content: start; }
-.sim-panel #freeMode .sim-label { grid-row: span 2; align-self: start; padding-top: var(--sp-3); }
-@media (max-width: 900px) { .sim-panel #freeMode { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sim-panel #freeMode .sim-label { grid-row: auto; grid-column: 1 / -1; padding-top: 0; } }
+/* free mode: buttons wrap inside the panel, so at 1100x720 nothing runs
+   past the right edge. */
+.sim-panel #freeMode { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.sim-panel #freeMode .sim-label { width: 144px; flex: none; align-self: flex-start; padding-top: var(--sp-3); }
+@media (max-width: 900px) { .sim-panel #freeMode .sim-label { width: 100%; padding-top: 0; } }
 .sim-panel .btn { min-height: 40px; padding: var(--sp-2) var(--sp-3); flex: none; min-width: 0; }
 .sim-panel #storyPlay { min-height: 40px; padding: var(--sp-2) var(--sp-4); font-size: var(--text-sm); line-height: var(--leading-sm); }
 .sim-panel #storyPlay svg { width: 12px; height: 12px; }
