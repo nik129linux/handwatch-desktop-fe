@@ -255,7 +255,7 @@
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-label);
-  min-height: calc(28px);
+  min-height: 44px;
   padding: 0 var(--sp-3);
   cursor: pointer;
   transition: background-color var(--dur-state) var(--ease-enter), color var(--dur-state) var(--ease-enter);
@@ -282,8 +282,8 @@
 }
 .theme-toggle,
 .retoma-toggle {
-  width: calc(32px);
-  height: calc(32px);
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line-subtle);
   background: var(--surface-raised);
@@ -568,7 +568,13 @@ body.is-live .window {
   }
   .mode-switch__btn,
   .lang-switch__btn {
+    min-height: 28px;
     padding: 0 var(--sp-2);
+  }
+  .theme-toggle,
+  .retoma-toggle {
+    width: 32px;
+    height: 32px;
   }
 }
 
