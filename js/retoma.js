@@ -861,7 +861,7 @@ var Retoma = (function () {
     document.querySelectorAll('[data-settings-ai]').forEach(function (b) {
       var want = b.getAttribute('data-settings-ai');
       var on = want === 'on' ? aiOn : !aiOn;
-      b.textContent = want === 'on' ? settingsText('On') : settingsText('Off');
+      b.textContent = want === 'on' ? settingsText('Enabled') : settingsText('Disabled');
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
