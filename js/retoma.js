@@ -342,6 +342,11 @@ var Retoma = (function () {
     el.resumeCard.classList.remove('is-visible');
     void el.resumeCard.offsetWidth;
     el.resumeCard.classList.add('is-visible');
+    if (window.Visual) {
+      if (Visual.resumeZoom) Visual.resumeZoom(el.resumeCard);
+      if (Visual.flipChipsIn) Visual.flipChipsIn(el.resumeChips);
+      if (Visual.blinkEye) Visual.blinkEye();
+    }
   }
 
   function splitHeroWords(heroEl) {
@@ -1466,6 +1471,7 @@ var Retoma = (function () {
       }, wait);
     }
     paintPauseUi();
+    if (window.Visual && Visual.blinkEye) Visual.blinkEye();
   }
 
   function isPaused() { return state.paused; }
@@ -1595,6 +1601,7 @@ var Retoma = (function () {
     state.proposalDismissed = false;
     setAccepted(false);
     renderTimeline();
+    if (window.Visual && Visual.countUpLegend) Visual.countUpLegend();
     persistTimeline();
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.proposalCard) el.proposalCard.classList.remove('is-hidden');

@@ -309,7 +309,18 @@ body.is-live .app > .sim-panel { display: none; }
 }
 .retoma-panel .resume-card.is-hidden { display: none; }
 .retoma-panel .resume-card.is-visible { animation: resume-in var(--dur-enter) var(--ease-enter) both; }
+.retoma-panel .resume-card.is-visible.is-zoom { animation: resume-in var(--dur-enter) var(--ease-enter) both, resume-zoom 520ms var(--ease-enter) both; }
 @keyframes resume-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes resume-zoom { 0% { transform: scale(0.92); opacity: 0.6; } 60% { transform: scale(1.015); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.resume-card__files.is-flipping .resume-chip { animation: chip-in 420ms var(--ease-enter) both; animation-delay: calc(var(--ci, 0) * 70ms); }
+@keyframes chip-in { from { opacity: 0; transform: translateY(6px) scale(0.9); } to { opacity: 1; transform: none; } }
+.count-up { display: inline-block; font-variant-numeric: tabular-nums; }
+
+/* Windows fly back from their dock icon: Desk.reopen sets --fx/--fy and --d. */
+.window--entering { animation: window-fly-in 420ms var(--ease-enter) both; animation-delay: var(--d, 0ms); }
+.window--settle { animation: window-settle 360ms var(--ease-enter) both; }
+@keyframes window-fly-in { from { opacity: 0; transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes window-settle { from { transform: scale(1.012); } to { transform: none; } }
 .retoma-panel .resume-card__eyebrow { display: none; }
 .retoma-panel .resume-card__hero {
   margin: 0 0 var(--sp-1);
@@ -380,7 +391,11 @@ body.is-live .app > .sim-panel { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .now-ring__fill, .btn, .retoma-panel .retoma-tabs__btn::after, .skip-link { transition: none !important; }
-  .retoma-panel .resume-card.is-visible { animation: none !important; }
+  .retoma-panel .resume-card.is-visible,
+  .retoma-panel .resume-card.is-visible.is-zoom,
+  .resume-card__files.is-flipping .resume-chip,
+  .window--entering,
+  .window--settle { animation: none !important; }
 }
 
 /* --- Demo controls: two compact rows under the simulated desktop ---------- */

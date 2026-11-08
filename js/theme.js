@@ -54,17 +54,12 @@ var Theme = (function () {
     if (btn) btn.setAttribute('aria-pressed', String(name === 'light'));
   }
 
-  function apply(name, animate) {
+  function apply(name) {
     var eff = resolve(name);
     document.documentElement.setAttribute('data-theme', eff);
     document.documentElement.setAttribute('data-theme-mode', name);
     var btn = document.getElementById('themeToggle');
     paint(btn, eff);
-    if (animate && !reduceMotion) {
-      var root = document.documentElement;
-      root.classList.add('theme-anim');
-      setTimeout(function () { root.classList.remove('theme-anim'); }, 360);
-    }
   }
 
   function setMode(next) {
