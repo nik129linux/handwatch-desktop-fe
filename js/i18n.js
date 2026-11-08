@@ -261,9 +261,13 @@ var I18n = (function () {
 
   var PATTERNS = [
     [/^Connected \u00b7 (.+)$/, 'Conectado \u00b7 $1'],
+    [/^Local model/, 'Modelo local'],
+    [/^Cloud model/, 'Modelo en la nube'],
     [/Retoma server/, 'Servidor Retoma'],
     [/^(\d+) requests left$/, '$1 solicitudes disponibles'],
     [/^1 request left$/, '1 solicitud disponible'],
+    [/ 1 request left$/, ' 1 solicitud disponible'],
+    [/ (\d+) requests left$/, ' $1 solicitudes disponibles'],
     [/^AI requests: 1 left$/, 'Solicitudes de IA: 1 disponible'],
     [/^AI requests: (\d+) left$/, 'Solicitudes de IA: $1 disponibles'],
     [/adjusted to/, 'ajustado a'],
