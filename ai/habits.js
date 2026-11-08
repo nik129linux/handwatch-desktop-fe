@@ -466,8 +466,9 @@
         metrics.longest.minutes + ' min (median ' + metrics.median + ' min).');
     }
     if (/switch|context|interrupt/.test(q)) {
-      return clipAnswer(metrics.count + ' blocks, about ' + metrics.switchesPerHour +
-        ' switches per hour.');
+      return clipAnswer(metrics.count + (metrics.count === 1 ? ' block' : ' blocks') +
+        ', about ' + metrics.switchesPerHour +
+        (Number(metrics.switchesPerHour) === 1 ? ' switch per hour.' : ' switches per hour.'));
     }
     if (/whatsapp|browser|brows|message|checks|quick/.test(q)) {
       return clipAnswer('Messages and browsing: ' + metrics.distractionMinutes +
@@ -479,8 +480,8 @@
         (metrics.lateNight ? ' - last ran late.' : '.'));
     }
     if (/break|pause|gap|away/.test(q)) {
-      return clipAnswer(metrics.breakCount + ' breaks of 10+ min (longest gap ' +
-        metrics.longestGap + ' min).');
+      return clipAnswer(metrics.breakCount + (metrics.breakCount === 1 ? ' break' : ' breaks') +
+        ' of 10+ min (longest gap ' + metrics.longestGap + ' min).');
     }
     if (/trend|better|yesterday|week|progress|change/.test(q)) {
       if (!metrics.trend || metrics.trend.direction === 'unknown') {

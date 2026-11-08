@@ -1,8 +1,18 @@
-/* i18n.js — EN/ES switch, vanilla, IIFE exposing window.I18n */
+/* i18n.js — EN/ES switch, vanilla, IIFE exposing window.I18n.
+ * Spanish is the product default: a fresh profile opens in Spanish whatever
+ * the OS or navigator language is. English stays the source language in the
+ * markup, so switching never reloads and never loses state. */
 var I18n = (function () {
   'use strict';
   var KEY = 'retoma.lang';
-  var lang = 'en';
+  var lang = 'es';
+  var listeners = [];
+  /* Read the stored choice as soon as the module loads: later modules mount
+   * before I18n.mount and must paint the right language on their first pass. */
+  try {
+    var storedLang = window.localStorage.getItem(KEY);
+    if (storedLang === 'es' || storedLang === 'en') lang = storedLang;
+  } catch (e) { /* fresh profile keeps Spanish */ }
   var translating = false;
   var origText = new WeakMap();
   var origAttr = new WeakMap();
@@ -84,7 +94,6 @@ var I18n = (function () {
     'Saved': 'Guardado',
     "Saved, you'll see it when you come back": 'Guardado, lo verás al volver',
     "What's next when you return?": '\u00bfQué sigue cuando vuelvas?',
-    'Next step note': 'Nota del siguiente paso',
     'Today, the report won the morning': 'Hoy, el informe ganó la mañana',
     'Planned: 2 h on the report \u00b7 Actual: 1 h 20 min': 'Planeado: 2 h del informe \u00b7 Real: 1 h 20 min',
     'Suggestion \u00b7': 'Sugerencia \u00b7',
@@ -135,7 +144,7 @@ var I18n = (function () {
     'Local model: unreachable': 'Modelo local: inalcanzable',
     'Off records app names only. Tab titles can reveal bank pages or private docs.': 'Apagado registra solo nombres de apps. Las pestañas pueden revelar páginas de banco o documentos privados.',
     'Blocked apps': 'Apps bloqueadas',
-    'Add': 'Añadir',
+    'Add': 'Agregar',
     'Remove': 'Quitar',
     'Pause tracking': 'Pausar seguimiento',
     'Resume tracking': 'Reanudar seguimiento',
@@ -150,11 +159,11 @@ var I18n = (function () {
     'Coming back shows where you left off.': 'Al volver verás dónde quedaste.',
     'Away': 'Ausente',
     'Retoma could not read the active window. Try restarting the app.': 'Retoma no pudo leer la ventana activa. Prueba reiniciar la app.',
-    'Helper installed. Log out and back in, then press Check again.': 'Ayudante instalado. Cierra sesión y vuelve a entrar, luego pulsa Comprobar de nuevo.',
+    'Helper installed. Log out and back in, then press Check again.': 'Ayudante instalado. Cierra sesión y vuelve a entrar, luego presiona Comprobar de nuevo.',
     'Install cancelled. Nothing was copied.': 'Instalación cancelada. No se copió nada.',
     'Helper is on. Tracking this PC.': 'El ayudante está activo. Siguiendo este equipo.',
-    'Helper files are here but off. Run the command, then press Check again.': 'Los archivos del ayudante están aquí pero apagados. Ejecuta el comando y pulsa Comprobar de nuevo.',
-    'Helper not found yet. Press Install helper first.': 'Ayudante no encontrado todavía. Pulsa Instalar ayudante primero.',
+    'Helper files are here but off. Run the command, then press Check again.': 'Los archivos del ayudante están aquí pero apagados. Ejecuta el comando y presiona Comprobar de nuevo.',
+    'Helper not found yet. Press Install helper first.': 'Ayudante no encontrado todavía. Presiona Instalar ayudante primero.',
     'Command copied. Paste it in a terminal.': 'Comando copiado. Pégalo en una terminal.',
     'Disabled in Live mode': 'Desactivado en modo Live',
     'Your history is yours. Deleted in one gesture.': 'Tu historial es tuyo. Se borra con un gesto.',
@@ -191,11 +200,72 @@ var I18n = (function () {
     'Next': 'Siguiente',
     'Back': 'Atrás',
     'Finish': 'Terminar',
+    'Skip': 'Saltar',
     'Earlier': 'Antes',
     'Later': 'Después',
+    'Guide': 'Guía',
+    'Settings': 'Configuración',
+    'Theme': 'Tema',
+    'Light': 'Claro',
+    'Dark': 'Oscuro',
+    'System': 'Sistema',
+    'Theme mode': 'Modo de tema',
+    'Artificial intelligence': 'Inteligencia artificial',
+    'Help': 'Ayuda',
+    'See the guide again': 'Ver la guía otra vez',
+    'Step 1 of 3': 'Paso 1 de 3',
+    'Skip the guide': 'Saltar la guía',
+    'Welcome to Retoma': 'Te damos la bienvenida a Retoma',
+    'Changes the whole app at once, without reloading or losing what you were doing.': 'Cambia toda la app de una vez, sin recargar ni perder lo que estabas haciendo.',
+    'System follows this computer. Light is the default.': 'Sistema sigue este equipo. Claro es el predeterminado.',
+    'When it is on, only app names and minutes go to the server. Never titles, never notes.': 'Cuando está activada, solo van al servidor nombres de apps y minutos. Nunca títulos, nunca notas.',
+    'Revoke permission': 'Revocar permiso',
+    'Grant permission': 'Dar permiso',
+    'See what is sent': 'Ver qué se envía',
+    'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.': 'Guarda nombres de apps, títulos de ventana solo si los pides, y minutos. Todo queda en este dispositivo y se borra a los 7 días.',
+    'Artificial intelligence is off.': 'La inteligencia artificial está apagada.',
+    'On': 'Activada',
+    'AI limit reached. Connect Ollama to keep going.': 'Se alcanzó el límite de IA. Conecta Ollama para seguir.',
+    'Artificial intelligence is off. It needs the desktop app to turn on.': 'La inteligencia artificial está apagada. Necesita la app de escritorio para activarse.',
+    'Artificial intelligence is on. Only app names and minutes are sent.': 'La inteligencia artificial está activada. Solo se envían nombres de apps y minutos.',
+    'Start': 'Inicio',
+    'Start time': 'Hora de inicio',
+    'Use a time like 9:30 and 15–180 min': 'Usa una hora como 9:30 y 15–180 min',
+    'Test': 'Probar',
+    'Testing…': 'Probando…',
+    'Connected': 'Conectado',
+    'Not reachable': 'Sin conexión',
+    'Thinking…': 'Pensando…',
+    'The server did not answer, so on-device rules made this one.': 'El servidor no respondió, así que esta la hicieron las reglas en el dispositivo.',
+    'Needs the desktop app': 'Necesita la app de escritorio',
+    'AI requests left': 'Solicitudes de IA disponibles',
+    'See exactly what is sent': 'Ver exactamente qué se envía',
+    'What the model saw': 'Qué vio el modelo',
+    'Send': 'Enviar',
+    'Adjust': 'Ajustar',
+    'Ollama URL': 'URL de Ollama',
+    'Next step note': 'Nota del siguiente paso',
+    'App name to block': 'Nombre de la app a bloquear',
+    'Tracking this PC': 'Siguiendo este equipo',
+    'Document': 'Documento',
+    'Browser': 'Navegador',
+    'Spreadsheet': 'Hoja de cálculo',
+    'Minutes': 'Minutos',
+    'Step': 'Paso',
+    'of': 'de',
+    'Block': 'Bloque',
+    'blocks': 'bloques',
+    'block': 'bloque',
   };
 
   var PATTERNS = [
+    [/^Connected \u00b7 (.+)$/, 'Conectado \u00b7 $1'],
+    [/Retoma server/, 'Servidor Retoma'],
+    [/^(\d+) requests left$/, '$1 solicitudes disponibles'],
+    [/^1 request left$/, '1 solicitud disponible'],
+    [/^AI requests: 1 left$/, 'Solicitudes de IA: 1 disponible'],
+    [/^AI requests: (\d+) left$/, 'Solicitudes de IA: $1 disponibles'],
+    [/adjusted to/, 'ajustado a'],
     [/^You were in (.+)$/, 'Estabas en $1'],
     [/^(\d+) min here$/, '$1 min aquí'],
     [/^Was here (\d+) min$/, 'Estabas aquí $1 min'],
@@ -249,10 +319,13 @@ var I18n = (function () {
     [/Small reps keep it going\./, 'Los pequeños repasos lo mantienen.'],
     [/^Your longest block was (.+) (\d+) min \(median (.+) min\)\.?$/, 'Tu bloque más largo fue $1 $2 min (mediana $3 min).'],
     [/^(\d+) blocks, about (.+) switches per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
+    [/^1 block, about (.+) switch(es)? per hour\.?$/, '1 bloque, unos $1 cambios por hora.'],
+    [/^(\d+) blocks?, about (.+) switch(es)? per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
     [/^Messages and browsing: (\d+) min \((\d+)% of tracked time\)\.?$/, 'Mensajes y navegación: $1 min ($2% del tiempo registrado).'],
     [/^First activity (.+), last (.+)\.?$/, 'Primera actividad $1, última $2.'],
     [/last ran late/, 'la última terminó tarde'],
     [/^(\d+) breaks of 10\+ min \(longest gap (\d+) min\)\.?$/, '$1 pausas de 10+ min (pausa más larga $2 min).'],
+    [/^1 break of 10\+ min \(longest gap (\d+) min\)\.?$/, '1 pausa de 10+ min (pausa más larga $1 min).'],
     [/^Tracked (\d+) min recently vs (\d+) min before \((.+)\)\.?$/, 'Registrado $1 min reciente vs $2 min antes ($3).'],
     [/^Most-used app: (.+) (\d+) min of (\d+) min tracked\.?$/, 'App más usada: $1 $2 min de $3 min registrados.'],
     [/^I cannot tell from the tracked time yet\. Ask about your longest block, most-used app, or switches\.?$/, 'Todavía no puedo saberlo con el tiempo registrado. Pregunta por tu bloque más largo, tu app más usada o los cambios.'],
@@ -267,11 +340,18 @@ var I18n = (function () {
   ];
 
   function translateString(s) {
-    if (Object.prototype.hasOwnProperty.call(DICT, s)) return DICT[s];
-    var out = s;
-    for (var i = 0; i < PATTERNS.length; i++) {
-      try { out = out.replace(PATTERNS[i][0], PATTERNS[i][1]); } catch (e) { /* keep */ }
+    var out = Object.prototype.hasOwnProperty.call(DICT, s) ? DICT[s] : s;
+    if (out === s) {
+      for (var i = 0; i < PATTERNS.length; i++) {
+        try { out = out.replace(PATTERNS[i][0], PATTERNS[i][1]); } catch (e) { /* keep */ }
+      }
     }
+    /* Demo app names are data, but they are read on screen: show them in the
+     * active language without ever touching state or storage. */
+    out = out
+      .replace(/\bSpreadsheet\b/g, 'Hoja de cálculo')
+      .replace(/\bDocument\b/g, 'Documento')
+      .replace(/\bBrowser\b/g, 'Navegador');
     return out;
   }
 
@@ -501,20 +581,41 @@ var I18n = (function () {
 
   function getLang() { return lang; }
 
+  function onChange(fn) {
+    if (typeof fn === 'function') listeners.push(fn);
+  }
+
+  function emit() {
+    for (var i = 0; i < listeners.length; i++) {
+      try { listeners[i](lang); } catch (e) { /* one listener never blocks the rest */ }
+    }
+  }
+
+  /* Number/date formatting follows the active locale (es-CO / en-US). */
+  function intlLocale() { return lang === 'es' ? 'es-CO' : 'en-US'; }
+  function formatNumber(n) {
+    try { return new Intl.NumberFormat(intlLocale()).format(Number(n)); } catch (e) { return String(n); }
+  }
+
   function setLang(next) {
     if (next !== 'es' && next !== 'en') return;
+    if (next === lang) { applyLang(); emit(); return; }
     lang = next;
     try { window.localStorage.setItem(KEY, lang); } catch (e) { /* noop */ }
     try { if (window.retoma && window.retoma.setLang) window.retoma.setLang(lang); } catch (e) { /* noop */ }
     applyLang();
+    emit();
   }
 
   function mount() {
     try {
       var s = window.localStorage.getItem(KEY);
       if (s === 'es' || s === 'en') lang = s;
-    } catch (e) { lang = 'en'; }
-    if (lang !== 'es') lang = 'en';
+    } catch (e) { lang = 'es'; }
+    if (lang !== 'es' && lang !== 'en') lang = 'es';
+    /* Tell the main process at launch so the tray and native notification
+     * follow the language the person reads the app in. */
+    try { if (window.retoma && window.retoma.setLang) window.retoma.setLang(lang); } catch (e) { /* noop */ }
     try {
       var btns = document.querySelectorAll('.lang-switch__btn');
       Array.prototype.forEach.call(btns, function (b) {
@@ -527,11 +628,12 @@ var I18n = (function () {
       setTimeout(function () { if (lang === 'es') translateTree(document.body); }, 50);
       setTimeout(function () { if (lang === 'es') translateTree(document.body); }, 400);
     }
+    emit();
   }
 
   /* t(): the string in the current language, for values that are not DOM text (an input's value). */
   function t(s) { return lang === 'es' ? translateString(s) : s; }
 
-  return { mount: mount, setLang: setLang, getLang: getLang, t: t };
+  return { mount: mount, setLang: setLang, getLang: getLang, t: t, onChange: onChange, formatNumber: formatNumber, locale: intlLocale };
 })();
 window.I18n = I18n;
