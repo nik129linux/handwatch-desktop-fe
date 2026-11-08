@@ -364,6 +364,14 @@ var Retoma = (function () {
     return h + ':' + String(m).padStart(2, '0');
   }
 
+  function fmtDuration(totalMin) {
+    var n = Math.max(0, Math.round(Number(totalMin) || 0));
+    if (n < 60) return n + ' min';
+    var h = Math.floor(n / 60);
+    var m = n % 60;
+    return h + ' h' + (m ? ' ' + m + ' min' : '');
+  }
+
   /* --- Accepted plan: what Accept leaves for tomorrow ------------------- */
   /* Tests inject a clock with window.__retomaNow so "tomorrow" is provable
    * without waiting a day. */
@@ -1487,6 +1495,10 @@ var Retoma = (function () {
       var w = (e.duration / total * 100).toFixed(1);
       return '<div class="timeline-bar__seg" style="width:' + w + '%;--i:' + i + ';background:' + colors[i % colors.length] + '"></div>';
     }).join('');
+    // The sentence and the legend must tell the same story: both use the
+    // longest uninterrupted block in the visible timeline.
+    var longestSingle = data[0] || { app: 'Document', duration: 40 };
+    data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
     if (el.timelineLegend) {
       el.timelineLegend.style.display = '';
       // merge same-app segments for legend (sum minutes), keep bar segments
@@ -1497,9 +1509,6 @@ var Retoma = (function () {
         if (!merged.hasOwnProperty(e.app)) { merged[e.app] = 0; order.push(e.app); appFirstColor[e.app] = colors[i % colors.length]; }
         merged[e.app] += e.duration;
       });
-      // longest uninterrupted (single) block explains proposal minutes
-      var longestSingle = data[0] || { app: 'Document', duration: 40 };
-      data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
       el.timelineLegend.innerHTML = order.map(function (app) {
         var c = appFirstColor[app];
         var label = app + ' · ' + merged[app] + ' min';
@@ -1509,10 +1518,21 @@ var Retoma = (function () {
         return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
       }).join('');
     }
+    var dayStatement = document.getElementById('dayStatement');
+    if (dayStatement && !isLiveMode()) {
+      dayStatement.textContent = longestSingle.app === 'Document'
+        ? 'Today, the report won the morning'
+        : 'Today, ' + longestSingle.app + ' took the morning';
+    }
     if (el.timelineText) {
-      el.timelineText.textContent = isLiveMode()
-        ? 'Tracked today: ' + total + ' min on this PC'
-        : 'Planned: 2 h on the report · Actual: 1 h 20 min';
+      if (isLiveMode()) {
+        el.timelineText.textContent = 'Tracked today: ' + total + ' min on this PC';
+      } else {
+        var planned = (state.todayPlan && state.todayPlan.minutes)
+          ? state.todayPlan.minutes
+          : longestSingle.duration;
+        el.timelineText.textContent = 'Planned: ' + fmtDuration(planned) + ' · Actual: ' + fmtDuration(total);
+      }
     }
     if (!state.proposalAccepted) renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');

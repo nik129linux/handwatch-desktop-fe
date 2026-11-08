@@ -279,6 +279,7 @@ var I18n = (function () {
     [/^AI requests: 1 left$/, 'Solicitudes de IA: 1 disponible'],
     [/^AI requests: (\d+) left$/, 'Solicitudes de IA: $1 disponibles'],
     [/adjusted to/, 'ajustado a'],
+    [/^Today, (.+) took the morning$/, 'Hoy, $1 se llevó la mañana'],
     [/^You were in (.+)$/, 'Estabas en $1'],
     [/^(\d+) min here$/, '$1 min aquí'],
     [/^Was here (\d+) min$/, 'Estabas aquí $1 min'],
