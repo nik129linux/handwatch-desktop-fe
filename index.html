@@ -373,6 +373,14 @@
           </div>
 
           <div class="settings-group">
+            <h4 class="settings-group__title">Account</h4>
+            <p class="panel-section__text--muted">Demo session: no account is stored.</p>
+            <div class="settings-actions">
+              <button id="settingsSignOut" class="btn btn--secondary" type="button">Sign out</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
             <h4 class="settings-group__title">Demo mode</h4>
             <p class="panel-section__text--muted">Starts again in Demo with a clean history and replays the welcome.</p>
             <div class="settings-actions">
@@ -617,6 +625,7 @@
     Theme.mount();
     Visual.mount();
     if (window.I18n && I18n.mount) I18n.mount();
+    if (window.Login && Login.mount) Login.mount();
     if (window.Guide && Guide.mount) Guide.mount();
     if (window.Mood && Mood.mount) Mood.mount();
   });

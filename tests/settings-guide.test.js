@@ -135,6 +135,10 @@ async function dismissTipIfAny(page) {
 
   console.log('settings-guide: fresh profile');
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
+  /* Only the login gate is skipped here: this file owns the level-1 welcome. */
+  await ctx.addInitScript(() => {
+    try { sessionStorage.setItem('retoma-login-v1', '1'); } catch (e) { /* storage unavailable */ }
+  });
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));
@@ -142,7 +146,7 @@ async function dismissTipIfAny(page) {
   await boot(page);
 
   ok(await page.evaluate(() => document.documentElement.lang) === 'es', 'fresh profile opens in Spanish');
-  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES is the pressed language');
+  ok(await page.locator('#menuBar .lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES is the pressed language');
   ok(await page.evaluate(() => document.documentElement.getAttribute('data-theme')) === 'light', 'fresh profile opens light');
   ok(await txt(page, '#tabBtnAhora') === 'Ahora' && await txt(page, '#tabBtnHoy') === 'Hoy' && await txt(page, '#tabBtnPriv') === 'Privacidad', 'tabs are Spanish');
 

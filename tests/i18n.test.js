@@ -68,11 +68,13 @@ async function englishLeftovers(page) {
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
-  /* This file tests copy, not the first-run guide: mark the guide seen. */
+  /* This file tests copy, not the first-run guide: mark the guide seen and
+   * skip the login gate for this session. */
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem('retoma-guide-v1', '1');
       localStorage.setItem('retoma-tips-v1', JSON.stringify({ note: 1, today: 1, privacy: 1, settings: 1 }));
+      sessionStorage.setItem('retoma-login-v1', '1');
     } catch (e) { /* storage unavailable */ }
   });
   const page = await ctx.newPage();
@@ -83,7 +85,7 @@ async function englishLeftovers(page) {
 
   console.log('i18n: switch');
   ok(await page.locator('#menuBar .lang-switch[role="group"]').count() === 1, 'language switch lives in the titlebar');
-  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'Spanish is the default (browser locale en-US)');
+  ok(await page.locator('#menuBar .lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'Spanish is the default (browser locale en-US)');
   ok(await page.evaluate(() => document.documentElement.lang) === 'es', '<html lang="es"> by default');
   ok(await txt(page, '.lang-switch__btn[data-lang="es"]') === 'ES' && await txt(page, '.lang-switch__btn[data-lang="en"]') === 'EN', 'buttons read EN / ES');
   ok(await page.evaluate(() => getComputedStyle(document.querySelector('.lang-switch__btn[data-lang="es"]')).backgroundColor ===
@@ -91,13 +93,13 @@ async function englishLeftovers(page) {
   ok(await txt(page, '#tabBtnAhora') === 'Ahora', 'fresh profile shows Spanish tabs');
 
   await setLang(page, 'en');
-  ok(await page.locator('.lang-switch__btn[data-lang="en"]').getAttribute('aria-pressed') === 'true', 'EN pressed after click');
+  ok(await page.locator('#menuBar .lang-switch__btn[data-lang="en"]').getAttribute('aria-pressed') === 'true', 'EN pressed after click');
   ok(await page.evaluate(() => document.documentElement.lang) === 'en', '<html lang="en"> after the switch');
   ok(await page.evaluate(() => { try { return localStorage.getItem('retoma.lang'); } catch (e) { return null; } }) === 'en', "stored in localStorage 'retoma.lang'");
   ok(await txt(page, '#tabBtnAhora') === 'Now', 'tabs follow the switch to English');
 
   await setLang(page, 'es');
-  ok(await page.locator('.lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES pressed again');
+  ok(await page.locator('#menuBar .lang-switch__btn[data-lang="es"]').getAttribute('aria-pressed') === 'true', 'ES pressed again');
   ok(await page.evaluate(() => document.documentElement.lang) === 'es', '<html lang="es"> again');
   ok(await page.evaluate(() => { try { return localStorage.getItem('retoma.lang'); } catch (e) { return null; } }) === 'es', "Spanish stored in localStorage 'retoma.lang'");
 

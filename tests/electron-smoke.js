@@ -48,6 +48,7 @@ async function seedProfile(w) {
       localStorage.setItem('retoma.lang', 'en');
       localStorage.setItem('retoma-guide-v1', '1');
       localStorage.setItem('retoma-tips-v1', JSON.stringify({ note: 1, today: 1, privacy: 1, settings: 1 }));
+      sessionStorage.setItem('retoma-login-v1', '1');
     } catch (e) { /* profile is writable in every supported runner */ }
   });
   await w.reload();

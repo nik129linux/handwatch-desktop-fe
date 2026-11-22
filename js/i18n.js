@@ -268,6 +268,22 @@ var I18n = (function () {
     'Block': 'Bloque',
     'blocks': 'bloques',
     'block': 'bloque',
+    /* Login gate */
+    'Pick up where you left off': 'Retoma donde lo dejaste',
+    'Name or email': 'Nombre o correo',
+    'Password': 'Contraseña',
+    'Show': 'Mostrar',
+    'Hide': 'Ocultar',
+    'Sign in': 'Entrar',
+    'Continue without an account': 'Continuar sin cuenta',
+    'Demo: no account is created and nothing leaves this device.': 'Demo: no se crea ninguna cuenta y nada sale de este equipo.',
+    'Signing in…': 'Entrando…',
+    'Enter your name or email and your password.': 'Escribe tu nombre o correo y tu contraseña.',
+    'Enter your name or email.': 'Escribe tu nombre o correo.',
+    'Enter your password.': 'Escribe tu contraseña.',
+    'Account': 'Cuenta',
+    'Demo session: no account is stored.': 'Sesión de demostración: no se guarda ninguna cuenta.',
+    'Sign out': 'Cerrar sesión',
   };
 
   var PATTERNS = [
@@ -357,7 +373,8 @@ var I18n = (function () {
     [/vs target /, 'vs objetivo '],
     [/ - followed\./, ' - logrado.'],
     [/ - not yet\./, ' - todavía no.'],
-    [/evening stop/, 'pausa nocturna']
+    [/evening stop/, 'pausa nocturna'],
+    [/^Welcome back, (.+)$/, 'Hola de nuevo, $1']
   ];
 
   function translateString(s) {

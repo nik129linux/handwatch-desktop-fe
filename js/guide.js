@@ -445,7 +445,9 @@ var Guide = (function () {
           ['Language', 'Idioma', 'Switches the whole app between Spanish and English without a reload.', 'Cambia toda la app entre español e inglés sin recargar.'],
           ['Theme', 'Tema', 'Claro, Oscuro or Sistema. Light is the default for a new profile.', 'Claro, Oscuro o Sistema. Claro es el predeterminado en un perfil nuevo.'],
           ['Settings', 'Configuración', 'The canonical home for language, theme, AI permission, privacy and this guide.', 'El lugar principal para el idioma, el tema, el permiso de IA, la privacidad y esta guía.'],
-          ['Guide', 'Guía', 'Three levels: the welcome, the coach marks and this Help screen. Replay the welcome from Settings.', 'Tres niveles: la bienvenida, las pistas y esta pantalla de Ayuda. Repite la bienvenida desde Configuración.']
+          ['Guide', 'Guía', 'Three levels: the welcome, the coach marks and this Help screen. Replay the welcome from Settings.', 'Tres niveles: la bienvenida, las pistas y esta pantalla de Ayuda. Repite la bienvenida desde Configuración.'],
+          ['Sign-in screen', 'Pantalla de entrada', 'The name-and-password screen at launch. Retoma has no accounts: it is a visual demo and any name and password are accepted.', 'La pantalla de nombre y contraseña al abrir. Retoma no tiene cuentas: es una demo visual y acepta cualquier nombre y contraseña.'],
+          ['Sign out', 'Cerrar sesión', 'In Settings it brings the sign-in screen back without closing the app. A reload in the same session keeps you inside.', 'En Configuración vuelve a mostrar la pantalla de entrada sin cerrar la app. Recargar en la misma sesión te mantiene adentro.']
         ]
       },
       {
@@ -537,6 +539,9 @@ var Guide = (function () {
   }
 
   function onKeydown(ev) {
+    /* The login gate owns the keyboard while it is up: Esc is a no-op there
+     * (Continue without an account is the way out) and the trap is its own. */
+    if (window.Login && Login.isOpen && Login.isOpen()) return;
     if (open) {
       if (ev.key === 'Escape') { ev.preventDefault(); skip(); return; }
       if (ev.key === 'Tab') {
@@ -587,7 +592,12 @@ var Guide = (function () {
     if (window.I18n && I18n.onChange) I18n.onChange(onLangChange);
     renderHelp();
     paintSettingsButtons();
-    if (!readSeen()) setTimeout(openLevel1, 80);
+    if (!readSeen()) {
+      /* The login gate owns the first launch: the welcome waits until it is
+       * closed (or fires at once when this session already signed in). */
+      if (window.Login && Login.onClose) Login.onClose(function () { setTimeout(openLevel1, 80); });
+      else setTimeout(openLevel1, 80);
+    }
   }
 
   return {

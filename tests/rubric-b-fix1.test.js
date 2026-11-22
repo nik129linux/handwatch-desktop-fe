@@ -76,6 +76,10 @@ async function assertTipClear(page, label) {
 
   console.log('rubric-b-fix1: fresh profile, reviewer flow');
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
+  /* Only the login gate is skipped here: this file owns the level-1 welcome. */
+  await ctx.addInitScript(() => {
+    try { sessionStorage.setItem('retoma-login-v1', '1'); } catch (e) { /* storage unavailable */ }
+  });
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));

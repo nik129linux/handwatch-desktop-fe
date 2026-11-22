@@ -19,6 +19,7 @@ const INDEX = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
     localStorage.setItem('retoma-guide-v1', '1');
     localStorage.setItem('retoma-tips-v1', JSON.stringify({ note: 1, today: 1, privacy: 1, settings: 1 }));
     localStorage.setItem('retoma.lang', 'en');
+    sessionStorage.setItem('retoma-login-v1', '1');
     window.__freshTs = freshTs;
     localStorage.setItem('retoma-events-demo-v1', JSON.stringify({ version: 1, events: [
       { app: 'OldApp', duration: 30, ts: oldTs },
