@@ -8,3 +8,4 @@ dist/
 .last-test.log
 FIX-AUTO.md
 ai/app-key.json
+web-dist/
