@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const seed = require('./support/seed');
 let passed = 0, failed = 0;
 function ok(c, n, d) { if (c) { passed++; console.log('  ok ' + n); } else { failed++; console.log('  FAIL ' + n + (d ? '\n       ' + d : '')); } }
 const mood = (p) => p.evaluate(() => document.documentElement.getAttribute('data-mood'));
@@ -12,6 +13,7 @@ const mood = (p) => p.evaluate(() => document.documentElement.getAttribute('data
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   const errs = [];
   p.on('pageerror', e => errs.push(e.message));
+  await seed(p, { lang: 'en' });
   await p.goto(pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href);
   await p.waitForFunction(() => window.Retoma && window.Mood && !document.body.classList.contains('is-launch'));
   await p.waitForTimeout(400);

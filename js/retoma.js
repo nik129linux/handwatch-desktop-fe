@@ -4,7 +4,7 @@ var Retoma = (function () {
 
   var state = {
     currentApp: 'Document',
-    currentTitle: 'Quality report (paragraph 3)',
+    currentTitle: 'Quality report, paragraph 3',
     timeInCurrent: 0,
     paused: false,
     pausedUntil: 0,
@@ -14,6 +14,7 @@ var Retoma = (function () {
     prevApp: null,
     prevTitle: null,
     prevWindows: [],
+    prevAppBeforeSwitch: null,
     interruptionApp: 'WhatsApp',
     timeline: [],
     empty: false,
@@ -24,9 +25,17 @@ var Retoma = (function () {
     aiConsent: { local: false, cloud: false, server: false },
     aiBusy: false,
     aiToken: 0,
+    aiSuggestBusy: false,
+    suppressProposal: false,
     cloudAvailable: false,
     cloudReason: '',
-    pendingMode: null
+    pendingMode: null,
+    quota: null,
+    currentProposal: null,
+    acceptedBlock: null,
+    todayPlan: null,
+    proposalAccepted: false,
+    adjust: null
   };
 
   var el = {};
@@ -34,6 +43,19 @@ var Retoma = (function () {
   var tickTimer = null;
   var activeTab = 'ahora';
   var resumeAiToken = 0;
+  /* -1 is the live view; 1 is the newest timeline entry, N the oldest. */
+  var browseIndex = -1;
+  var browseSig = '';
+  var noteSavedTimer = null;
+
+  function timelineSig() {
+    return activeEntries().map(function (e) { return e.app + ':' + e.duration + ':' + (e.title || ''); }).join('|');
+  }
+
+  function resetBrowse() {
+    browseIndex = -1;
+    browseSig = '';
+  }
 
   function isLiveMode() {
     try {
@@ -54,17 +76,70 @@ var Retoma = (function () {
       if (v.trim() === '') window.localStorage.removeItem(key);
       else window.localStorage.setItem(key, v.trim());
     } catch (e) { /* noop */ }
+    renderNowNote();
   }
   function currentNote() {
     if (el.leaveNote) return String(el.leaveNote.value || '').trim();
     return String(loadNote() || '').trim();
   }
+  /* The saved note is pinned right under the Now title. Earlier browsing
+   * is history, not the live task, so the pin steps aside there. */
+  function renderNowNote() {
+    var n = el.nowNote;
+    if (!n) return;
+    var note = currentNote();
+    if (!note || browseIndex >= 0) {
+      n.textContent = '';
+      n.style.display = 'none';
+      return;
+    }
+    n.textContent = 'Next: ' + note;
+    n.style.display = '';
+  }
+  /* Grow the note field to its content, never past three lines. */
+  function growLeaveNote() {
+    var n = el.leaveNote;
+    if (!n) return;
+    n.style.height = 'auto';
+    var cs = window.getComputedStyle ? window.getComputedStyle(n) : null;
+    var lh = cs ? parseFloat(cs.lineHeight) : 24;
+    if (!(lh > 0)) lh = 24;
+    var pad = cs ? (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) : 0;
+    var border = cs ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 2;
+    var minH = lh + pad + border;
+    var maxH = lh * 3 + pad + border;
+    var h = n.scrollHeight + border;
+    n.style.height = Math.min(Math.max(h, minH), maxH) + 'px';
+  }
+  function showNoteSaved(full) {
+    if (el.leaveNoteSaved) {
+      el.leaveNoteSaved.textContent = full ? "Saved, you'll see it when you come back" : 'Saved';
+      el.leaveNoteSaved.classList.add('is-visible');
+    }
+  }
+  function stashNoteSaved() {
+    if (noteSavedTimer) { clearTimeout(noteSavedTimer); noteSavedTimer = null; }
+    if (el.leaveNoteSaved) el.leaveNoteSaved.classList.remove('is-visible');
+  }
+  function scheduleNoteSave() {
+    if (noteSavedTimer) clearTimeout(noteSavedTimer);
+    noteSavedTimer = setTimeout(function () {
+      noteSavedTimer = null;
+      if (!el.leaveNote) return;
+      saveNote(el.leaveNote.value);
+      showNoteSaved();
+    }, 600);
+  }
+  function cleanNoteText(value) {
+    return String(value == null ? '' : value).replace(/[\r\n]+/g, ' ');
+  }
   function clearNote() {
     resumeAiToken++;
-    if (el.leaveNote) el.leaveNote.value = '';
+    if (el.leaveNote) { el.leaveNote.value = ''; growLeaveNote(); }
     try { window.localStorage.removeItem(noteKey()); } catch (e) { /* noop */ }
     if (el.resumeNote) { el.resumeNote.textContent = ''; el.resumeNote.classList.add('is-hidden'); }
     if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
+    renderNowNote();
   }
 
   /* Live reads ONLY live events: never fall back to the demo seed. */
@@ -95,6 +170,13 @@ var Retoma = (function () {
     if (el.nowClock) el.nowClock.textContent = formatClock();
   }
 
+  /* The window title that belongs to an app. The resume subtitle must name
+   * the window of the app in the hero, never the interruption's title. */
+  function titleForApp(app) {
+    var ev = Events.findByLabel(app);
+    return (ev && ev.title) ? ev.title : state.currentTitle;
+  }
+
   function switchApp(next) {
     if (state.paused) return;
     if (isLiveMode()) return;
@@ -104,9 +186,11 @@ var Retoma = (function () {
       state.timeline.push({ app: prev, duration: dur });
       if (state.timeline.length > 12) state.timeline.shift();
     }
+    state.prevAppBeforeSwitch = prev;
     state.currentApp = next.label;
     state.currentTitle = next.title;
     state.timeInCurrent = 0;
+    resetBrowse();
     Desk.focus(next.label);
     renderAhora();
     renderTimeline();
@@ -126,11 +210,32 @@ var Retoma = (function () {
   function goAway(minutes) {
     if (isLiveMode()) return;
     minutes = minutes || 25;
+    resetBrowse();
     state.away = true;
     state.awayMinutes = minutes;
-    state.prevApp = state.currentApp;
-    state.prevTitle = state.currentTitle;
-    state.prevWindows = ['Document', 'Browser', 'Spreadsheet'];
+
+    var open = (window.Desk && Desk.visibleApps) ? Desk.visibleApps() : [];
+    var departing = state.currentApp;
+    var interruption;
+    if (departing && open.indexOf(departing) === -1) {
+      /* An app took focus while its window was not on the desk: that app is
+       * the interruption, and the work app before it is what to resume. */
+      interruption = departing;
+      state.prevApp = state.prevAppBeforeSwitch || state.prevApp || departing;
+    } else if (departing === 'WhatsApp') {
+      interruption = departing || 'WhatsApp';
+      state.prevApp = state.prevAppBeforeSwitch || state.prevApp || departing;
+    } else {
+      /* A plain break from the work app still has the usual messages
+       * interruption in the demo. */
+      interruption = state.interruptionApp || 'WhatsApp';
+      state.prevApp = departing;
+    }
+    if (!state.prevApp) state.prevApp = departing;
+    state.prevTitle = state.prevApp === departing ? state.currentTitle : titleForApp(state.prevApp);
+    state.interruptionApp = interruption;
+    state.prevWindows = open.filter(function (app) { return app !== interruption; });
+    if (!state.prevWindows.length) state.prevWindows = [state.prevApp].filter(Boolean);
     hideResume();
     Desk.minimize('Document');
     renderAhoraAway();
@@ -138,6 +243,7 @@ var Retoma = (function () {
 
   function comeBack() {
     if (!state.away) return;
+    resetBrowse();
     state.away = false;
     if (state.paused) {
       // paused mid-away cancels the episode: no clock jump, no resume card.
@@ -161,6 +267,7 @@ var Retoma = (function () {
 
   function showResume() {
     if (!el.resumeCard) return;
+    if (window.Guide && Guide.suspendForResume) Guide.suspendForResume();
     var live = window.Live && Live.isLive && Live.isLive();
     if (el.retomaPanel) el.retomaPanel.classList.add('has-resume');
     el.resumeCard.classList.remove('is-hidden');
@@ -214,6 +321,7 @@ var Retoma = (function () {
       try {
         window.retoma.resumeLine(ctx, opts).then(function (res) {
           if (token !== resumeAiToken) return;
+          if (res && res.quota) setQuota(res.quota);
           // Rules only repeat the hero + note line: show the line only when a model wrote it.
           if (!res || !res.text || res.fallback || res.source === 'On-device rules') {
             if (el.resumeAi) el.resumeAi.classList.add('is-hidden');
@@ -242,6 +350,11 @@ var Retoma = (function () {
     el.resumeCard.classList.remove('is-visible');
     void el.resumeCard.offsetWidth;
     el.resumeCard.classList.add('is-visible');
+    if (window.Visual) {
+      if (Visual.resumeZoom) Visual.resumeZoom(el.resumeCard);
+      if (Visual.flipChipsIn) Visual.flipChipsIn(el.resumeChips);
+      if (Visual.blinkEye) Visual.blinkEye();
+    }
   }
 
   function splitHeroWords(heroEl) {
@@ -262,6 +375,101 @@ var Retoma = (function () {
     var h = Math.floor(totalMin / 60) % 24;
     var m = totalMin % 60;
     return h + ':' + String(m).padStart(2, '0');
+  }
+
+  function fmtDuration(totalMin) {
+    var n = Math.max(0, Math.round(Number(totalMin) || 0));
+    if (n < 60) return n + ' min';
+    var h = Math.floor(n / 60);
+    var m = n % 60;
+    return h + ' h' + (m ? ' ' + m + ' min' : '');
+  }
+
+  /* --- Accepted plan: what Accept leaves for tomorrow ------------------- */
+  /* Tests inject a clock with window.__retomaNow so "tomorrow" is provable
+   * without waiting a day. */
+  function nowMs() {
+    try {
+      if (typeof window.__retomaNow === 'function') {
+        var t = Number(window.__retomaNow());
+        if (isFinite(t)) return t;
+      }
+    } catch (e) { /* fall through to the real clock */ }
+    return Date.now();
+  }
+
+  function dayKey(ms) {
+    var d = new Date(ms);
+    function p2(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  }
+
+  function addDays(ms, days) { return ms + days * 24 * 3600 * 1000; }
+
+  function planKey() { return 'retoma-block-' + (isLiveMode() ? 'live' : 'demo'); }
+
+  function readPlanBlock() {
+    try {
+      var raw = window.localStorage.getItem(planKey());
+      var b = raw ? JSON.parse(raw) : null;
+      return b && typeof b === 'object' ? b : null;
+    } catch (e) { return null; }
+  }
+
+  function writePlanBlock(block) {
+    try { window.localStorage.setItem(planKey(), JSON.stringify(block)); } catch (e) { /* session only */ }
+  }
+
+  function clearPlanBlock() {
+    try { window.localStorage.removeItem(planKey()); } catch (e) { /* noop */ }
+    state.todayPlan = null;
+  }
+
+  function planDue(block) {
+    return !!(block && block.start && block.minutes && block.plannedFor && dayKey(nowMs()) >= block.plannedFor);
+  }
+
+  function renderPlanCard() {
+    var card = document.getElementById('planCard');
+    if (!card) return;
+    var block = state.todayPlan;
+    if (!block || !planDue(block)) {
+      state.todayPlan = null;
+      card.classList.add('is-hidden');
+      return;
+    }
+    var textEl = document.getElementById('planText');
+    if (textEl) {
+      var app = block.app || state.currentApp || '';
+      textEl.textContent = app + ' \u00b7 ' + block.start + ' \u00b7 ' + block.minutes + ' min';
+    }
+    card.classList.remove('is-hidden');
+  }
+
+  function checkPlanCard() {
+    var block = readPlanBlock();
+    state.todayPlan = planDue(block) ? block : null;
+    renderPlanCard();
+  }
+
+  function startPlan() {
+    var block = state.todayPlan;
+    if (!block) return;
+    var parts = String(block.start || '').split(':');
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    if (isFinite(h) && isFinite(m)) setClock(h, m);
+    if (!isLiveMode()) {
+      var app = Events.findByLabel(block.app || state.currentApp);
+      if (app) switchApp(app);
+    }
+    clearPlanBlock();
+    renderPlanCard();
+    switchTab('ahora');
+  }
+
+  function dismissPlan() {
+    clearPlanBlock();
+    renderPlanCard();
   }
 
   function computeProposal(data) {
@@ -293,62 +501,267 @@ var Retoma = (function () {
     };
   }
 
-  function renderProposal(data) {
+  function proposalData() {
+    var data = activeEntries();
+    return data && data.length ? data : Events.seedTimeline;
+  }
+
+  function proposalSummary() {
+    return Ai.buildSummary(proposalData());
+  }
+
+  function paintRulesProposal(data) {
+    var p = computeProposal(data);
+    if (!p) return false;
+    state.currentProposal = {
+      start: fmtClock(p.winStart),
+      minutes: Math.max(15, Math.min(180, Math.round(p.longest.duration))),
+      app: p.longest.app,
+      reason: p.how
+    };
     var textEl = document.getElementById('proposalText');
     var howEl = document.getElementById('proposalHow');
     var tagEl = document.getElementById('proposalTag');
+    if (textEl) textEl.textContent = p.text;
+    if (howEl) howEl.textContent = p.how;
+    if (tagEl) tagEl.textContent = 'On-device rules';
+    return true;
+  }
+
+  function paintProviderProposal(res) {
+    if (!res || !Ai.validProposal(res)) return false;
+    var textEl = document.getElementById('proposalText');
+    var howEl = document.getElementById('proposalHow');
+    var tagEl = document.getElementById('proposalTag');
+    var f = Ai.formatProposal(res);
+    var longest = proposalData()[0] || { app: state.currentApp };
+    proposalData().forEach(function (e) { if (e.duration > longest.duration) longest = e; });
+    state.currentProposal = { start: res.start, minutes: res.minutes, app: res.app || longest.app, reason: res.reason };
+    if (textEl) textEl.textContent = f.text;
+    if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
+    if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
+    return true;
+  }
+
+  function renderProposal(data) {
     var card = document.getElementById('proposalCard');
     /* Live with no live events: no proposal, and propose() never runs. */
     if (isLiveMode() && (!data || !data.length)) {
       if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
       return null;
     }
-    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'server') && state.aiConsent[state.aiMode];
+    var useProvider = hasBridge() && (state.aiMode === 'local' || state.aiMode === 'server') && state.aiConsent[state.aiMode] && !state.suppressProposal;
     if (!useProvider) {
-      var p = computeProposal(data);
+      var p = paintRulesProposal(data);
       if (!p) {
         if (card) { card.classList.add('is-hidden'); card.classList.remove('is-loading'); }
         return null;
       }
-      if (textEl) textEl.textContent = p.text;
-      if (howEl) howEl.textContent = p.how;
-      if (tagEl) tagEl.textContent = 'On-device rules';
       if (card) card.classList.remove('is-loading');
-      return p;
+      return true;
     }
     var summary = Ai.buildSummary(data && data.length ? data : Events.seedTimeline);
     var token = ++state.aiToken;
     state.aiBusy = true;
     if (card) card.classList.add('is-loading');
+    var textEl = document.getElementById('proposalText');
+    var howEl = document.getElementById('proposalHow');
     if (textEl) textEl.innerHTML = '<span class="skeleton-bar"></span><span class="skeleton-bar skeleton-bar--short"></span>';
     if (howEl) howEl.textContent = '';
     window.retoma.propose(summary, { mode: state.aiMode, consent: state.aiConsent, lang: uiLang() }).then(function (res) {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
-      if (!res || !Ai.validProposal(res)) {
-        var fb = computeProposal(data);
-        if (!fb) { if (card) card.classList.add('is-hidden'); return; }
-        if (textEl) textEl.textContent = fb.text;
-        if (howEl) howEl.textContent = fb.how;
-        if (tagEl) tagEl.textContent = 'On-device rules';
-        return;
+      if (res && res.quota) setQuota(res.quota);
+      if (!paintProviderProposal(res)) {
+        if (!paintRulesProposal(data)) { if (card) card.classList.add('is-hidden'); }
       }
-      var f = Ai.formatProposal(res);
-      if (textEl) textEl.textContent = f.text;
-      if (howEl) howEl.textContent = res.fallback && res.note ? f.how + ' · ' + res.note : f.how;
-      if (tagEl) tagEl.textContent = sourceLabel(res.source, res.fallback);
     }, function () {
       if (token !== state.aiToken) return;
       state.aiBusy = false;
       if (card) card.classList.remove('is-loading');
-      var fb2 = computeProposal(data);
-      if (!fb2) { if (card) card.classList.add('is-hidden'); return; }
-      if (textEl) textEl.textContent = fb2.text;
-      if (howEl) howEl.textContent = fb2.how;
-      if (tagEl) tagEl.textContent = 'On-device rules';
+      if (!paintRulesProposal(data)) { if (card) card.classList.add('is-hidden'); }
     });
     return null;
+  }
+
+  /* --- Suggest with AI ---------------------------------------------------
+   * One visible button that always calls the server and shows what answered:
+   * model, latency and the remaining requests. Without the desktop bridge the
+   * button stays on screen, disabled, so the card never pretends. */
+
+  function isServerSource(source) {
+    return typeof source === 'string' && source.indexOf('Retoma server') === 0;
+  }
+
+  function modelFromSource(source) {
+    var ix = typeof source === 'string' ? source.indexOf('\u00b7') : -1;
+    return ix === -1 ? '' : source.slice(ix + 1).trim();
+  }
+
+  function suggestFace() {
+    return document.querySelector('#aiSuggestBtn .ring-face');
+  }
+
+  function setSuggestLabel(text) {
+    var label = document.getElementById('aiSuggestLabel');
+    if (label) label.textContent = text;
+  }
+
+  function suggestCopy() {
+    if (state.proposalAccepted) return uiLang() === 'es' ? 'Sugerir otra con IA' : 'Suggest another with AI';
+    return uiLang() === 'es' ? 'Sugerir con IA' : 'Suggest with AI';
+  }
+
+  /* Accepted: the card stays, says what is planned, and the AI button offers
+   * another idea. A new suggestion (or a new day) clears it. */
+  function setAccepted(on) {
+    state.proposalAccepted = !!on;
+    var card = document.getElementById('proposalCard');
+    if (card) card.classList.toggle('is-accepted', state.proposalAccepted);
+    var actions = document.getElementById('proposalActions');
+    if (actions) actions.classList.toggle('is-hidden', state.proposalAccepted);
+    var line = document.getElementById('proposalAccepted');
+    if (line) {
+      var b = state.acceptedBlock;
+      line.textContent = state.proposalAccepted && b
+        ? 'Planned for tomorrow, ' + b.start + '\u2013' + fmtClock(Ai.parseClock(b.start) + b.minutes)
+        : '';
+      line.classList.toggle('is-hidden', !state.proposalAccepted);
+    }
+    paintSuggestCopy();
+  }
+
+  function paintSuggestCopy() {
+    if (!state.aiSuggestBusy) setSuggestLabel(suggestCopy());
+  }
+
+  function syncSuggestButton() {
+    var btn = document.getElementById('aiSuggestBtn');
+    if (!btn) return;
+    var ready = hasBridge();
+    btn.disabled = !ready;
+    btn.title = ready ? '' : 'Needs the desktop app';
+  }
+
+  function restoreSuggestButton() {
+    state.aiSuggestBusy = false;
+    var btn = document.getElementById('aiSuggestBtn');
+    if (btn) { btn.disabled = !hasBridge(); btn.title = hasBridge() ? '' : 'Needs the desktop app'; }
+    setSuggestLabel(suggestCopy());
+    var face = suggestFace();
+    if (face) face.classList.remove('is-thinking');
+  }
+
+  function hideSuggestConsent() {
+    var box = document.getElementById('aiSuggestConsent');
+    if (box) box.classList.add('is-hidden');
+  }
+
+  function paintSuggestPayload(summary, mode, preId) {
+    var pre = document.getElementById(preId);
+    if (!pre) return;
+    var paint = function (payload) { pre.textContent = JSON.stringify(payload, null, 2); };
+    if (window.retoma && window.retoma.previewPayload) {
+      window.retoma.previewPayload(summary, mode).then(paint, function () { paint(Ai.previewLocal(summary)); });
+    } else {
+      paint(Ai.previewLocal(summary));
+    }
+  }
+
+  function showSuggestConsent() {
+    var box = document.getElementById('aiSuggestConsent');
+    if (!box) return;
+    paintSuggestPayload(proposalSummary(), 'server', 'aiSuggestPayload');
+    box.classList.remove('is-hidden');
+  }
+
+  function setProofLine(text) {
+    var line = document.getElementById('aiProofLine');
+    if (line) line.textContent = text;
+    var box = document.getElementById('aiProof');
+    if (box) box.classList.remove('is-hidden');
+  }
+
+  function triggerLimitNotice(res) {
+    var limit = res && res.quota && quotaKnown(res.quota)
+      ? res.quota.limit
+      : (quotaKnown(state.quota) ? state.quota.limit : 1);
+    setQuota({ left: 0, limit: limit });
+  }
+
+  function markFresh() {
+    var textEl = document.getElementById('proposalText');
+    if (!textEl) return;
+    textEl.classList.remove('is-fresh');
+    void textEl.offsetWidth;
+    textEl.classList.add('is-fresh');
+    setTimeout(function () { textEl.classList.remove('is-fresh'); }, 300);
+  }
+
+  function runAiSuggest() {
+    var btn = document.getElementById('aiSuggestBtn');
+    if (!btn || !hasBridge() || state.aiSuggestBusy) return;
+    var summary = proposalSummary();
+    var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+    var card = document.getElementById('proposalCard');
+    state.aiSuggestBusy = true;
+    btn.disabled = true;
+    setSuggestLabel('Thinking\u2026');
+    var face = suggestFace();
+    if (face) face.classList.add('is-thinking');
+    if (card) card.classList.add('is-loading');
+    hideSuggestConsent();
+    var token = ++state.aiToken;
+    window.retoma.propose(summary, { mode: 'server', consent: state.aiConsent, lang: uiLang() }).then(function (res) {
+      if (token === state.aiToken) state.proposalAccepted = false;
+      restoreSuggestButton();
+      if (token !== state.aiToken) return;
+      setAccepted(false);
+      if (card) card.classList.remove('is-loading');
+      if (res && res.quota) setQuota(res.quota);
+      var real = isServerSource(res && res.source) && !res.fallback;
+      if (real && paintProviderProposal(res)) {
+        var ms = ((window.performance && performance.now) ? performance.now() : Date.now()) - t0;
+        var left = res.quota && quotaKnown(res.quota)
+          ? Math.max(0, Math.floor(res.quota.left))
+          : (quotaKnown(state.quota) ? state.quota.left : null);
+        var model = modelFromSource(res.source);
+        var line = (model ? model + ' \u00b7 ' : '') + 'Retoma server \u00b7 ' + (ms / 1000).toFixed(1) + ' s';
+        if (left !== null) line += ' \u00b7 ' + left + ' requests left';
+        setProofLine(line);
+        markFresh();
+      } else {
+        if (res && res.limitReached) triggerLimitNotice(res);
+        paintRulesProposal(proposalData());
+        setProofLine('The server did not answer, so on-device rules made this one.');
+      }
+      paintSuggestPayload(summary, 'server', 'aiProofPayload');
+    }, function () {
+      if (token === state.aiToken) state.proposalAccepted = false;
+      restoreSuggestButton();
+      if (token !== state.aiToken) return;
+      setAccepted(false);
+      if (card) card.classList.remove('is-loading');
+      paintRulesProposal(proposalData());
+      setProofLine('The server did not answer, so on-device rules made this one.');
+      paintSuggestPayload(summary, 'server', 'aiProofPayload');
+    });
+  }
+
+  function aiSuggestClick() {
+    if (!hasBridge()) { syncSuggestButton(); return; }
+    if (state.aiMode === 'server' && state.aiConsent.server) { runAiSuggest(); return; }
+    showSuggestConsent();
+  }
+
+  function sendSuggestedAi() {
+    hideSuggestConsent();
+    /* Same path the Privacy panel's Allow button takes, so the radio and the
+     * saved preference move together. renderTimeline runs once, silently. */
+    state.suppressProposal = true;
+    try { grantAiConsentMode('server'); } finally { state.suppressProposal = false; }
+    if (state.aiMode === 'server' && state.aiConsent.server) runAiSuggest();
   }
 
   /* The proposal tag names the real source. The resume card is not AI
@@ -361,6 +774,150 @@ var Retoma = (function () {
 
   function hasBridge() {
     return !!(window.retoma && window.retoma.propose);
+  }
+
+  /* --- Daily AI quota ---------------------------------------------------- */
+
+  function quotaKnown(q) {
+    return !!q && typeof q.left === 'number' && isFinite(q.left) &&
+      typeof q.limit === 'number' && isFinite(q.limit) && q.limit > 0;
+  }
+
+  function setQuota(q) {
+    if (!quotaKnown(q)) return;
+    state.quota = { left: Math.max(0, Math.floor(q.left)), limit: Math.floor(q.limit) };
+    paintQuota();
+  }
+
+  function quotaBarIds() {
+    return [
+      { box: 'quotaHoy', text: 'quotaTextHoy', fill: 'quotaFillHoy', btn: 'quotaOllamaHoy' },
+      { box: 'quotaPriv', text: 'quotaTextPriv', fill: 'quotaFillPriv', btn: 'quotaOllamaPriv' }
+    ];
+  }
+
+  function paintQuota() {
+    var q = state.quota;
+    var show = state.aiMode === 'server' && quotaKnown(q);
+    quotaBarIds().forEach(function (ids) {
+      var box = document.getElementById(ids.box);
+      if (!box) return;
+      box.classList.toggle('is-hidden', !show);
+      if (!show) return;
+      var text = document.getElementById(ids.text);
+      var fill = document.getElementById(ids.fill);
+      var btn = document.getElementById(ids.btn);
+      var pct = Math.max(0, Math.min(100, q.left / q.limit * 100));
+      pct = Math.round(pct * 10) / 10;
+      if (fill) fill.style.width = pct + '%';
+      var bar = fill && fill.parentElement;
+      if (bar) bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+      var reached = q.left <= 0;
+      if (text) {
+        var leftN = I18n && I18n.formatNumber ? I18n.formatNumber(q.left) : String(q.left);
+        text.textContent = reached
+          ? settingsText('AI limit reached. Connect Ollama to keep going.')
+          : settingsText(q.left === 1 ? 'AI requests: 1 left' : 'AI requests: ' + leftN + ' left');
+      }
+      if (btn) btn.classList.toggle('is-hidden', !reached);
+    });
+  }
+
+  /* Re-read the last quota saved by the main process (or the test stub). */
+  function refreshQuota() {
+    paintQuota();
+    if (state.aiMode !== 'server') return;
+    if (!(window.retoma && window.retoma.aiQuota)) return;
+    try {
+      window.retoma.aiQuota(isLiveMode() ? 'live' : 'demo').then(function (q) {
+        if (state.aiMode !== 'server') return;
+        setQuota(q);
+      }, function () { /* no saved quota yet */ });
+    } catch (e) { /* noop */ }
+  }
+
+  function connectOllama() {
+    switchTab('priv');
+    var panel = document.getElementById('ollamaConnect');
+    if (panel) panel.classList.remove('is-hidden');
+    if (state.aiMode !== 'local') selectAiMode('local');
+    var input = document.getElementById('ollamaUrl');
+    if (input) {
+      if (!input.value) input.value = 'http://127.0.0.1:11434';
+      setTimeout(function () {
+        try { input.focus(); input.select(); } catch (e) { /* noop */ }
+      }, 60);
+    }
+  }
+
+  function testOllama() {
+    var input = document.getElementById('ollamaUrl');
+    var out = document.getElementById('ollamaTestResult');
+    var url = input ? String(input.value || '').trim() : '';
+    if (!url || !out) return;
+    function say(text) {
+      out.textContent = text;
+      out.classList.remove('is-hidden');
+    }
+    if (!(window.retoma && window.retoma.aiStatus)) { say('Not reachable'); return; }
+    say('Testing…');
+    try {
+      window.retoma.aiStatus({ ollamaUrl: url, consent: state.aiConsent }).then(function (st) {
+        if (st && st.reachable) say('Connected' + (st.model ? ' \u00b7 ' + st.model : ''));
+        else say('Not reachable');
+      }, function () { say('Not reachable'); });
+    } catch (e) { say('Not reachable'); }
+  }
+
+  /* --- Proposal Adjust: start time + 15-min steps, clamped 15..180 ------- */
+
+  function adjustValid() {
+    if (!state.adjust) return false;
+    var clock = Ai.parseClock(state.adjust.start);
+    var minutes = state.adjust.minutes;
+    return clock !== null && Number.isInteger(minutes) && minutes >= 15 && minutes <= 180;
+  }
+
+  function validateAdjust() {
+    var okv = adjustValid();
+    if (el.adjustError) el.adjustError.classList.toggle('is-hidden', okv);
+    if (el.proposalAccept) el.proposalAccept.disabled = !okv;
+    return okv;
+  }
+
+  function startAdjust() {
+    if (!state.currentProposal) return;
+    state.adjust = {
+      start: state.currentProposal.start,
+      minutes: Math.max(15, Math.min(180, Math.round(state.currentProposal.minutes)))
+    };
+    if (el.proposalAdjuster) el.proposalAdjuster.classList.remove('is-hidden');
+    if (el.adjustStart) el.adjustStart.value = state.adjust.start;
+    if (el.adjustMinutes) el.adjustMinutes.textContent = String(state.adjust.minutes);
+    validateAdjust();
+    if (el.adjustStart) {
+      try { el.adjustStart.focus(); } catch (e) { /* noop */ }
+    }
+  }
+
+  function endAdjust() {
+    state.adjust = null;
+    if (el.proposalAdjuster) el.proposalAdjuster.classList.add('is-hidden');
+    if (el.adjustError) el.adjustError.classList.add('is-hidden');
+    if (el.proposalAccept) el.proposalAccept.disabled = false;
+  }
+
+  function bumpAdjust(delta) {
+    if (!state.adjust) return;
+    state.adjust.minutes = Math.max(15, Math.min(180, state.adjust.minutes + delta));
+    if (el.adjustMinutes) el.adjustMinutes.textContent = String(state.adjust.minutes);
+    validateAdjust();
+  }
+
+  function readAdjustStart() {
+    if (!state.adjust || !el.adjustStart) return;
+    state.adjust.start = String(el.adjustStart.value || '').trim();
+    validateAdjust();
   }
 
   function loadAiPrefs() {
@@ -406,6 +963,158 @@ var Retoma = (function () {
       reason.classList.toggle('is-hidden', !msg);
     }
     refreshServerStatusLine();
+    paintQuota();
+    paintSettings();
+    if (state.aiMode === 'server') refreshQuota();
+  }
+
+  /* --- Settings (canonical home for language, theme, AI, privacy) -------- */
+
+  function settingsText(en) {
+    return (window.I18n && I18n.t) ? I18n.t(en) : en;
+  }
+
+  function anyConsent() {
+    return !!(state.aiConsent && (state.aiConsent.local || state.aiConsent.server || state.aiConsent.cloud));
+  }
+
+  /* Privacy copy must be literally true in every mode. Only local Ollama
+   * runs on this machine; server AI receives app names and minutes with
+   * consent, so the "everything stays" promise gets its one exception. */
+  function paintPrivacyTruth() {
+    var serverAi = (state.aiMode === 'server' || state.aiMode === 'cloud') &&
+      !!(state.aiConsent && state.aiConsent[state.aiMode]);
+    var foot = document.getElementById('privacyFootText');
+    if (foot) {
+      foot.textContent = settingsText(serverAi
+        ? 'Everything stays on this device, except what you send to the AI with your permission.'
+        : 'Everything stays on this device.');
+    }
+    var settingsPrivacy = document.getElementById('settingsPrivacyText');
+    if (settingsPrivacy) {
+      settingsPrivacy.textContent = settingsText(serverAi
+        ? 'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days.'
+        : 'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.');
+    }
+    var simFoot = document.getElementById('simPrivacyFoot');
+    if (simFoot) {
+      simFoot.textContent = settingsText(serverAi
+        ? 'Everything stays on this device, except what you send to the AI with your permission. Pause anytime.'
+        : 'Everything stays on this device. Pause anytime.');
+    }
+  }
+
+  function paintSettings() {
+    paintPrivacyTruth();
+    var lang = (window.I18n && I18n.getLang) ? I18n.getLang() : 'es';
+    document.querySelectorAll('[data-settings-lang]').forEach(function (b) {
+      var on = b.getAttribute('data-settings-lang') === lang;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var mode = (window.Theme && Theme.getMode) ? Theme.getMode() : 'light';
+    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+      var on = b.getAttribute('data-theme-choice') === mode;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var aiOn = state.aiMode !== 'off' && state.aiMode !== '';
+    document.querySelectorAll('[data-settings-ai]').forEach(function (b) {
+      var want = b.getAttribute('data-settings-ai');
+      var on = want === 'on' ? aiOn : !aiOn;
+      b.textContent = want === 'on' ? settingsText('Enabled') : settingsText('Disabled');
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var status = document.getElementById('settingsAiStatus');
+    if (status) {
+      var msg;
+      if (aiOn) {
+        msg = settingsText('Artificial intelligence is on. Only app names and minutes are sent.');
+      } else if (!hasBridge()) {
+        msg = settingsText('Artificial intelligence is off. It needs the desktop app to turn on.');
+      } else {
+        msg = settingsText('Artificial intelligence is off.');
+      }
+      status.textContent = msg;
+    }
+    var consentBtn = document.getElementById('settingsAiConsent');
+    if (consentBtn) {
+      consentBtn.textContent = anyConsent()
+        ? settingsText('Revoke permission')
+        : settingsText('Grant permission');
+      consentBtn.disabled = !hasBridge() && !anyConsent();
+    }
+    var payloadBtn = document.getElementById('settingsSeePayload');
+    if (payloadBtn) payloadBtn.disabled = !hasBridge();
+  }
+
+  function revokeAiConsent() {
+    state.aiConsent.local = false;
+    state.aiConsent.cloud = false;
+    state.aiConsent.server = false;
+    state.pendingMode = null;
+    state.aiToken++;
+    state.aiMode = 'off';
+    saveAiPrefs();
+    hideConsent();
+    paintAiMode();
+    renderTimeline();
+    paintSettings();
+  }
+
+  function grantAiFromSettings() {
+    if (!hasBridge()) { paintSettings(); return; }
+    switchTab('priv');
+    var box = document.getElementById('aiConsent');
+    var pre = document.getElementById('aiPayload');
+    if (!box || !pre) return;
+    /* Show the exact payload before anything leaves the device. */
+    if (!anyConsent()) { state.pendingMode = 'server'; showConsent('server'); }
+    else switchTab('priv');
+    paintSettings();
+  }
+
+  function mountSettings() {
+    document.querySelectorAll('[data-settings-lang]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (window.I18n && I18n.setLang) I18n.setLang(b.getAttribute('data-settings-lang'));
+      });
+    });
+    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (window.Theme && Theme.setMode) Theme.setMode(b.getAttribute('data-theme-choice'));
+      });
+    });
+    document.querySelectorAll('[data-settings-ai]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var on = b.getAttribute('data-settings-ai') === 'on';
+        if (!on) { selectAiMode('off'); paintSettings(); return; }
+        if (!hasBridge()) { paintSettings(); return; }
+        if (state.aiMode === 'off') selectAiMode('server');
+        paintSettings();
+      });
+    });
+    var consentBtn = document.getElementById('settingsAiConsent');
+    if (consentBtn) consentBtn.addEventListener('click', function () {
+      if (anyConsent()) revokeAiConsent(); else grantAiFromSettings();
+    });
+    var payloadBtn = document.getElementById('settingsSeePayload');
+    if (payloadBtn) payloadBtn.addEventListener('click', function () {
+      if (!hasBridge()) return;
+      switchTab('priv');
+      showConsent('server');
+    });
+    var exportBtn = document.getElementById('settingsExport');
+    if (exportBtn) exportBtn.addEventListener('click', function () { Persist.exportData(state.timeline); });
+    var deleteBtn = document.getElementById('settingsDelete');
+    if (deleteBtn) deleteBtn.addEventListener('click', function () { openConfirm(); });
+    var resetBtn = document.getElementById('resetDemo');
+    if (resetBtn) resetBtn.addEventListener('click', function () { resetDemo(); });
+    if (window.I18n && I18n.onChange) I18n.onChange(paintSettings);
+    if (window.I18n && I18n.onChange) I18n.onChange(paintQuota);
+    if (window.Theme && Theme.onChange) Theme.onChange(paintSettings);
+    paintSettings();
   }
 
   var habitsPatched = false;
@@ -491,11 +1200,23 @@ var Retoma = (function () {
       pre.textContent = JSON.stringify(payload, null, 2);
       box.classList.remove('is-hidden');
     };
-    if (hasBridge()) {
+    if (hasBridge() && window.retoma.previewPayload) {
       window.retoma.previewPayload(summary, mode).then(paint, function () { paint(Ai.previewLocal(summary)); });
     } else {
       paint(Ai.previewLocal(summary));
     }
+  }
+
+  function grantAiConsentMode(mode) {
+    if (mode !== 'local' && mode !== 'cloud' && mode !== 'server') return;
+    state.aiConsent[mode] = true;
+    state.pendingMode = null;
+    state.aiToken++;
+    state.aiMode = mode;
+    saveAiPrefs();
+    hideConsent();
+    paintAiMode();
+    renderTimeline();
   }
 
   function selectAiMode(mode) {
@@ -530,7 +1251,12 @@ var Retoma = (function () {
   function reloadForMode(mode) {
     var m = mode === 'live' ? 'live' : 'demo';
     return Persist.load(m).then(function (events) {
-      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      /* Keep ts end to end: dropping it here re-stamps every old event with
+       * "now" on the next save, so 7-day retention could never prune. */
+      var list = (events || []).map(function (e) {
+        if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+        return { app: e.app, duration: e.duration };
+      });
       if (m === 'live') {
         state.liveTimeline = list.slice(-12);
         state.liveEmpty = state.liveTimeline.length === 0;
@@ -541,15 +1267,19 @@ var Retoma = (function () {
         }
       }
       hideResume();
+      resetBrowse();
       renderAhora();
       renderTimeline();
       if (window.Live && Live.renderLiveNow) Live.renderLiveNow();
       if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
+      checkPlanCard();
       return true;
     });
   }
 
   function hideResume() {
+    resetBrowse();
+    updateBrowseControls();
     if (!el.resumeCard) return;
     resumeAiToken++;
     if (el.resumeAi) { el.resumeAi.textContent = ''; el.resumeAi.classList.add('is-hidden'); }
@@ -566,12 +1296,14 @@ var Retoma = (function () {
       // Live on Wayland cannot reopen windows: the card only reminds.
       clearNote();
       hideResume();
+      if (window.Guide && Guide.resumeActed) Guide.resumeActed();
       return;
     }
     if (state.empty) return;
     Desk.reopen(state.prevWindows, true);
     clearNote();
     hideResume();
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
     var app = Events.findByLabel(state.prevApp);
     if (app) switchApp(app);
   }
@@ -579,6 +1311,7 @@ var Retoma = (function () {
   function doStartFresh() {
     clearNote();
     hideResume();
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
   }
 
   /* The model answers in the language the person reads the app in. */
@@ -589,24 +1322,70 @@ var Retoma = (function () {
   var RING_BLOCK_MIN = 25;
   function renderRing(minutes) {
     var ring = document.getElementById('nowRing');
-    var label = document.getElementById('nowRingLabel');
-    if (!ring || !label) return;
+    if (!ring) return;
     var known = typeof minutes === 'number' && isFinite(minutes) && minutes >= 0;
     var p = known ? Math.min(1, minutes / RING_BLOCK_MIN) : 0;
     ring.style.setProperty('--p', String(p));
     ring.classList.toggle('is-full', p >= 1);
-    label.textContent = '';
-    label.appendChild(document.createTextNode(known ? String(minutes) : '0'));
-    var unit = document.createElement('small');
-    unit.textContent = 'min';
-    label.appendChild(unit);
+    /* No number inside the face: minutes live in #nowTime. The ring is the
+     * only visual progress, and it actually fills as the task goes on. */
     ring.setAttribute('aria-label', known
       ? minutes + ' minutes in this task. The ring fills at ' + RING_BLOCK_MIN + ' minutes.'
       : 'Not tracking right now');
   }
 
+  function renderBrowse() {
+    var entries = activeEntries();
+    if (browseIndex > entries.length) browseIndex = entries.length;
+    var e = entries[entries.length - browseIndex];
+    if (!e) { resetBrowse(); renderAhora(); return; }
+    renderRing(e.duration);
+    el.nowApp.textContent = e.app;
+    if (el.nowTitle) el.nowTitle.textContent = e.title || '';
+    if (el.nowTime) el.nowTime.textContent = 'Was here ' + e.duration + ' min';
+    if (el.nowWhen) el.nowWhen.textContent = 'Earlier, ' + browseIndex + ' of ' + entries.length;
+    updateBrowseControls();
+    renderNowNote();
+  }
+
+  function updateBrowseControls() {
+    var n = activeEntries().length;
+    if (el.nowPrev) el.nowPrev.disabled = n === 0 || browseIndex >= n;
+    if (el.nowNext) el.nowNext.disabled = browseIndex < 0;
+  }
+
+  function goEarlier() {
+    var n = activeEntries().length;
+    if (!n) { resetBrowse(); updateBrowseControls(); return; }
+    if (browseIndex < 0) {
+      browseIndex = 1;
+      browseSig = timelineSig();
+    } else if (browseIndex < n) {
+      browseIndex += 1;
+    }
+    renderAhora();
+  }
+
+  function goLater() {
+    if (browseIndex < 0) return;
+    if (browseIndex > 1) browseIndex -= 1;
+    else resetBrowse();
+    renderAhora();
+  }
+
   function renderAhora() {
     if (!el.nowApp) return;
+    if (browseIndex >= 0) {
+      if (!hasTimelineEntries() || state.paused || state.away || timelineSig() !== browseSig) {
+        resetBrowse();
+      } else {
+        renderBrowse();
+        return;
+      }
+    }
+    updateBrowseControls();
+    renderNowNote();
+    if (el.nowWhen) el.nowWhen.textContent = '';
     renderRing(null);
     if (isLiveMode() && !hasTimelineEntries() && !(window.Live && Live.state && Live.state.liveApp)) {
       /* Live with no live events: never show the demo's Document. */
@@ -646,10 +1425,18 @@ var Retoma = (function () {
     if (el.nowTitle) el.nowTitle.textContent = 'Out · ' + state.awayMinutes + ' min';
     if (el.nowTime) el.nowTime.textContent = formatClock();
     if (el.nowDesc) el.nowDesc.textContent = 'Coming back shows where you left off.';
+    if (el.nowWhen) el.nowWhen.textContent = '';
+    updateBrowseControls();
   }
 
-  function togglePause() {
-    state.paused = !state.paused;
+  var PAUSE_MINUTES = 30;
+  var pauseTimer = null;
+
+  function clearPauseTimer() {
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+  }
+
+  function paintPauseUi() {
     if (window.retoma && window.retoma.setPaused) {
       try { window.retoma.setPaused(state.paused); } catch (e) { /* demo keeps going */ }
     }
@@ -657,6 +1444,7 @@ var Retoma = (function () {
     if (btn) {
       btn.classList.toggle('is-paused', state.paused);
       btn.setAttribute('aria-pressed', String(state.paused));
+      btn.setAttribute('aria-label', settingsText(state.paused ? 'Resume Retoma' : 'Pause Retoma'));
       var eyeOpen = btn.querySelector('.eye-open');
       var eyeClosed = btn.querySelector('.eye-closed');
       if (eyeOpen && eyeClosed) {
@@ -670,10 +1458,40 @@ var Retoma = (function () {
     Events.emit('retoma:pause', state.paused);
   }
 
+  function resumeIfPauseExpired() {
+    if (!state.paused) return false;
+    if (!state.pausedUntil || nowMs() < state.pausedUntil) return false;
+    state.paused = false;
+    state.pausedUntil = 0;
+    clearPauseTimer();
+    paintPauseUi();
+    return true;
+  }
+
+  function togglePause() {
+    if (state.paused) {
+      state.paused = false;
+      state.pausedUntil = 0;
+      clearPauseTimer();
+    } else {
+      state.paused = true;
+      state.pausedUntil = nowMs() + PAUSE_MINUTES * 60000;
+      clearPauseTimer();
+      var wait = Math.max(0, state.pausedUntil - nowMs());
+      pauseTimer = setTimeout(function () {
+        pauseTimer = null;
+        resumeIfPauseExpired();
+      }, wait);
+    }
+    paintPauseUi();
+    if (window.Visual && Visual.blinkEye) Visual.blinkEye();
+  }
+
   function isPaused() { return state.paused; }
 
   function renderTimeline() {
     if (!el.timelineBar) return;
+    if (state.aiMode === 'server') refreshQuota();
     /* Live reads ONLY live events: empty Live never falls back to the demo seed. */
     var dayStatement = document.getElementById('dayStatement');
     if (isLiveMode()) {
@@ -727,6 +1545,10 @@ var Retoma = (function () {
       var w = (e.duration / total * 100).toFixed(1);
       return '<div class="timeline-bar__seg" style="width:' + w + '%;--i:' + i + ';background:' + colors[i % colors.length] + '"></div>';
     }).join('');
+    // The sentence and the legend must tell the same story: both use the
+    // longest uninterrupted block in the visible timeline.
+    var longestSingle = data[0] || { app: 'Document', duration: 40 };
+    data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
     if (el.timelineLegend) {
       el.timelineLegend.style.display = '';
       // merge same-app segments for legend (sum minutes), keep bar segments
@@ -737,24 +1559,48 @@ var Retoma = (function () {
         if (!merged.hasOwnProperty(e.app)) { merged[e.app] = 0; order.push(e.app); appFirstColor[e.app] = colors[i % colors.length]; }
         merged[e.app] += e.duration;
       });
-      // longest uninterrupted (single) block explains proposal minutes
-      var longestSingle = data[0] || { app: 'Document', duration: 40 };
-      data.forEach(function (e) { if (e.duration > longestSingle.duration) longestSingle = e; });
-      el.timelineLegend.innerHTML = order.map(function (app) {
+      /* Live app names are data, never markup: build the legend with DOM
+       * nodes so a window title like <img onerror> stays literal text. */
+      el.timelineLegend.innerHTML = '';
+      order.forEach(function (app) {
         var c = appFirstColor[app];
-        var label = app + ' · ' + merged[app] + ' min';
+        var item = document.createElement('span');
+        item.className = 'timeline-legend__item';
+        var dot = document.createElement('span');
+        dot.className = 'timeline-legend__dot';
+        dot.style.background = c;
+        var label = document.createElement('span');
+        label.className = 'timeline-legend__label';
+        label.textContent = app + ' · ' + merged[app] + ' min';
+        item.appendChild(dot);
+        item.appendChild(label);
         if (app === longestSingle.app) {
-          return '<span class="timeline-legend__item timeline-legend__item--major"><span class="timeline-legend__dot" style="background:' + c + '"></span><span>' + label + '<span class="timeline-legend__sub">longest block ' + longestSingle.duration + ' min</span></span></span>';
+          item.classList.add('timeline-legend__item--major');
+          var sub = document.createElement('span');
+          sub.className = 'timeline-legend__sub';
+          sub.textContent = 'longest block ' + longestSingle.duration + ' min';
+          item.appendChild(sub);
         }
-        return '<span class="timeline-legend__item"><span class="timeline-legend__dot" style="background:' + c + '"></span>' + label + '</span>';
-      }).join('');
+        el.timelineLegend.appendChild(item);
+      });
+    }
+    var dayStatement = document.getElementById('dayStatement');
+    if (dayStatement && !isLiveMode()) {
+      dayStatement.textContent = longestSingle.app === 'Document'
+        ? 'Today, the report won the morning'
+        : 'Today, ' + longestSingle.app + ' took the morning';
     }
     if (el.timelineText) {
-      el.timelineText.textContent = isLiveMode()
-        ? 'Tracked today: ' + total + ' min on this PC'
-        : 'Planned: 2 h on the report · Actual: 1 h 20 min';
+      if (isLiveMode()) {
+        el.timelineText.textContent = 'Tracked today: ' + total + ' min on this PC';
+      } else {
+        var planned = (state.todayPlan && state.todayPlan.minutes)
+          ? state.todayPlan.minutes
+          : longestSingle.duration;
+        el.timelineText.textContent = 'Planned: ' + fmtDuration(planned) + ' · Actual: ' + fmtDuration(total);
+      }
     }
-    renderProposal(data);
+    if (!state.proposalAccepted) renderProposal(data);
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.emptyState) el.emptyState.classList.add('is-hidden');
     if (!state.proposalDismissed && el.proposalCard) {
@@ -768,8 +1614,10 @@ var Retoma = (function () {
   }
 
   function showEndOfDay() {
+    if (window.Guide && Guide.resumeActed) Guide.resumeActed();
     if (isLiveMode()) {
       state.proposalDismissed = false;
+      setAccepted(false);
       renderTimeline();
       if (el.timeline) el.timeline.classList.remove('is-hidden');
       openPanel();
@@ -781,7 +1629,9 @@ var Retoma = (function () {
       state.timeline.push({ app: state.currentApp, duration: state.timeInCurrent || 10 });
     }
     state.proposalDismissed = false;
+    setAccepted(false);
     renderTimeline();
+    if (window.Visual && Visual.countUpLegend) Visual.countUpLegend();
     persistTimeline();
     if (el.timeline) el.timeline.classList.remove('is-hidden');
     if (el.proposalCard) el.proposalCard.classList.remove('is-hidden');
@@ -791,11 +1641,53 @@ var Retoma = (function () {
 
   function dismissProposal() {
     state.proposalDismissed = true;
+    setAccepted(false);
+    endAdjust();
     if (el.proposalCard) el.proposalCard.classList.add('is-hidden');
   }
 
   function acceptProposal() {
-    dismissProposal();
+    if (state.adjust) {
+      if (!validateAdjust()) return;
+      var start = String(state.adjust.start || '').trim();
+      var minutes = state.adjust.minutes;
+      state.acceptedBlock = {
+        start: start,
+        minutes: minutes,
+        app: (state.currentProposal && state.currentProposal.app) || state.currentApp,
+        plannedFor: dayKey(addDays(nowMs(), 1))
+      };
+      writePlanBlock(state.acceptedBlock);
+      var end = fmtClock(Ai.parseClock(start) + minutes);
+      var textEl = document.getElementById('proposalText');
+      if (textEl) {
+        textEl.textContent = 'Tomorrow: ' + minutes + ' min for the report, ' + start +
+          ' to ' + end + ', before the messages arrive.';
+      }
+      if (state.currentProposal) {
+        state.currentProposal.start = start;
+        state.currentProposal.minutes = minutes;
+      }
+      var howEl = document.getElementById('proposalHow');
+      if (howEl) {
+        var baseHow = String(howEl.textContent || '')
+          .replace(/\s*\u00b7\s*adjusted to \d{1,2}:\d{2}\u2013\d{1,2}:\d{2}$/, '');
+        howEl.textContent = baseHow + ' \u00b7 adjusted to ' + start + '\u2013' + end;
+      }
+      endAdjust();
+      setAccepted(true);
+      return;
+    }
+    var cp = state.currentProposal;
+    if (!cp) { dismissProposal(); return; }
+    state.acceptedBlock = {
+      start: cp.start,
+      minutes: cp.minutes,
+      app: cp.app || state.currentApp,
+      plannedFor: dayKey(addDays(nowMs(), 1))
+    };
+    writePlanBlock(state.acceptedBlock);
+    setAccepted(true);
   }
 
   function deleteAll() {
@@ -808,6 +1700,8 @@ var Retoma = (function () {
       state.awayMinutes = 0;
       clearNote();
       hideResume();
+      resetBrowse();
+      updateBrowseControls();
       renderTimeline();
       dismissProposal();
       if (window.Live && Live.renderLiveToday) Live.renderLiveToday();
@@ -823,10 +1717,43 @@ var Retoma = (function () {
     state.awayMinutes = 0;
     clearNote();
     hideResume();
+    resetBrowse();
+    updateBrowseControls();
     renderTimeline();
     dismissProposal();
     Persist.removeAll('demo');
     try { window.localStorage.removeItem('retoma-exp-demo'); } catch (e) { /* noop */ }
+  }
+
+  /* Settings -> Demo mode: back to Demo, a clean demo history, and level 1
+   * of the guide again. Live history is untouched. */
+  function resetDemo() {
+    function finish() {
+      state.timeline = [];
+      state.empty = true;
+      state.away = false;
+      state.awayMinutes = 0;
+      state.proposalDismissed = false;
+      state.todayPlan = null;
+      state.acceptedBlock = null;
+      state.proposalAccepted = false;
+      try { window.localStorage.removeItem('retoma-block-demo'); } catch (e) { /* noop */ }
+      Persist.removeAll('demo');
+      resetBrowse();
+      updateBrowseControls();
+      renderTimeline();
+      renderAhora();
+      if (window.Guide && Guide.replay) {
+        try { Guide.replay(); } catch (e) { /* welcome is best-effort */ }
+      }
+    }
+    if (window.Live && Live.setMode) {
+      try {
+        var r = Live.setMode('demo');
+        if (r && typeof r.then === 'function') { r.then(finish); return; }
+      } catch (e) { /* fall through to the local reset */ }
+    }
+    finish();
   }
 
   function hasTimelineEntries() {
@@ -857,6 +1784,23 @@ var Retoma = (function () {
         e.style.top = (top + Math.floor(ix / 2) * (Math.max(rowH, 180) + gap)) + 'px';
         e.style.width = colW + 'px';
       });
+      /* Both windows in a row share one height, whatever the language makes
+       * the text do: measure the natural height of the pair, then let the
+       * shorter one stretch (min-height) to match the taller. */
+      var stacked = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+      [['win-doc', 'win-browser'], ['win-whatsapp', 'win-sheet']].forEach(function (ids) {
+        var wins = ids.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+        wins.forEach(function (w) { w.style.minHeight = ''; });
+        if (stacked || wins.length < 2) return;
+        var tallest = 0;
+        wins.forEach(function (w) {
+          var b = w.getBoundingClientRect();
+          if (b.height > tallest) tallest = b.height;
+        });
+        if (!tallest) return;
+        var h = Math.ceil(tallest) + 'px';
+        wins.forEach(function (w) { w.style.minHeight = h; });
+      });
     });
   }
 
@@ -873,7 +1817,8 @@ var Retoma = (function () {
   }
 
   function switchTab(name) {
-    if (!['ahora','hoy','priv'].includes(name)) return;
+    if (!['ahora','hoy','priv','config'].includes(name)) return;
+    if (window.Guide && Guide.tabChanged) Guide.tabChanged();
     activeTab = name;
     document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
       var is = b.getAttribute('data-tab') === name;
@@ -881,10 +1826,14 @@ var Retoma = (function () {
       b.setAttribute('aria-selected', is ? 'true' : 'false');
     });
     document.querySelectorAll('.retoma-tab').forEach(function (p) {
-      var idMap = { ahora: 'retomaTabAhora', hoy: 'retomaTabHoy', priv: 'retomaTabPriv' };
+      var idMap = { ahora: 'retomaTabAhora', hoy: 'retomaTabHoy', priv: 'retomaTabPriv', config: 'retomaTabConfig' };
       var target = idMap[name];
       if (p.id === target) p.classList.add('is-active'); else p.classList.remove('is-active');
     });
+    if (name === 'ahora') growLeaveNote();
+    if (window.Guide && Guide.visit) {
+      Guide.visit(name === 'ahora' ? 'note' : name === 'hoy' ? 'today' : name === 'priv' ? 'privacy' : 'settings');
+    }
     // keep the sliding tab ink under the active tab on every path
     // (button clicks and internal calls, not only the wrapped global).
     if (window.Visual && window.Visual.placeInk) {
@@ -895,6 +1844,7 @@ var Retoma = (function () {
   function startTick() {
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(function () {
+      if (resumeIfPauseExpired()) return;
       if (state.paused || state.away) return;
       state.timeInCurrent += 1;
       if (state.timeInCurrent % 2 === 0) {
@@ -904,14 +1854,46 @@ var Retoma = (function () {
     }, 1000);
   }
 
+  function buildBrowseRow() {
+    var hero = document.querySelector('#retomaTabAhora .now-hero');
+    if (!hero || document.getElementById('nowPrev')) return;
+    var row = document.createElement('div');
+    row.className = 'now-history';
+    var prev = document.createElement('button');
+    prev.type = 'button';
+    prev.id = 'nowPrev';
+    prev.className = 'now-history__btn';
+    prev.setAttribute('aria-label', 'Earlier');
+    prev.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"></path></svg>';
+    var when = document.createElement('span');
+    when.id = 'nowWhen';
+    when.className = 'now-history__when';
+    var next = document.createElement('button');
+    next.type = 'button';
+    next.id = 'nowNext';
+    next.className = 'now-history__btn';
+    next.setAttribute('aria-label', 'Later');
+    next.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6"></path></svg>';
+    row.appendChild(prev);
+    row.appendChild(when);
+    row.appendChild(next);
+    hero.appendChild(row);
+    prev.addEventListener('click', goEarlier);
+    next.addEventListener('click', goLater);
+  }
+
   function mount() {
-    el.deskClock = document.getElementById('deskClock');
-    el.menuBar = document.getElementById('menuBar');
+    buildBrowseRow();
+    el.deskClock = document.getElementById('deskClock');    el.menuBar = document.getElementById('menuBar');
     el.nowApp = document.getElementById('nowApp');
     el.nowTitle = document.getElementById('nowTitle');
+    el.nowNote = document.getElementById('nowNote');
     el.nowDesc = document.getElementById('nowDesc');
     el.nowTime = document.getElementById('nowTime');
     el.nowClock = document.getElementById('nowClock');
+    el.nowPrev = document.getElementById('nowPrev');
+    el.nowNext = document.getElementById('nowNext');
+    el.nowWhen = document.getElementById('nowWhen');
     el.toggleBtn = document.getElementById('retomaToggle');
     el.retomaPanel = document.getElementById('retomaPanel');
     el.resumeCard = document.getElementById('resumeCard');
@@ -928,9 +1910,19 @@ var Retoma = (function () {
     el.timelineBar = document.getElementById('timelineBar');
     el.timelineLegend = document.getElementById('timelineLegend');
     el.timelineText = document.getElementById('timelineText');
+    el.planCard = document.getElementById('planCard');
+    el.planStart = document.getElementById('planStart');
+    el.planDismiss = document.getElementById('planDismiss');
     el.proposalCard = document.getElementById('proposalCard');
     el.proposalAccept = document.getElementById('proposalAccept');
     el.proposalDecline = document.getElementById('proposalDecline');
+    el.proposalAdjust = document.getElementById('proposalAdjust');
+    el.proposalAdjuster = document.getElementById('proposalAdjuster');
+    el.adjustStart = document.getElementById('adjustStart');
+    el.adjustMinutes = document.getElementById('adjustMinutes');
+    el.adjustMinus = document.getElementById('adjustMinus');
+    el.adjustPlus = document.getElementById('adjustPlus');
+    el.adjustError = document.getElementById('adjustError');
     el.emptyState = document.getElementById('emptyState');
     el.confirmOverlay = document.getElementById('confirmOverlay');
     el.confirmYes = document.getElementById('confirmYes');
@@ -947,14 +1939,49 @@ var Retoma = (function () {
     if (el.retomarBtn) el.retomarBtn.addEventListener('click', doRetomar);
     if (el.startFreshBtn) el.startFreshBtn.addEventListener('click', doStartFresh);
     if (el.leaveNote) {
+      el.leaveNoteSaved = document.getElementById('leaveNoteSaved');
       try { el.leaveNote.value = loadNote(); } catch (e) { /* noop */ }
+      growLeaveNote();
+      el.leaveNote.addEventListener('input', function () {
+        var n = el.leaveNote;
+        var clean = cleanNoteText(n.value);
+        if (clean !== n.value) n.value = clean;
+        stashNoteSaved();
+        growLeaveNote();
+        scheduleNoteSave();
+      });
       el.leaveNote.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); saveNote(el.leaveNote.value); }
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          if (noteSavedTimer) { clearTimeout(noteSavedTimer); noteSavedTimer = null; }
+          var n = el.leaveNote;
+          var clean = cleanNoteText(n.value);
+          if (clean !== n.value) n.value = clean;
+          saveNote(n.value);
+          growLeaveNote();
+          showNoteSaved(true);
+          n.blur();
+          return;
+        }
+        stashNoteSaved();
       });
       el.leaveNote.addEventListener('blur', function () { saveNote(el.leaveNote.value); });
     }
+    if (el.planStart) el.planStart.addEventListener('click', startPlan);
+    if (el.planDismiss) el.planDismiss.addEventListener('click', dismissPlan);
     if (el.proposalAccept) el.proposalAccept.addEventListener('click', acceptProposal);
     if (el.proposalDecline) el.proposalDecline.addEventListener('click', dismissProposal);
+    if (el.proposalAdjust) el.proposalAdjust.addEventListener('click', function () {
+      if (state.adjust) endAdjust(); else startAdjust();
+    });
+    if (el.adjustStart) el.adjustStart.addEventListener('input', readAdjustStart);
+    if (el.adjustMinus) el.adjustMinus.addEventListener('click', function () { bumpAdjust(-15); });
+    if (el.adjustPlus) el.adjustPlus.addEventListener('click', function () { bumpAdjust(15); });
+    Array.prototype.forEach.call(document.querySelectorAll('#quotaOllamaHoy, #quotaOllamaPriv'), function (b) {
+      b.addEventListener('click', connectOllama);
+    });
+    var ollamaTest = document.getElementById('ollamaTest');
+    if (ollamaTest) ollamaTest.addEventListener('click', testOllama);
 
     // tabs
     document.querySelectorAll('.retoma-tabs__btn').forEach(function (b) {
@@ -991,25 +2018,30 @@ var Retoma = (function () {
     state.timeline = Events.seedTimeline.slice();
     loadAiPrefs();
     paintAiMode();
+    mountSettings();
     refreshCapabilities();
     document.querySelectorAll('[data-ai-mode]').forEach(function (b) {
       b.addEventListener('click', function () { selectAiMode(b.getAttribute('data-ai-mode')); });
     });
     var aiAllow = document.getElementById('aiAllow');
     if (aiAllow) aiAllow.addEventListener('click', function () {
-      if (!state.pendingMode) return;
-      state.aiConsent[state.pendingMode] = true;
-      var m = state.pendingMode;
-      state.pendingMode = null;
-      state.aiToken++;
-      state.aiMode = m;
-      saveAiPrefs();
-      hideConsent();
-      paintAiMode();
-      renderTimeline();
+      if (state.pendingMode) grantAiConsentMode(state.pendingMode);
     });
     var aiCancel = document.getElementById('aiCancel');
     if (aiCancel) aiCancel.addEventListener('click', function () { state.pendingMode = null; hideConsent(); paintAiMode(); });
+    var aiSuggestBtn = document.getElementById('aiSuggestBtn');
+    if (aiSuggestBtn) aiSuggestBtn.addEventListener('click', aiSuggestClick);
+    var aiSuggestSend = document.getElementById('aiSuggestSend');
+    if (aiSuggestSend) aiSuggestSend.addEventListener('click', sendSuggestedAi);
+    var aiSuggestCancel = document.getElementById('aiSuggestCancel');
+    if (aiSuggestCancel) aiSuggestCancel.addEventListener('click', hideSuggestConsent);
+    syncSuggestButton();
+    paintSuggestCopy();
+    try {
+      if (window.MutationObserver) {
+        new MutationObserver(paintSuggestCopy).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+      }
+    } catch (e) { /* label keeps its language */ }
     var privExport = document.getElementById('privacyExport');
     if (privExport) privExport.addEventListener('click', function () { Persist.exportData(state.timeline); });
     if (window.retoma && window.retoma.onFocusResume) {
@@ -1034,14 +2066,20 @@ var Retoma = (function () {
     }
     Persist.load('demo').then(function (events) {
       if (events && events.length) {
-        state.timeline = events.slice(-12).map(function (e) { return { app: e.app, duration: e.duration }; });
+        state.timeline = events.slice(-12).map(function (e) {
+          if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+          return { app: e.app, duration: e.duration };
+        });
         state.empty = false;
         if (!isLiveMode()) renderTimeline();
         persistTimeline();
       }
     });
     Persist.load('live').then(function (events) {
-      var list = (events || []).map(function (e) { return { app: e.app, duration: e.duration }; });
+      var list = (events || []).map(function (e) {
+        if (e && e.ts) return { app: e.app, duration: e.duration, ts: e.ts };
+        return { app: e.app, duration: e.duration };
+      });
       if (list.length) {
         state.liveTimeline = list.slice(-12);
         state.liveEmpty = false;
@@ -1056,12 +2094,18 @@ var Retoma = (function () {
     renderTimeline();
     hideResume();
     switchTab('ahora');
+    checkPlanCard();
     closePanel();
     startTick();
     window.addEventListener('resize', syncDesktopLayout);
+    /* i18n swaps the window text in place; re-balance the row heights after it. */
+    if (window.MutationObserver && document.getElementById('desktopWorkspace')) {
+      new MutationObserver(function () { syncDesktopLayout(); })
+        .observe(document.getElementById('desktopWorkspace'), { childList: true, subtree: true, characterData: true });
+    }
 
     // expose for tests/story
-    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode };
+    window.Retoma = { state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, dismissProposal: dismissProposal, acceptProposal: acceptProposal, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, togglePanel: togglePanel, setClock: setClock, advanceClock: advanceClock, switchTab: switchTab, isPanelOpen: isPanelOpen, syncDesktopLayout: syncDesktopLayout, renderTimeline: renderTimeline, renderAhora: renderAhora, selectAiMode: selectAiMode, hasBridge: hasBridge, reloadForMode: reloadForMode, isLiveMode: isLiveMode, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired, resetDemo: resetDemo };
   }
 
   function openConfirm() {
@@ -1086,5 +2130,5 @@ var Retoma = (function () {
     el.lastFocus = null;
   }
 
-  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora };
+  return { mount: mount, state: state, switchApp: switchApp, rotateApp: rotateApp, receiveWhatsapp: receiveWhatsapp, goAway: goAway, comeBack: comeBack, showResume: showResume, hideResume: hideResume, doRetomar: doRetomar, togglePause: togglePause, isPaused: isPaused, showEndOfDay: showEndOfDay, deleteAll: deleteAll, hasTimelineEntries: hasTimelineEntries, openPanel: openPanel, closePanel: closePanel, setClock: setClock, reloadForMode: reloadForMode, isLiveMode: isLiveMode, renderTimeline: renderTimeline, renderAhora: renderAhora, setQuota: setQuota, refreshQuota: refreshQuota, connectOllama: connectOllama, checkPlanCard: checkPlanCard, startPlan: startPlan, dismissPlan: dismissPlan, resumeIfPauseExpired: resumeIfPauseExpired, resetDemo: resetDemo };
 })();

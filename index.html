@@ -1,9 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retoma</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' file:; connect-src 'self' file: http://127.0.0.1:11434 http://localhost:11434; object-src 'none'; base-uri 'self'; frame-src 'none'">
+<script>
+  /* Paint the right theme before first paint: light unless the person chose otherwise. */
+  (function () {
+    var mode = 'light';
+    try { mode = window.localStorage.getItem('retoma-theme') || 'light'; } catch (e) { mode = 'light'; }
+    if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'light';
+    var eff = mode === 'system'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : mode;
+    document.documentElement.setAttribute('data-theme', eff);
+    document.documentElement.setAttribute('data-theme-mode', mode);
+  })();
+</script>
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/desk.css">
@@ -28,8 +42,8 @@
           <button class="mode-switch__btn" data-mode="live" aria-pressed="false">Live</button>
         </div>
         <div class="lang-switch" role="group" aria-label="Language">
-          <button class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
-          <button class="lang-switch__btn" data-lang="es" aria-pressed="false">ES</button>
+          <button class="lang-switch__btn" data-lang="en" aria-pressed="false">EN</button>
+          <button class="lang-switch__btn is-active" data-lang="es" aria-pressed="true">ES</button>
         </div>
         <button id="themeToggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme" aria-pressed="false">
           <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -55,12 +69,23 @@
       </div>
     </header>
     <main id="retomaPanel" class="retoma-panel is-open" aria-label="Retoma">
-      <!-- Resume card is hero, NOT a tab: first and largest when exists -->
+      <div class="retoma-tabs" role="tablist" aria-label="Retoma sections">
+        <button class="retoma-tabs__btn is-active" role="tab" aria-selected="true" data-tab="ahora" id="tabBtnAhora">Now</button>
+        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="hoy" id="tabBtnHoy">Today</button>
+        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="priv" id="tabBtnPriv">Privacy</button>
+        <button class="retoma-tabs__btn retoma-tabs__btn--settings" role="tab" aria-selected="false" data-tab="config" id="tabBtnConfig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+          <span>Settings</span>
+        </button>
+      </div>
+
+      <!-- Resume card is the hero, NOT a tab: first and largest content when it exists. Tabs sit above it so they never jump. -->
       <div id="resumeCard" class="resume-card is-hidden" aria-live="polite" aria-atomic="true">
+        <div class="resume-face" aria-hidden="true"><span class="ring-face" aria-hidden="true"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span></div>
         <div class="resume-card__eyebrow">Retoma</div>
         <h3 id="resumeHero" class="resume-card__hero">You were in Document</h3>
         <p id="resumeAi" class="resume-card__ai is-hidden"></p>
-        <p id="resumeSub" class="resume-card__sub">Quality report (paragraph 3)</p>
+        <p id="resumeSub" class="resume-card__sub">Quality report, paragraph 3</p>
         <p id="resumeNote" class="resume-card__note is-hidden"></p>
         <p id="resumeInter" class="resume-card__inter">WhatsApp interrupted you · 25 min</p>
         <p id="resumeHonest" class="resume-card__honest is-hidden">Retoma can't reopen windows here; it reminds you where you were.</p>
@@ -71,12 +96,6 @@
           <button id="retomarBtn" class="btn btn--primary">Resume</button>
           <button id="startFreshBtn" class="btn btn--ghost">Start fresh</button>
         </div>
-      </div>
-
-      <div class="retoma-tabs" role="tablist" aria-label="Retoma sections">
-        <button class="retoma-tabs__btn is-active" role="tab" aria-selected="true" data-tab="ahora" id="tabBtnAhora">Now</button>
-        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="hoy" id="tabBtnHoy">Today</button>
-        <button class="retoma-tabs__btn" role="tab" aria-selected="false" data-tab="priv" id="tabBtnPriv">Privacy</button>
       </div>
 
       <div id="retomaTabAhora" class="retoma-tab is-active" role="tabpanel" aria-labelledby="tabBtnAhora">
@@ -98,18 +117,30 @@
               <circle class="now-ring__track" cx="60" cy="60" r="52"></circle>
               <circle class="now-ring__fill" cx="60" cy="60" r="52" pathLength="100"></circle>
             </svg>
-            <span id="nowRingLabel" class="now-ring__label tabular">0<small>min</small></span>
+            <span class="ring-face" aria-hidden="true"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span>
           </div>
           <div class="now-row">
             <span id="nowApp" class="now-app">Document</span>
             <span id="nowTime" class="now-time tabular">0 min here</span>
           </div>
-          <p id="nowTitle" class="panel-section__text">Quality report (paragraph 3)</p>
+          <p id="nowTitle" class="panel-section__text">Quality report, paragraph 3</p>
+          <p id="nowNote" class="now-note"></p>
           <p id="nowDesc" class="panel-section__text--muted">Only the app name and the title. Never what you type.</p>
           </div>
           <div class="leave-note">
-            <label for="leaveNote">Next step (one line)</label>
-            <input id="leaveNote" type="text" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note">
+            <div class="leave-note__head">
+              <label for="leaveNote">Next step</label>
+              <span id="leaveNoteSaved" class="leave-note__saved" aria-live="polite">Saved, you'll see it when you come back</span>
+            </div>
+            <textarea id="leaveNote" rows="1" maxlength="200" placeholder="What's next when you return?" aria-label="Next step note"></textarea>
+          </div>
+          <div id="planCard" class="proposal-card plan-card is-hidden" aria-live="polite">
+            <div class="proposal-card__label">Today's plan</div>
+            <p id="planText" class="proposal-card__text"></p>
+            <div class="proposal-actions">
+              <button id="planStart" class="btn btn--primary" type="button">Start plan</button>
+              <button id="planDismiss" class="btn btn--ghost" type="button">Dismiss plan</button>
+            </div>
           </div>
         </section>
       </div>
@@ -123,11 +154,48 @@
           <p id="timelineText" class="planned-real tabular">Planned: 2 h on the report · Actual: 1 h 20 min</p>
           <div id="proposalCard" class="proposal-card">
             <div class="proposal-card__label">Suggestion · <span id="proposalTag" class="proposal-tag">On-device rules</span></div>
+            <div class="ai-suggest-row">
+              <button id="aiSuggestBtn" class="btn btn--ai" type="button">
+                <span class="ai-face" aria-hidden="true"><span class="ring-face"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span></span>
+                <span id="aiSuggestLabel">Suggest with AI</span>
+              </button>
+            </div>
+            <div id="aiSuggestConsent" class="ai-suggest-consent is-hidden">
+              <p class="panel-section__text--muted">Sends app names and minutes to the Retoma server. No titles, no notes.</p>
+              <details class="ai-suggest-details">
+                <summary>See exactly what is sent</summary>
+                <pre id="aiSuggestPayload" class="ai-payload"></pre>
+              </details>
+              <div class="proposal-actions">
+                <button id="aiSuggestSend" class="btn btn--primary" type="button">Send</button>
+                <button id="aiSuggestCancel" class="btn btn--ghost" type="button">Cancel</button>
+              </div>
+            </div>
             <p id="proposalText" class="proposal-card__text">Tomorrow: 40 min for the report, 9:00 to 9:40, before the messages arrive.</p>
             <p id="proposalHow" class="proposal-card__how">How I decided: longest block Document 40 min · first interruption WhatsApp 9:52 · window 9:00–9:40</p>
-            <div class="proposal-actions">
+            <p id="proposalAccepted" class="proposal-accepted is-hidden" aria-live="polite"></p>
+            <div id="aiProof" class="ai-proof is-hidden">
+              <p id="aiProofLine" class="ai-proof__line"></p>
+              <details class="ai-suggest-details">
+                <summary>What the model saw</summary>
+                <pre id="aiProofPayload" class="ai-payload"></pre>
+              </details>
+            </div>
+            <div id="proposalActions" class="proposal-actions">
               <button id="proposalAccept" class="btn btn--primary">Accept</button>
+              <button id="proposalAdjust" class="btn btn--ghost" type="button">Adjust</button>
               <button id="proposalDecline" class="btn btn--ghost">No, thanks</button>
+            </div>
+            <div id="proposalAdjuster" class="proposal-adjust is-hidden">
+              <label class="proposal-adjust__field" for="adjustStart">Start
+                <input id="adjustStart" type="text" inputmode="numeric" placeholder="9:30" aria-label="Start time">
+              </label>
+              <div class="proposal-adjust__minutes">
+                <button id="adjustMinus" class="btn btn--ghost" type="button" aria-label="15 minutes less">−15</button>
+                <span id="adjustMinutes" class="proposal-adjust__value" aria-live="polite">40</span>
+                <button id="adjustPlus" class="btn btn--ghost" type="button" aria-label="15 minutes more">+15</button>
+              </div>
+              <p id="adjustError" class="proposal-adjust__error is-hidden">Use a time like 9:30 and 15–180 min</p>
             </div>
           </div>
           <div id="emptyState" class="empty-state is-hidden">No history. Everything was deleted.</div>
@@ -148,6 +216,13 @@
               </div>
               <p id="habitAskAnswer" class="habit-exp is-hidden"></p>
             </div>
+          </div>
+          <div id="quotaHoy" class="quota is-hidden">
+            <p id="quotaTextHoy" class="quota__text">AI requests: 0 left</p>
+            <div class="quota-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="AI requests left">
+              <div id="quotaFillHoy" class="quota-fill"></div>
+            </div>
+            <button id="quotaOllamaHoy" class="btn btn--ghost is-hidden" type="button">Connect Ollama</button>
           </div>
         </section>
       </div>
@@ -173,7 +248,7 @@
               </ul>
             </div>
           </div>
-          <p class="privacy-foot">Everything stays on this device. <strong>7 days, then it is deleted.</strong></p>
+          <p class="privacy-foot"><span id="privacyFootText">Everything stays on this device.</span> <strong>7 days, then it is deleted.</strong></p>
           <div class="mode-row">
             <div class="panel-section__label">Mode</div>
             <div class="mode-switch mode-switch--panel" role="group" aria-label="Demo or Live mode">
@@ -192,6 +267,21 @@
             </div>
             <p id="aiModeReason" class="panel-section__text--muted is-hidden"></p>
             <p id="aiStatus" class="panel-section__text--muted">Local model: off</p>
+            <div id="quotaPriv" class="quota is-hidden">
+              <p id="quotaTextPriv" class="quota__text">AI requests: 0 left</p>
+              <div class="quota-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="AI requests left">
+                <div id="quotaFillPriv" class="quota-fill"></div>
+              </div>
+              <button id="quotaOllamaPriv" class="btn btn--ghost is-hidden" type="button">Connect Ollama</button>
+            </div>
+            <div id="ollamaConnect" class="ollama-connect">
+              <label class="panel-section__label" for="ollamaUrl">Ollama URL</label>
+              <div class="blocklist__row">
+                <input id="ollamaUrl" type="text" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434" aria-label="Ollama URL">
+                <button id="ollamaTest" class="btn" type="button">Test</button>
+              </div>
+              <p id="ollamaTestResult" class="panel-section__text--muted is-hidden" aria-live="polite"></p>
+            </div>
             <div id="aiConsent" class="ai-consent is-hidden">
               <p class="panel-section__text--muted">This exact payload is sent. Nothing else leaves this device.</p>
               <pre id="aiPayload" class="ai-payload"></pre>
@@ -229,6 +319,81 @@
           </div>
         </section>
       </div>
+
+      <div id="retomaTabConfig" class="retoma-tab" role="tabpanel" aria-labelledby="tabBtnConfig">
+        <section class="panel-section settings" aria-label="Settings">
+          <div class="settings-group">
+            <h4 class="settings-group__title">Language</h4>
+            <div class="seg" role="group" aria-label="Language">
+              <button class="seg__btn" type="button" data-settings-lang="es">Español</button>
+              <button class="seg__btn" type="button" data-settings-lang="en">English</button>
+            </div>
+            <p class="panel-section__text--muted">Changes the whole app at once, without reloading or losing what you were doing.</p>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Theme</h4>
+            <div class="seg" role="group" aria-label="Theme">
+              <button class="seg__btn" type="button" data-theme-choice="light">Light</button>
+              <button class="seg__btn" type="button" data-theme-choice="dark">Dark</button>
+              <button class="seg__btn" type="button" data-theme-choice="system">System</button>
+            </div>
+            <p class="panel-section__text--muted">System follows this computer. Light is the default.</p>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Artificial intelligence</h4>
+            <div class="seg" role="group" aria-label="Artificial intelligence">
+              <button class="seg__btn" type="button" data-settings-ai="on">On</button>
+              <button class="seg__btn" type="button" data-settings-ai="off">Off</button>
+            </div>
+            <p id="settingsAiStatus" class="panel-section__text--muted" aria-live="polite">Artificial intelligence is off</p>
+            <p class="panel-section__text--muted">When it is on, only app names and minutes go to the server. Never titles, never notes.</p>
+            <div class="settings-actions">
+              <button id="settingsAiConsent" class="btn btn--secondary" type="button">Revoke permission</button>
+              <button id="settingsSeePayload" class="btn btn--ghost" type="button">See what is sent</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Privacy</h4>
+            <p id="settingsPrivacyText" class="panel-section__text--muted">It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.</p>
+            <div class="settings-actions">
+              <button id="settingsExport" class="btn btn--secondary" type="button">Export my data</button>
+              <button id="settingsDelete" class="btn btn--destructive" type="button">Delete everything</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Guide</h4>
+            <div class="settings-actions">
+              <button id="guideReplay" class="btn btn--secondary" type="button">See the guide again</button>
+              <button id="helpOpen" class="btn btn--ghost" type="button">Help</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Account</h4>
+            <p class="panel-section__text--muted">Demo session: no account is stored.</p>
+            <div class="settings-actions">
+              <button id="settingsSignOut" class="btn btn--secondary" type="button">Sign out</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4 class="settings-group__title">Demo mode</h4>
+            <p class="panel-section__text--muted">Starts again in Demo with a clean history and replays the welcome.</p>
+            <div class="settings-actions">
+              <button id="resetDemo" class="btn btn--secondary" type="button">Reset demo</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="helpPanel" class="panel-section help" aria-labelledby="helpTitle" tabindex="-1">
+          <h3 id="helpTitle" class="settings-group__title">Help</h3>
+          <div id="helpBody" class="help__body"></div>
+        </section>
+      </div>
     </main>
   <section class="desktop-area" aria-label="Your desktop">
 
@@ -243,7 +408,7 @@
       <div id="win-doc" class="window is-focused" data-app="Document">
         <div class="window__bar">
           <div class="window__dots"><span class="window__dot window__dot--close"></span><span class="window__dot"></span><span class="window__dot"></span></div>
-          <span class="window__title">Quality report</span><span class="window__app">Document</span>
+          <span class="window__title">Quality report, paragraph 3</span><span class="window__app">Document</span>
         </div>
         <div class="window__body">
           <p><strong>Quality report, paragraph 3</strong></p>
@@ -331,24 +496,22 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 3v18"></path><path d="M14 13h3M14 17h3"></path></svg>
       </button>
     </div>
-    <div id="subtitle" aria-live="polite"></div>
   </section>
 
   <aside class="sim-panel" aria-label="Demo controls">
     <h2 class="sim-title">Demo controls</h2>
     <section class="sim-section" aria-label="Guided tour">
-      <div class="sim-label">Guided tour, 60 seconds</div>
+      <div class="sim-label">Guided tour, 7 steps</div>
       <div class="story-controls">
         <button id="storyPlay" class="btn btn--primary btn--hero"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"></path></svg><span class="story-play-label">Guided tour</span></button>
       </div>
       <div class="btn-row btn-row--trio">
-        <button id="storyPause" class="btn btn--secondary" disabled>Pause</button>
         <button id="storySkip" class="btn btn--secondary" disabled>Skip to end</button>
         <button id="storyRestart" class="btn btn--secondary">Restart</button>
       </div>
-      <div class="panel-section__text--muted tabular">Status: <span id="storyClock">ready</span></div>
     </section>
 
+    <div id="tourCard" class="tour-card" role="region" aria-label="Guided tour" aria-hidden="true"><div class="tour-card__text"><span id="tourStep">1 / 7</span><p id="subtitle" aria-live="polite"></p><p id="tourWhy"></p></div><div class="tour-card__nav"><button id="tourBack" class="btn btn--ghost">Back</button><button id="tourNext" class="btn btn--primary">Next</button></div></div>
     <section id="freeMode" class="sim-section" aria-label="Free mode">
       <div class="sim-label">Free mode</div>
       <div class="btn-row">
@@ -365,8 +528,65 @@
       </div>
       <button class="btn btn--destructive" data-act="delete" id="btnDelete">Delete everything</button>
     </section>
-    <p class="panel-section__text--muted">Everything stays on this device. Pause anytime.</p>
+    <p id="simPrivacyFoot" class="panel-section__text--muted">Everything stays on this device. Pause anytime.</p>
   </aside>
+</div>
+
+<div id="loginScreen" class="login is-hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle" aria-describedby="loginHint">
+  <div class="login__tools">
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button class="lang-switch__btn" data-lang="en" aria-pressed="false" type="button">EN</button>
+      <button class="lang-switch__btn is-active" data-lang="es" aria-pressed="true" type="button">ES</button>
+    </div>
+  </div>
+  <div class="login__stage">
+    <section class="login__brand" aria-hidden="true">
+      <div class="login-face" id="loginFace" data-mood="watching">
+        <span class="ring-face"><span class="ring-eye"></span><span class="ring-eye"></span><span class="ring-mouth"></span></span>
+      </div>
+    </section>
+    <section class="login__panel">
+      <h2 id="loginTitle" class="login__title">Pick up where you left off</h2>
+      <p id="loginGreeting" class="login__greeting" hidden></p>
+      <form id="loginForm" class="login__form" novalidate>
+        <div class="login-field">
+          <label for="loginUser">Name or email</label>
+          <input id="loginUser" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="loginError">
+        </div>
+        <div class="login-field">
+          <label for="loginPass">Password</label>
+          <div class="login-field__row">
+            <input id="loginPass" name="password" type="password" autocomplete="current-password" aria-describedby="loginError">
+            <button id="loginReveal" class="login-reveal" type="button" aria-pressed="false" aria-controls="loginPass">Show</button>
+          </div>
+        </div>
+        <p id="loginError" class="login__error" role="alert"></p>
+        <button id="loginSubmit" class="btn btn--primary login__submit" type="submit">Sign in</button>
+        <button id="loginGuest" class="btn btn--ghost login__guest" type="button">Continue without an account</button>
+      </form>
+      <p id="loginHint" class="login__hint">Demo: no account is created and nothing leaves this device.</p>
+    </section>
+  </div>
+</div>
+
+<div id="guideOverlay" class="guide-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="guideTitle" aria-describedby="guideBody">
+  <div class="guide-card">
+    <p class="guide-count" id="guideCount">1 / 3</p>
+    <div class="guide-dots" id="guideDots" aria-hidden="true"></div>
+    <h2 id="guideTitle" class="guide-card__title">Welcome to Retoma</h2>
+    <p id="guideBody" class="guide-card__body"></p>
+    <div class="guide-actions">
+      <button id="guideSkip" class="btn btn--ghost" type="button">Skip</button>
+      <span class="guide-actions__spacer"></span>
+      <button id="guideBack" class="btn btn--secondary" type="button">Back</button>
+      <button id="guideNext" class="btn btn--primary" type="button">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="coachTip" class="coach-tip is-hidden" role="dialog" aria-labelledby="coachTipText">
+  <p id="coachTipText" class="coach-tip__text"></p>
+  <button id="coachTipClose" class="btn btn--ghost" type="button">Got it</button>
 </div>
 
 <div id="confirmOverlay" class="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
@@ -380,6 +600,7 @@
   </div>
 </div>
 
+<script src="js/i18n.js"></script>
 <script src="js/events.js"></script>
 <script src="js/ai.js"></script>
 <script src="ai/habits.js"></script>
@@ -390,9 +611,9 @@
 <script src="js/habits.js"></script>
 <script src="js/story.js"></script>
 <script src="js/theme.js"></script>
-<script src="js/presence.js"></script>
 <script src="js/visual.js"></script>
-<script src="js/i18n.js"></script>
+<script src="js/login.js"></script>
+<script src="js/guide.js"></script>
 <script src="js/mood.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -402,9 +623,10 @@
     if (window.HabitsUI && HabitsUI.mount) HabitsUI.mount();
     Story.mount();
     Theme.mount();
-    Presence.mount();
     Visual.mount();
     if (window.I18n && I18n.mount) I18n.mount();
+    if (window.Login && Login.mount) Login.mount();
+    if (window.Guide && Guide.mount) Guide.mount();
     if (window.Mood && Mood.mount) Mood.mount();
   });
 </script>

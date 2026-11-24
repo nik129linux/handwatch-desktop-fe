@@ -1,6 +1,6 @@
-/* visual.js — D2 craft layer: entrance, resume moment, timeline scrub/count-up,
-   theme circular reveal, magnetic buttons, eye blink, sliding tab ink.
-   One smoothed value per input (mostar), word blur-in (space), master ease only. */
+/* visual.js — the small motion layer the app actually calls: entrance,
+ * resume-card zoom + chip FLIP, legend count-up, eye blink, tab ink.
+ * CSS owns the animations; reduced motion turns them all off. */
 var Visual = (function () {
   'use strict';
 
@@ -21,7 +21,7 @@ var Visual = (function () {
     setTimeout(function () { btn.classList.remove('is-blink'); }, 360);
   }
 
-  /* --- entrance: bloom, menu slide, windows fly staggered 70ms from dock --- */
+  /* --- entrance: bloom, menu slide, title words staggered --------------- */
   function splitWords(el, baseDelay, step) {
     if (!el) return;
     var text = el.textContent || '';
@@ -45,170 +45,33 @@ var Visual = (function () {
     setTimeout(function () { document.body.classList.remove('is-launch'); }, 1300);
   }
 
-  /* --- resume moment: scrim, zoom from eye, chips FLIP, fly-out, settle --- */
-  function eyeCenter() {
-    var btn = document.getElementById('retomaToggle');
-    if (!btn) return { x: window.innerWidth - 60, y: 20 };
-    var r = btn.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }
-
-  function armResume() {
-    if (!window.Retoma) return;
-    var origShow = Retoma.showResume;
-    Retoma.showResume = function () {
-      origShow();
-      var ws = document.getElementById('desktopWorkspace');
-      if (ws) ws.classList.add('has-resume');
-      var card = document.getElementById('resumeCard');
-      if (card && !reduced) {
-        card.classList.remove('is-zoom');
-        void card.offsetWidth;
-        card.classList.add('is-zoom');
-      }
-      blinkEye();
-      flipChipsIn();
-    };
-    var origHide = Retoma.hideResume;
-    Retoma.hideResume = function () {
-      var ws = document.getElementById('desktopWorkspace');
-      if (ws) ws.classList.remove('has-resume');
-      origHide();
-    };
-    var origGo = Retoma.doRetomar;
-    Retoma.doRetomar = function () {
-      flyChipsOut();
-      origGo();
-      if (!reduced) {
-        setTimeout(function () {
-          each('.window--entering', function (w) { w.classList.add('window--settle'); });
-          setTimeout(function () {
-            each('.window--settle', function (w) { w.classList.remove('window--settle'); });
-          }, 700);
-        }, 60);
-      }
-      var ws = document.getElementById('desktopWorkspace');
-      if (ws) ws.classList.remove('has-resume');
-    };
-  }
-
-  function flipChipsIn() {
-    if (reduced) return;
-    var chips = document.querySelectorAll('.resume-chip');
-    var eye = eyeCenter();
-    for (var i = 0; i < chips.length; i++) {
-      (function (chip, i) {
-        var r = chip.getBoundingClientRect();
-        var dx = eye.x - (r.left + r.width / 2);
-        var dy = eye.y - (r.top + r.height / 2);
-        chip.style.transition = 'none';
-        chip.style.transform = 'translate(' + Math.round(dx) + 'px,' + Math.round(dy) + 'px) scale(0.5)';
-        chip.style.opacity = '0';
-        void chip.offsetWidth;
-        chip.style.transition = '';
-        chip.style.transitionDelay = (i * 70) + 'ms';
-        chip.style.transform = '';
-        chip.style.opacity = '';
-        setTimeout(function () { chip.style.transitionDelay = ''; }, 600 + i * 70);
-      })(chips[i], i);
-    }
-  }
-
-  function flyChipsOut() {
-    var card = document.getElementById('resumeCard');
+  /* --- resume moment: card zoom and chips flipping into place ---------- */
+  function resumeZoom(card) {
     if (!card || reduced) return;
-    var chips = card.querySelectorAll('.resume-chip');
-    var wins = ['Document', 'Browser', 'Spreadsheet'];
+    card.classList.remove('is-zoom');
+    void card.offsetWidth;
+    card.classList.add('is-zoom');
+    setTimeout(function () { card.classList.remove('is-zoom'); }, 700);
+  }
+
+  function flipChipsIn(root) {
+    if (reduced) return;
+    var host = root || document.querySelector('#resumeChips');
+    if (!host) return;
+    var chips = host.querySelectorAll('.resume-chip');
+    if (!chips.length) return;
+    host.classList.remove('is-flipping');
     for (var i = 0; i < chips.length; i++) {
-      (function (chip, i) {
-        var app = wins[i % wins.length];
-        var target = document.querySelector('.window[data-app="' + app + '"]') ||
-          document.querySelector('.dock__item[data-app="' + app + '"]');
-        if (!target) return;
-        var r = chip.getBoundingClientRect();
-        var t = target.getBoundingClientRect();
-        var ghost = document.createElement('span');
-        ghost.className = 'chip-ghost';
-        ghost.textContent = chip.textContent;
-        ghost.style.left = Math.round(r.left) + 'px';
-        ghost.style.top = Math.round(r.top) + 'px';
-        document.body.appendChild(ghost);
-        var dx = (t.left + t.width / 2) - (r.left + r.width / 2);
-        var dy = (t.top + t.height / 2) - (r.top + r.height / 2);
-        ghost.style.transitionDelay = (i * 70) + 'ms';
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            ghost.style.transform = 'translate(' + Math.round(dx) + 'px,' + Math.round(dy) + 'px) scale(0.6)';
-            ghost.style.opacity = '0';
-          });
-        });
-        setTimeout(function () { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); }, 700 + i * 70);
-      })(chips[i], i);
+      chips[i].style.setProperty('--ci', String(i));
     }
+    void host.offsetWidth;
+    host.classList.add('is-flipping');
+    setTimeout(function () { host.classList.remove('is-flipping'); }, 900);
   }
 
-  /* --- timeline: count-up minutes + hover scrub rule --- */
-  var countArmed = false;
-
-  function armTimeline() {
-    if (!window.Retoma) return;
-    var origEnd = Retoma.showEndOfDay;
-    Retoma.showEndOfDay = function () {
-      countArmed = !reduced;
-      origEnd();
-      countArmed = false;
-    };
-    var origRender = Retoma.renderTimeline;
-    Retoma.renderTimeline = function () {
-      origRender();
-      if (countArmed) countUpLegend();
-    };
-    var bar = document.getElementById('timelineBar');
-    if (bar && !bar.parentElement.querySelector('.timeline-scrub')) {
-      var scrub = document.createElement('div');
-      scrub.className = 'timeline-scrub';
-      scrub.setAttribute('aria-hidden', 'true');
-      bar.appendChild(scrub);
-      var read = document.createElement('div');
-      read.className = 'timeline-readout';
-      read.setAttribute('aria-hidden', 'true');
-      bar.appendChild(read);
-      bar.addEventListener('pointermove', function (ev) {
-        if (reduced) return;
-        var r = bar.getBoundingClientRect();
-        var x = ev.clientX - r.left;
-        var segs = bar.querySelectorAll('.timeline-bar__seg');
-        if (!segs.length) return;
-        var frac = Math.min(Math.max(x / r.width, 0), 1);
-        scrub.style.opacity = '1';
-        scrub.style.transform = 'translateX(' + Math.round(x) + 'px)';
-        var acc = 0;
-        var total = 0;
-        var data = window.Retoma && Retoma.state ? ((Retoma.isLiveMode && Retoma.isLiveMode() ? Retoma.state.liveTimeline : Retoma.state.timeline) || []) : [];
-        for (var i = 0; i < data.length; i++) total += data[i].duration;
-        var walked = 0;
-        var label = '';
-        for (var j = 0; j < segs.length; j++) {
-          var w = segs[j].getBoundingClientRect().width;
-          if (x <= walked + w && data[j]) {
-            label = data[j].app + ' · ' + data[j].duration + ' min';
-            break;
-          }
-          walked += w;
-        }
-        acc = Math.round(frac * total);
-        read.textContent = (label ? label + ', ' : '') + acc + ' min in';
-        read.style.opacity = '1';
-        read.style.transform = 'translateX(' + Math.round(Math.min(Math.max(x - 60, 0), r.width - 130)) + 'px)';
-      });
-      bar.addEventListener('pointerleave', function () {
-        scrub.style.opacity = '0';
-        read.style.opacity = '0';
-      });
-    }
-  }
-
+  /* --- end of day: legend minutes count up from zero ------------------- */
   function countUpLegend() {
+    if (reduced) return;
     var items = document.querySelectorAll('.timeline-legend__item');
     for (var i = 0; i < items.length; i++) {
       (function (item) {
@@ -233,33 +96,7 @@ var Visual = (function () {
     }
   }
 
-  /* --- theme: View Transitions circular reveal from the toggle --- */
-  function armTheme() {
-    if (!window.Theme) return;
-    var origApply = Theme.apply;
-    Theme.apply = function (name, animate) {
-      if (!animate || reduced || !document.startViewTransition) {
-        origApply(name, animate);
-        return;
-      }
-      var btn = document.getElementById('themeToggle');
-      var r = btn ? btn.getBoundingClientRect() : { left: window.innerWidth - 60, top: 12, width: 32, height: 22 };
-      var x = r.left + r.width / 2;
-      var y = r.top + r.height / 2;
-      var maxR = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-      try {
-        var tr = document.startViewTransition(function () { origApply(name, false); });
-        tr.ready.then(function () {
-          document.documentElement.animate(
-            { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + Math.round(maxR) + 'px at ' + x + 'px ' + y + 'px)'] },
-            { duration: 420, easing: 'cubic-bezier(0.16,1,0.3,1)', pseudoElement: '::view-transition-new(root)' }
-          );
-        });
-      } catch (e) { origApply(name, true); }
-    };
-  }
-
-  /* --- magnetic primary buttons (<=6px pull, lerp) --- */
+  /* --- magnetic primary buttons (<=6px pull, lerp) --------------------- */
   function magnetic() {
     if (reduced) return;
     var fine = false;
@@ -321,7 +158,6 @@ var Visual = (function () {
       };
     }
     window.addEventListener('resize', placeInk);
-    // the panel scales while opening; re-seat the ink once it lands.
     var panel = document.getElementById('retomaPanel');
     if (panel) {
       panel.addEventListener('transitionend', function (ev) {
@@ -335,23 +171,16 @@ var Visual = (function () {
   function mount() {
     reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     entrance();
-    armResume();
-    armTimeline();
-    armTheme();
     magnetic();
     armTabs();
-    if (window.Retoma && Retoma.togglePause) {
-      var origPause = Retoma.togglePause;
-      Retoma.togglePause = function () {
-        origPause();
-        blinkEye();
-        if (window.Presence) {
-          if (Retoma.isPaused()) Presence.freeze();
-          else Presence.thaw();
-        }
-      };
-    }
   }
 
-  return { mount: mount, blinkEye: blinkEye, placeInk: placeInk };
+  return {
+    mount: mount,
+    blinkEye: blinkEye,
+    placeInk: placeInk,
+    resumeZoom: resumeZoom,
+    flipChipsIn: flipChipsIn,
+    countUpLegend: countUpLegend
+  };
 })();

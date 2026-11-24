@@ -1,0 +1,57 @@
+{
+  "name": "retoma",
+  "version": "1.0.0",
+  "description": "Retoma: a desktop companion that helps you pick up where you left off",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "for f in tests/*.js; do case $f in *electron-smoke*) xvfb-run -a node $f;; *design-lint*) node $f;; *) node $f;; esac; done",
+    "dist": "electron-builder --linux dir",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "com.retoma.desktop",
+    "productName": "Retoma",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "ai/",
+      "css/",
+      "js/",
+      "fonts/",
+      "live/",
+      "build/icon.svg",
+      "build/tray-active.png",
+      "build/tray-paused.png",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.svg",
+      "category": "Utility"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "playwright": "1.64.1"
+  }
+}

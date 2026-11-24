@@ -4,6 +4,7 @@ const fs = require('fs');
 const { pathToFileURL } = require('url');
 const { chromium } = require('playwright');
 
+const seed = require('./support/seed');
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'shots');
 const INDEX = pathToFileURL(path.join(ROOT, 'index.html')).href;
@@ -33,6 +34,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   const errs = watchErrors(page);
+  await seed(page, { lang: 'en' });
   await page.goto(INDEX, { waitUntil: 'load' });
   await page.waitForSelector('#deskClock');
   // screenshots and state checks start only once the entrance choreography is done
@@ -136,7 +138,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   await page.evaluate(() => document.getElementById('proposalAccept').click());
   await settle(page, 300);
-  ok(await page.locator('#proposalCard.is-hidden').count() === 1, 'Accept closes proposal');
+  ok(await page.locator('#proposalCard.is-accepted').count() === 1 && await page.locator('#proposalCard.is-hidden').count() === 0, 'Accept keeps the card as Planned (accept-more)');
 
   await page.click('#freeMode [data-act="endday"]');
   await settle(page, 300);
@@ -160,11 +162,13 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('6 · guided story runs to end');
   const storyPage = await ctx.newPage();
   const storyErrs = watchErrors(storyPage);
-  await storyPage.addInitScript(() => { window.__storySpeed = 20; });
+  await seed(storyPage, { lang: 'en' });
   await storyPage.goto(INDEX, { waitUntil: 'load' });
   await storyPage.waitForSelector('#deskClock');
   await storyPage.click('#storyPlay');
-  await storyPage.waitForFunction(() => window.__storyDone === true, { timeout: 60000 });
+  // step by step: 6 Next clicks reach step 7, the 7th (Finish) ends it; Next completes a running step first
+  for (let i = 0; i < 7; i++) { await settle(storyPage, 300); await storyPage.click('#tourNext'); }
+  await storyPage.waitForFunction(() => window.__storyDone === true, { timeout: 15000 });
   ok(true, 'guided story reached end');
   await settle(storyPage, 400);
   const storyEmpty = await storyPage.evaluate(() => Retoma.state.empty);
@@ -311,6 +315,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('10 · APP FIRST: the Retoma column is the app (always on screen)');
   // reload fresh for panel checks
   const fixPage = await ctx.newPage();
+  await seed(fixPage, { lang: 'en' });
   await fixPage.goto(INDEX, { waitUntil: 'load' });
   await fixPage.waitForSelector('#deskClock');
   await settle(fixPage, 400);
@@ -337,7 +342,8 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // tabs: only one active
   const tabsActive = await fixPage.evaluate(() => document.querySelectorAll('.retoma-tab.is-active').length);
   ok(tabsActive === 1, 'only one tab section visible', 'found ' + tabsActive);
-  ok(await fixPage.evaluate(() => document.querySelectorAll('.retoma-tabs__btn').length === 3), '3 tabs present');
+  ok(await fixPage.evaluate(() => document.querySelectorAll('.retoma-tabs__btn').length === 4), '4 tabs present (Now / Today / Privacy / Settings)');
+  ok(await fixPage.evaluate(() => !!document.getElementById('tabBtnConfig')), 'Settings tab is reachable from the main navigation');
   // resume card not inside tabs
   const resumeInsideTab = await fixPage.evaluate(() => !!document.querySelector('.retoma-tab #resumeCard'));
   ok(!resumeInsideTab, 'resume card NOT inside tab (is hero)');
@@ -357,13 +363,14 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await fixPage.click('#freeMode [data-act="return"]');
   await settle(fixPage, 500);
   ok(await fixPage.evaluate(() => Retoma.isPanelOpen() && document.getElementById('resumeCard').classList.contains('is-visible')), 'Come back auto-opens panel with resume card');
-  // hero is first element in panel
+  // hero is the first content under the tabs (tabs sit above it so they never jump, unslop pass 2026-11-06)
   const heroFirst = await fixPage.evaluate(() => {
-    const panel = document.getElementById('retomaPanel');
-    const first = panel.firstElementChild;
-    return first && first.id === 'resumeCard';
+    const tabs = document.querySelector('#retomaPanel > .retoma-tabs');
+    const card = document.getElementById('resumeCard');
+    const next = tabs && tabs.nextElementSibling;
+    return !!next && next.id === 'resumeCard' && card.getBoundingClientRect().top >= tabs.getBoundingClientRect().bottom;
   });
-  ok(heroFirst, 'resume card is first and largest element in panel');
+  ok(heroFirst, 'resume card is the first content under the tabs');
 
   head('11 · FIX 2: resume hero type');
   // ensure hero visible for checks
@@ -479,6 +486,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('15 · FIX 6: responsive 390 no horizontal scroll');
   const ctx390 = await browser.newContext({ viewport: { width: 390, height: 900 } });
   const p390 = await ctx390.newPage();
+  await seed(p390, { lang: 'en' });
   await p390.goto(INDEX, { waitUntil: 'load' });
   await p390.waitForSelector('#deskClock');
   await settle(p390, 400);
@@ -512,6 +520,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('16 · FIX 7: pause state visible');
   const paPage = await ctx.newPage();
+  await seed(paPage, { lang: 'en' });
   await paPage.goto(INDEX, { waitUntil: 'load' });
   await paPage.waitForSelector('#deskClock');
   await settle(paPage, 300);
@@ -541,6 +550,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('17 · FIX2 round2-1: windows left of panel + staggered reopen');
   const r2Page = await ctx.newPage();
+  await seed(r2Page, { lang: 'en' });
   await r2Page.goto(INDEX, { waitUntil: 'load' });
   await r2Page.waitForSelector('#deskClock');
   await settle(r2Page, 400);
@@ -605,6 +615,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('18 · FIX2 round2-2: 390 compact stacked list');
   const c390b = await browser.newContext({ viewport: { width: 390, height: 900 } });
   const p390b = await c390b.newPage();
+  await seed(p390b, { lang: 'en' });
   await p390b.goto(INDEX, { waitUntil: 'load' });
   await p390b.waitForSelector('#deskClock');
   await settle(p390b, 400);
@@ -659,6 +670,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('19 · FIX2 round2-3: kicker single line normal-case');
   const r2k = await ctx.newPage();
+  await seed(r2k, { lang: 'en' });
   await r2k.goto(INDEX, { waitUntil: 'load' });
   await r2k.waitForSelector('#deskClock');
   await settle(r2k, 300);
@@ -687,6 +699,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('20 · FIX2 round2-4: proposal buttons reachable via scroll');
   const r2p = await ctx.newPage();
+  await seed(r2p, { lang: 'en' });
   await r2p.goto(INDEX, { waitUntil: 'load' });
   await r2p.waitForSelector('#deskClock');
   await settle(r2p, 300);
@@ -718,6 +731,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('21 · FIX2 round2-5: timeline legend merged');
   const r2l = await ctx.newPage();
+  await seed(r2l, { lang: 'en' });
   await r2l.goto(INDEX, { waitUntil: 'load' });
   await r2l.waitForSelector('#deskClock');
   await settle(r2l, 300);
@@ -741,6 +755,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // extra screenshots — final states at both viewports
   head('22 · DESIGN PASS: motion with intent (headline blur-in, parallax, fly-in, timeline draw)');
   const moPage = await ctx.newPage();
+  await seed(moPage, { lang: 'en' });
   await moPage.goto(INDEX, { waitUntil: 'load' });
   await moPage.waitForSelector('#deskClock');
   await settle(moPage, 300);
@@ -777,6 +792,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('23 · FIXES-3: dock clearance, numbers agree, sim hit targets');
   const f3 = await ctx.newPage();
+  await seed(f3, { lang: 'en' });
   await f3.goto(INDEX, { waitUntil: 'load' });
   await f3.waitForSelector('#deskClock');
   await settle(f3, 400);
@@ -819,7 +835,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(/9:00 to 9:40/.test(nums.proposal), 'seed proposal window is 9:00-9:40', nums.proposal.slice(0, 100));
   // FIX 4: sim buttons readable + hittable
   const simBtns = await f3.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('.sim-panel .btn'));
+    const els = Array.from(document.querySelectorAll('.sim-panel .btn')).filter(e => e.getClientRects().length); // visible ones (the tour card is closed)
     return els.map(e => {
       const cs = getComputedStyle(e);
       const r = e.getBoundingClientRect();
@@ -838,11 +854,11 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   });
   ok(/Guided tour/.test(heroPill.text) && heroPill.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(heroPill.radius) > 10, 'Guided tour is one clear primary pill', JSON.stringify(heroPill));
   const trioRow = await f3.evaluate(() => {
-    const ids = ['storyPause', 'storySkip', 'storyRestart'];
+    const ids = ['storySkip', 'storyRestart'];
     const tops = ids.map(id => Math.round(document.getElementById(id).getBoundingClientRect().top));
     return { tops: tops, oneRow: Math.max.apply(null, tops) - Math.min.apply(null, tops) < 12 };
   });
-  ok(trioRow.oneRow, 'Pause/Skip/Restart on one row', JSON.stringify(trioRow));
+  ok(trioRow.oneRow, 'Skip/Restart on one row', JSON.stringify(trioRow));
   await f3.close();
 
   head('24 · D1: propose() off-mode is valid with zero network');
@@ -987,6 +1003,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('29 · D1: Smart suggestions UI in Privacy tab');
   const d1 = await ctx.newPage();
   const d1Errs = watchErrors(d1);
+  await seed(d1, { lang: 'en' });
   await d1.goto(INDEX, { waitUntil: 'load' });
   await d1.waitForSelector('#deskClock');
   await settle(d1, 500);
@@ -1017,6 +1034,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   head('30 · D3 QA regressions (hostile-user fixes)');
   const qa = await ctx.newPage();
   const qaErrs = watchErrors(qa);
+  await seed(qa, { lang: 'en' });
   await qa.goto(INDEX, { waitUntil: 'load' });
   await qa.waitForSelector('#deskClock');
   await settle(qa, 400);
@@ -1091,6 +1109,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   // 30f contrast >= 4.5 across 12 elements per theme
   const qa2 = await ctx.newPage();
+  await seed(qa2, { lang: 'en' });
   await qa2.goto(INDEX, { waitUntil: 'load' });
   await qa2.waitForSelector('#deskClock');
   const probeSrc12 = `(() => {
@@ -1140,6 +1159,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   // 30g reduced motion: no stagger delays, hero readable, no parallax loop
   const ctxRM = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const rmPage = await ctxRM.newPage();
+  await seed(rmPage, { lang: 'en' });
   await rmPage.goto(INDEX, { waitUntil: 'load' });
   await rmPage.waitForSelector('#deskClock');
   await rmPage.evaluate(() => { Retoma.goAway(25); Retoma.comeBack(); });
@@ -1157,6 +1177,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
 
   head('31 · D4 polish: collapsed Now, source tags, entrance, particles');
   const d4 = await ctx.newPage();
+  await seed(d4, { lang: 'en' });
   await d4.goto(INDEX, { waitUntil: 'load' });
   await d4.waitForSelector('#deskClock');
   // 31a entrance finishes with all 4 windows visible (Document included)
@@ -1239,29 +1260,15 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   const d4Tag = (await d4.locator('#proposalTag').textContent()) || '';
   ok(/On-device rules|Local model ·|Cloud · Gemini/.test(d4Tag), 'proposal tag names the real source', d4Tag);
   ok(/On-device rules/.test(d4Tag), 'off-mode proposal reads On-device rules', d4Tag);
-  // 31e particle field is ink-derived and animating in both themes
-  for (const th of ['dark', 'light']) {
-    await d4.evaluate((t) => Theme.apply(t, false), th);
-    await settle(d4, 600);
-    const field = await d4.evaluate(() => ({
-      canvas: !!document.getElementById('presenceField'),
-      frames: window.__presenceFrames || 0,
-      pal: window.__presencePalette || null
-    }));
-    ok(field.canvas && field.frames > 0, '[' + th + '] particle field present and animating', 'frames ' + field.frames);
-    const lum = (c) => Math.round((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * 10) / 10;
-    if (th === 'light') {
-      ok(field.pal && lum(field.pal.paper) < 120, '[light] particles tinted with dark ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
-    } else {
-      ok(field.pal && lum(field.pal.paper) > 200, '[dark] particles tinted with light ink', 'paper lum ' + (field.pal && lum(field.pal.paper)));
-    }
-  }
+  // 31e the particle field was removed in the unslop pass (2026-11-06): the ring carries the mood
+  ok(await d4.evaluate(() => !document.getElementById('presenceField')), 'no particle field on the stage');
   await d4.evaluate(() => Theme.apply('dark', false));
   await d4.close();
 
   head('32 · L3 live honesty (browser, helper missing)');
   const l3 = await ctx.newPage();
   const l3Errs = watchErrors(l3);
+  await seed(l3, { lang: 'en' });
   await l3.goto(INDEX, { waitUntil: 'load' });
   await l3.waitForSelector('#deskClock');
   await l3.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1403,10 +1410,201 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   ok(l3Errs.length === 0, 'L3 run has no console errors', l3Errs.join(' | '));
   await l3.close();
 
+  head('33 · AI quota bar, Adjust, and Ask limits');
+  const qp = await ctx.newPage();
+  const qpErrs = watchErrors(qp);
+  await seed(qp, { lang: 'en' });
+  await qp.goto(INDEX, { waitUntil: 'load' });
+  await qp.waitForSelector('#deskClock');
+  await qp.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  await settle(qp, 500);
+
+  // quota bar: server mode + known quota paints text and width
+  await qp.evaluate(() => {
+    window.retoma = {
+      aiQuota: () => Promise.resolve({ left: 7, limit: 10 }),
+      propose: () => Promise.resolve({ start: '9:00', minutes: 40, reason: 'Your longest block was in Document.', source: 'Retoma server · gemma4:31b', fallback: false, quota: { left: 6, limit: 10 } }),
+      habitsReport: () => Promise.resolve({
+        metrics: null,
+        evaluation: null,
+        report: {
+          pattern: 'focus',
+          note: 'Longest block Document 40 min across 2 blocks.',
+          experiment: { text: 'After I open my main task, I will stay with it for 25 min.', trigger: 'I open my main task', action: 'stay with it', minutes: 25, metric: 'longest', target: 25, direction: 'atLeast' },
+          source: 'Retoma server · gemma4:31b',
+          fallback: false
+        }
+      }),
+      habitsAsk: () => Promise.resolve({ answer: 'Your longest block was Document 40 min.', source: 'Retoma server · gemma4:31b', fallback: false, quota: { left: 6, limit: 10 } }),
+      aiStatus: () => Promise.resolve({ reachable: true, model: 'gemma4:31b' }),
+      capabilities: () => Promise.resolve({ cloudAvailable: false })
+    };
+    Retoma.state.aiMode = 'server';
+    Retoma.state.aiConsent.server = true;
+    Retoma.switchTab('priv');
+    Retoma.refreshQuota();
+  });
+  await settle(qp, 400);
+  ok(await qp.evaluate(() => !document.getElementById('quotaPriv').classList.contains('is-hidden')), 'quota bar visible in Privacy for server mode');
+  ok(((await qp.locator('#quotaTextPriv').textContent()) || '').includes('AI requests: 7 left'), 'quota text says AI requests: 7 left', await qp.locator('#quotaTextPriv').textContent().catch(() => ''));
+  ok(await qp.evaluate(() => document.getElementById('quotaFillPriv').style.width === '70%'), 'quota fill width is left/limit (70%)', await qp.evaluate(() => document.getElementById('quotaFillPriv').style.width));
+  ok(await qp.evaluate(() => !document.getElementById('quotaHoy').classList.contains('is-hidden')), 'quota bar also in the AI panel (Today)');
+  ok(await qp.evaluate(() => document.getElementById('quotaFillHoy').style.width === '70%'), 'AI panel quota fill matches', await qp.evaluate(() => document.getElementById('quotaFillHoy').style.width));
+
+  // quota 0: limit notice + Connect Ollama lands on Privacy with the URL focused
+  await qp.evaluate(() => { Retoma.state.aiMode = 'server'; Retoma.setQuota({ left: 0, limit: 10 }); });
+  await settle(qp, 300);
+  ok(/AI limit reached\. Connect Ollama to keep going\./.test(await qp.locator('#quotaTextPriv').textContent()), 'limit notice at 0', await qp.locator('#quotaTextPriv').textContent());
+  ok(await qp.evaluate(() => !document.getElementById('quotaOllamaPriv').classList.contains('is-hidden')), 'Connect Ollama shown at 0');
+  await qp.click('#quotaOllamaPriv');
+  await settle(qp, 300);
+  ok(await qp.evaluate(() => document.getElementById('retomaTabPriv').classList.contains('is-active')), 'Connect Ollama opens Privacy');
+  ok(await qp.evaluate(() => document.activeElement && document.activeElement.id === 'ollamaUrl'), 'Connect Ollama focuses the Ollama URL input', await qp.evaluate(() => document.activeElement && document.activeElement.id));
+  ok((await qp.inputValue('#ollamaUrl')) === 'http://127.0.0.1:11434', 'Ollama URL defaults to localhost', await qp.inputValue('#ollamaUrl'));
+  await qp.click('#ollamaTest');
+  await settle(qp, 350);
+  ok(/Connected · gemma4:31b/.test(await qp.locator('#ollamaTestResult').textContent()), 'Test says Connected · model', await qp.locator('#ollamaTestResult').textContent());
+
+  // Adjust: invalid clock blocks Accept; +15 clamps at 180
+  await qp.evaluate(() => {
+    Retoma.state.aiMode = 'off';
+    Retoma.state.empty = false;
+    Retoma.state.proposalDismissed = false;
+    Retoma.state.timeline = [{ app: 'Document', duration: 40 }, { app: 'WhatsApp', duration: 18 }];
+    Retoma.showEndOfDay();
+    Retoma.switchTab('hoy');
+  });
+  await settle(qp, 400);
+  await qp.evaluate(() => document.getElementById('proposalAdjust').click());
+  await settle(qp, 200);
+  await qp.fill('#adjustStart', '25:99');
+  await settle(qp, 200);
+  ok(/Use a time like 9:30 and 15–180 min/.test(await qp.locator('#adjustError').textContent()), 'invalid time shows the inline message', await qp.locator('#adjustError').textContent().catch(() => ''));
+  ok(await qp.evaluate(() => document.getElementById('proposalAccept').disabled === true), 'Accept disabled while invalid');
+  await qp.fill('#adjustStart', '9:30');
+  await settle(qp, 200);
+  ok(await qp.evaluate(() => document.getElementById('proposalAccept').disabled === false), 'Accept enabled again with a valid time');
+  for (let i = 0; i < 30; i++) await qp.click('#adjustPlus');
+  ok((await qp.locator('#adjustMinutes').textContent()).trim() === '180', '+15 clamps at 180', await qp.locator('#adjustMinutes').textContent());
+  await qp.evaluate(() => document.getElementById('proposalAccept').click());
+  await settle(qp, 300);
+  const adjustedText = await qp.locator('#proposalText').textContent();
+  ok(/9:30 to 12:30/.test(adjustedText) && /180 min/.test(adjustedText), 'Accept saves the adjusted window in the card', adjustedText);
+
+  // Ask: 300 typed characters keep 200
+  await qp.evaluate(() => Retoma.switchTab('hoy'));
+  await settle(qp, 250);
+  await qp.locator('#habitAskInput').pressSequentially('x'.repeat(300));
+  ok((await qp.inputValue('#habitAskInput')).length === 200, 'Ask keeps at most 200 characters', String((await qp.inputValue('#habitAskInput')).length));
+  ok(qpErrs.length === 0, 'quota/Adjust run has no console errors', qpErrs.join(' | '));
+  await qp.screenshot({ path: path.join(SHOTS, '33-quota-adjust.png'), fullPage: true });
+  await qp.close();
+
+  head('34 · Suggest with AI button proves the server answered');
+  const c34 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const asPage = await c34.newPage();
+  const asErrs = watchErrors(asPage);
+  await asPage.addInitScript(() => {
+    window.__aiSuggestMode = 'server';
+    window.retoma = {
+      propose: function (summary, opts) {
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            if (window.__aiSuggestMode === 'fallback') {
+              resolve({ source: 'On-device rules', fallback: true });
+            } else {
+              resolve({ source: 'Retoma server · gemma4:31b', quota: { left: 47, limit: 50 }, start: '9:30', minutes: 45, reason: 'Quiet block after the first hour.' });
+            }
+          }, 300);
+        });
+      },
+      previewPayload: function (summary) {
+        return Promise.resolve({ model: 'gemma4:31b', prompt: 'Summary: ' + JSON.stringify(summary), format: 'json', stream: false });
+      },
+      aiQuota: function () { return Promise.resolve({ left: 47, limit: 50 }); },
+      aiStatus: function () { return Promise.resolve({ reachable: true, model: 'gemma4:31b' }); },
+      capabilities: function () { return Promise.resolve({ cloudAvailable: false }); }
+    };
+  });
+  await seed(asPage, { lang: 'en' });
+  await asPage.goto(INDEX, { waitUntil: 'load' });
+  await asPage.waitForSelector('#deskClock');
+  await asPage.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
+  await asPage.evaluate(() => Retoma.showEndOfDay());
+  await settle(asPage, 400);
+
+  ok(await asPage.locator('#aiSuggestBtn').isVisible(), 'AI suggest button visible on the proposal card');
+  ok(await asPage.locator('#aiSuggestBtn .ring-face').count() === 1, 'AI suggest button carries the ring face');
+  ok(await asPage.locator('#aiSuggestBtn .ring-eye').count() === 2, 'ring face has two eyes');
+  const textBeforeAI = await asPage.locator('#proposalText').textContent();
+
+  // AI off: click asks first and shows the exact server payload
+  await asPage.evaluate(() => { if (Retoma.state.aiMode === 'server') { Retoma.state.aiMode = 'off'; Retoma.state.aiConsent.server = false; } });
+  await asPage.click('#aiSuggestBtn');
+  await settle(asPage, 400);
+  ok(await asPage.locator('#aiSuggestConsent').isVisible(), 'AI off: click opens the consent panel');
+  const consentPayload = await asPage.evaluate(() => {
+    const raw = document.getElementById('aiSuggestPayload').textContent;
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { /* stays null */ }
+    const keys = [];
+    (function walk(v) {
+      if (!v || typeof v !== 'object') return;
+      Object.keys(v).forEach((k) => { keys.push(k); walk(v[k]); });
+    })(parsed);
+    return { parsed: !!parsed, keys: keys };
+  });
+  ok(consentPayload.parsed, 'consent payload is valid JSON');
+  ok(consentPayload.keys.indexOf('title') === -1 && consentPayload.keys.indexOf('note') === -1,
+    'consent payload has no title or note key', consentPayload.keys.join(','));
+
+  // Send: thinking state during the wait, proof after
+  await asPage.click('#aiSuggestSend');
+  await settle(asPage, 100);
+  const thinking = await asPage.evaluate(() => ({
+    label: document.getElementById('aiSuggestBtn').textContent.trim(),
+    face: document.querySelector('#aiSuggestBtn .ring-face').classList.contains('is-thinking'),
+    disabled: document.getElementById('aiSuggestBtn').disabled
+  }));
+  ok(thinking.face, 'during the wait the face is thinking', JSON.stringify(thinking));
+  ok(/Thinking…/.test(thinking.label), 'during the wait the label reads Thinking…', thinking.label);
+  await asPage.waitForFunction(() => /gemma4:31b/.test(document.getElementById('aiProofLine').textContent), { timeout: 4000 });
+  const proof = await asPage.locator('#aiProofLine').textContent();
+  ok(/gemma4:31b/.test(proof), 'proof names the real model', proof);
+  ok(/Retoma server/.test(proof), 'proof says Retoma server', proof);
+  ok(/ s ·/.test(proof), 'proof shows latency in seconds', proof);
+  ok(/47 requests left/.test(proof), 'proof shows the remaining quota', proof);
+  const textAfterAI = await asPage.locator('#proposalText').textContent();
+  ok(textAfterAI !== textBeforeAI, 'the server answer replaced the proposal text', textBeforeAI.slice(0, 50) + ' -> ' + textAfterAI.slice(0, 50));
+  const privacyMode = await asPage.evaluate(() => ({
+    state: Retoma.state.aiMode,
+    radio: !!document.querySelector('[data-ai-mode="server"].is-active')
+  }));
+  ok(privacyMode.state === 'server' && privacyMode.radio, 'Privacy AI mode is now server', JSON.stringify(privacyMode));
+  ok(await asPage.evaluate(() => !document.getElementById('aiProof').classList.contains('is-hidden')), 'proof block is visible after success');
+  await asPage.screenshot({ path: path.join(SHOTS, '34-ai-suggest.png'), fullPage: true });
+
+  // fallback proof
+  await asPage.evaluate(() => { window.__aiSuggestMode = 'fallback'; });
+  await asPage.click('#aiSuggestBtn');
+  await asPage.waitForFunction(() => /on-device rules made this one/.test(document.getElementById('aiProofLine').textContent), { timeout: 4000 });
+  const fallbackProof = await asPage.locator('#aiProofLine').textContent();
+  ok(/on-device rules made this one/.test(fallbackProof), 'fallback proof says on-device rules made this one', fallbackProof);
+  const restored = await asPage.evaluate(() => ({
+    label: document.getElementById('aiSuggestBtn').textContent.trim(),
+    disabled: document.getElementById('aiSuggestBtn').disabled,
+    thinking: document.querySelector('#aiSuggestBtn .ring-face').classList.contains('is-thinking')
+  }));
+  ok(/Suggest with AI/.test(restored.label) && !restored.disabled && !restored.thinking, 'button restored after the run', JSON.stringify(restored));
+  ok(asErrs.length === 0, 'AI suggest run has no console errors', asErrs.join(' | '));
+  await asPage.close();
+  await c34.close();
+
   head('shots · 1440 & 390 capture');
   async function capture(viewW, label) {
     const c = await browser.newContext({ viewport: { width: viewW, height: 900 } });
     const p = await c.newPage();
+  await seed(p, { lang: 'en' });
     await p.goto(INDEX, { waitUntil: 'load' });
     await p.waitForSelector('#deskClock');
     await p.waitForFunction(() => !document.body.classList.contains('is-launch'), { timeout: 8000 });
@@ -1446,6 +1644,7 @@ async function settle(page, ms) { await page.waitForTimeout(ms); }
   await capture(390, 'shot');
 
   // extra screenshots
+  await seed(page, { lang: 'en' });
   await page.goto(INDEX, { waitUntil:'load' });
   await page.waitForSelector('#deskClock');
   await settle(page, 600);

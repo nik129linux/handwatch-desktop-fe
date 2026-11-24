@@ -108,6 +108,7 @@ var HabitsUI = (function () {
   }
 
   function renderResult(payload) {
+    if (payload && payload.quota && window.Retoma && Retoma.setQuota) Retoma.setQuota(payload.quota);
     if (!el.card || !payload || !payload.report || payload.report.empty) {
       hide();
       return;
@@ -245,21 +246,27 @@ var HabitsUI = (function () {
     if (!el.answer || !el.input) return;
     var q = String(el.input.value || '').trim().slice(0, 200);
     if (!q) return;
-    function show(text) {
+    function show(text, source, fallback) {
       el.answer.textContent = String(text || '').slice(0, 240);
+      var tag = document.createElement('small');
+      tag.className = 'habit-answer__source';
+      tag.textContent = sourceLabel(source, fallback);
+      el.answer.appendChild(document.createTextNode(' '));
+      el.answer.appendChild(tag);
       el.answer.classList.remove('is-hidden');
     }
     var m = mode();
     var list = stateEntries();
     if (hasBridge()) {
       window.retoma.habitsAsk(q, { mode: m, aiMode: aiMode(), consent: consent() }).then(function (res) {
-        show(res && res.answer);
+        if (res && res.quota && window.Retoma && Retoma.setQuota) Retoma.setQuota(res.quota);
+        show(res && res.answer, res && res.source, res && res.fallback);
       }, function () {
-        if (hasLib()) show(window.Habits.rulesAsk(window.Habits.computeMetrics(stamp(list)), q));
+        if (hasLib()) show(window.Habits.rulesAsk(window.Habits.computeMetrics(stamp(list)), q), 'rules', false);
       });
       return;
     }
-    if (hasLib()) show(window.Habits.rulesAsk(window.Habits.computeMetrics(stamp(list)), q));
+    if (hasLib()) show(window.Habits.rulesAsk(window.Habits.computeMetrics(stamp(list)), q), 'rules', false);
   }
 
   function refreshStatus() {

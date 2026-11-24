@@ -1,0 +1,6 @@
+# Phase B fix round 1 (rules: BRIEF-RUBRIC.md). Reviewer flow at 1440x900, fresh profile: Escape the welcome → "Llega un WhatsApp" → "Alejarme 25 min" → "Volver" → "Terminar el día".
+Fix each, add a test reproducing that exact flow, keep `npm test` green, commit.
+1. The resume card says "Estabas en Documento" but the subtitle under it is "Mensajes · Ana" (the WhatsApp window title). The subtitle must be the title of the window you were in (Documento → "Informe de calidad, párrafo 3"). Assert hero app and subtitle title belong to the same window.
+2. A coach-mark tip ("Deja aquí el siguiente paso…") is anchored so it COVERS the primary "Retomar" button, and it stays open after switching to the Hoy tab. Coach marks must never cover the anchor's primary action: place them beside/below with a collision check against the viewport and every visible button; close (and count as seen) when the tab changes or the anchor is hidden; never show while the resume card is first appearing (wait until the user has acted once). Assert with bounding boxes that no coach mark intersects any visible button.
+3. Only one coach mark at a time; queue the rest.
+Final message: PASS/FAIL per item with test names + full npm test counts.

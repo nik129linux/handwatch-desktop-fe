@@ -1,8 +1,18 @@
-/* i18n.js — EN/ES switch, vanilla, IIFE exposing window.I18n */
+/* i18n.js — EN/ES switch, vanilla, IIFE exposing window.I18n.
+ * Spanish is the product default: a fresh profile opens in Spanish whatever
+ * the OS or navigator language is. English stays the source language in the
+ * markup, so switching never reloads and never loses state. */
 var I18n = (function () {
   'use strict';
   var KEY = 'retoma.lang';
-  var lang = 'en';
+  var lang = 'es';
+  var listeners = [];
+  /* Read the stored choice as soon as the module loads: later modules mount
+   * before I18n.mount and must paint the right language on their first pass. */
+  try {
+    var storedLang = window.localStorage.getItem(KEY);
+    if (storedLang === 'es' || storedLang === 'en') lang = storedLang;
+  } catch (e) { /* fresh profile keeps Spanish */ }
   var translating = false;
   var origText = new WeakMap();
   var origAttr = new WeakMap();
@@ -13,6 +23,9 @@ var I18n = (function () {
     'Paused: not watching': 'En pausa: sin seguimiento',
     'Paused: I am not watching anything': 'En pausa: no estoy observando nada',
     'Demo or Live mode': 'Modo Demo o Live',
+    'Demo mode': 'Modo demostración',
+    'Reset demo': 'Restablecer demo',
+    'Starts again in Demo with a clean history and replays the welcome.': 'Vuelve a empezar en Demo con el historial limpio y repite la bienvenida.',
     'Switch theme': 'Cambiar tema',
     'Pause Retoma': 'Pausar Retoma',
     'Resume Retoma': 'Reanudar Retoma',
@@ -45,8 +58,11 @@ var I18n = (function () {
     'A simulated desktop for the demo. Click a window to focus it.': 'Un escritorio simulado para la demo. Haz clic en una ventana para enfocarla.',
     'Live: tracking this PC': 'Live: siguiendo este equipo',
     'Demo controls': 'Controles de demo',
-    'Guided tour, 60 seconds': 'Tour guiado, 60 segundos',
+    'Guided tour, 7 steps': 'Tour guiado, 7 pasos',
     'Guided tour': 'Tour guiado',
+    'Messages · Ana': 'Mensajes · Ana',
+    'fix the citation in paragraph 3': 'corregir la cita del párrafo 3',
+    'Data · Tracker': 'Datos · Tracker',
     'Running': 'En curso',
     'Pause': 'Pausar',
     'Resume': 'Retomar',
@@ -67,6 +83,9 @@ var I18n = (function () {
     'Delete everything?': '\u00bfBorrar todo?',
     'Everything stays on this device. Pause anytime.': 'Todo queda en este dispositivo. Pausa cuando quieras.',
     'Everything stays on this device.': 'Todo queda en este dispositivo.',
+    'Everything stays on this device, except what you send to the AI with your permission.': 'Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso.',
+    'Everything stays on this device, except what you send to the AI with your permission. Pause anytime.': 'Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso. Pausa cuando quieras.',
+    'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days.': 'Guarda nombres de apps, títulos de ventana solo si los pides, y minutos. Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso, y se borra a los 7 días.',
     '7 days, then it is deleted.': '7 días, luego se borra.',
     'Now': 'Ahora',
     'Today': 'Hoy',
@@ -77,10 +96,14 @@ var I18n = (function () {
     'Only the app name. Never what you type.': 'Solo el nombre de la app. Nunca lo que escribes.',
     'App name and title. Never what you type.': 'Nombre de la app y título. Nunca lo que escribes.',
     'Only app names. Never what you type.': 'Solo nombres de apps. Nunca lo que escribes.',
-    'Next step (one line)': 'Siguiente paso (una línea)',
+    'Next step': 'Siguiente paso',
+    'Saved': 'Guardado',
+    "Saved, you'll see it when you come back": 'Guardado, lo verás al volver',
     "What's next when you return?": '\u00bfQué sigue cuando vuelvas?',
-    'Next step note': 'Nota del siguiente paso',
     'Today, the report won the morning': 'Hoy, el informe ganó la mañana',
+    "Today's plan": 'Plan de hoy',
+    'Start plan': 'Empezar',
+    'Dismiss plan': 'Descartar',
     'Planned: 2 h on the report \u00b7 Actual: 1 h 20 min': 'Planeado: 2 h del informe \u00b7 Real: 1 h 20 min',
     'Suggestion \u00b7': 'Sugerencia \u00b7',
     'On-device rules': 'Reglas en el dispositivo',
@@ -130,7 +153,7 @@ var I18n = (function () {
     'Local model: unreachable': 'Modelo local: inalcanzable',
     'Off records app names only. Tab titles can reveal bank pages or private docs.': 'Apagado registra solo nombres de apps. Las pestañas pueden revelar páginas de banco o documentos privados.',
     'Blocked apps': 'Apps bloqueadas',
-    'Add': 'Añadir',
+    'Add': 'Agregar',
     'Remove': 'Quitar',
     'Pause tracking': 'Pausar seguimiento',
     'Resume tracking': 'Reanudar seguimiento',
@@ -145,11 +168,11 @@ var I18n = (function () {
     'Coming back shows where you left off.': 'Al volver verás dónde quedaste.',
     'Away': 'Ausente',
     'Retoma could not read the active window. Try restarting the app.': 'Retoma no pudo leer la ventana activa. Prueba reiniciar la app.',
-    'Helper installed. Log out and back in, then press Check again.': 'Ayudante instalado. Cierra sesión y vuelve a entrar, luego pulsa Comprobar de nuevo.',
+    'Helper installed. Log out and back in, then press Check again.': 'Ayudante instalado. Cierra sesión y vuelve a entrar, luego presiona Comprobar de nuevo.',
     'Install cancelled. Nothing was copied.': 'Instalación cancelada. No se copió nada.',
     'Helper is on. Tracking this PC.': 'El ayudante está activo. Siguiendo este equipo.',
-    'Helper files are here but off. Run the command, then press Check again.': 'Los archivos del ayudante están aquí pero apagados. Ejecuta el comando y pulsa Comprobar de nuevo.',
-    'Helper not found yet. Press Install helper first.': 'Ayudante no encontrado todavía. Pulsa Instalar ayudante primero.',
+    'Helper files are here but off. Run the command, then press Check again.': 'Los archivos del ayudante están aquí pero apagados. Ejecuta el comando y presiona Comprobar de nuevo.',
+    'Helper not found yet. Press Install helper first.': 'Ayudante no encontrado todavía. Presiona Instalar ayudante primero.',
     'Command copied. Paste it in a terminal.': 'Comando copiado. Pégalo en una terminal.',
     'Disabled in Live mode': 'Desactivado en modo Live',
     'Your history is yours. Deleted in one gesture.': 'Tu historial es tuyo. Se borra con un gesto.',
@@ -175,16 +198,116 @@ var I18n = (function () {
     'Dock': 'Dock',
     'Live tracking': 'Seguimiento en vivo',
     'Start fresh': 'Empezar de cero',
-    'How I decided: longest block Document 40 min \u00b7 first interruption WhatsApp 9:52 \u00b7 window 9:00\u20139:40': 'Cómo decidí: bloque más largo Document 40 min \u00b7 primera interrupción WhatsApp 9:52 \u00b7 ventana 9:00\u20139:40'
+    'How I decided: longest block Document 40 min \u00b7 first interruption WhatsApp 9:52 \u00b7 window 9:00\u20139:40': 'Cómo decidí: bloque más largo Document 40 min \u00b7 primera interrupción WhatsApp 9:52 \u00b7 ventana 9:00\u20139:40',
+    'It reads the app and the window title, so it knows you were in the report without reading the report.': 'Lee la app y el título de la ventana: sabe que estabas en el informe sin leer el informe.',
+    'A message pulled you into WhatsApp. Retoma only remembers what you were doing before it.': 'Un mensaje te llevó a WhatsApp. Retoma solo recuerda lo que hacías antes.',
+    'The clock jumps 25 minutes. Long enough to lose the thread.': 'El reloj salta 25 minutos. Suficiente para perder el hilo.',
+    'One card with the task, the paragraph and the note you left yourself.': 'Una tarjeta con la tarea, el párrafo y la nota que te dejaste.',
+    'Resume brings back the three work windows you had open.': 'Retomar trae de vuelta las tres ventanas de trabajo que tenías abiertas.',
+    'At the end of the day it proposes one block for tomorrow and shows how it decided.': 'Al final del día propone un bloque para mañana y muestra cómo lo decidió.',
+    'Everything stays on this device and is deleted after 7 days, or right now with one button.': 'Todo queda en este dispositivo y se borra a los 7 días, o ahora mismo con un botón.',
+    'Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days, or right now with one button.': 'Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso, y se borra a los 7 días, o ahora mismo con un botón.',
+    'Retoma sees app names and window titles, never what you type, never your screen. Everything stays on this device, except what you send to the AI with your permission, and is deleted after 7 days. AI is off until you allow it.': 'Retoma ve nombres de apps y títulos de ventana, nunca lo que escribes ni tu pantalla. Todo queda en este dispositivo, salvo lo que envías a la IA con tu permiso, y se borra a los 7 días. La IA está apagada hasta que la permitas.',
+    'Next': 'Siguiente',
+    'Back': 'Atrás',
+    'Finish': 'Terminar',
+    'Skip': 'Saltar',
+    'Earlier': 'Antes',
+    'Later': 'Después',
+    'Guide': 'Guía',
+    'Settings': 'Configuración',
+    'Theme': 'Tema',
+    'Light': 'Claro',
+    'Dark': 'Oscuro',
+    'System': 'Sistema',
+    'Theme mode': 'Modo de tema',
+    'Artificial intelligence': 'Inteligencia artificial',
+    'Help': 'Ayuda',
+    'See the guide again': 'Ver la guía otra vez',
+    'Step 1 of 3': 'Paso 1 de 3',
+    'Skip the guide': 'Saltar la guía',
+    'Welcome to Retoma': 'Te damos la bienvenida a Retoma',
+    'Changes the whole app at once, without reloading or losing what you were doing.': 'Cambia toda la app de una vez, sin recargar ni perder lo que estabas haciendo.',
+    'System follows this computer. Light is the default.': 'Sistema sigue este equipo. Claro es el predeterminado.',
+    'When it is on, only app names and minutes go to the server. Never titles, never notes.': 'Cuando está activada, solo van al servidor nombres de apps y minutos. Nunca títulos, nunca notas.',
+    'Revoke permission': 'Revocar permiso',
+    'Grant permission': 'Dar permiso',
+    'See what is sent': 'Ver qué se envía',
+    'It keeps app names, window titles only if you ask for them, and minutes. Everything stays on this device and is deleted after 7 days.': 'Guarda nombres de apps, títulos de ventana solo si los pides, y minutos. Todo queda en este dispositivo y se borra a los 7 días.',
+    'Artificial intelligence is off.': 'La inteligencia artificial está apagada.',
+    'Enabled': 'Activada',
+    'Disabled': 'Apagada',
+    'AI limit reached. Connect Ollama to keep going.': 'Se alcanzó el límite de IA. Conecta Ollama para seguir.',
+    'Artificial intelligence is off. It needs the desktop app to turn on.': 'La inteligencia artificial está apagada. Necesita la app de escritorio para activarse.',
+    'Artificial intelligence is on. Only app names and minutes are sent.': 'La inteligencia artificial está activada. Solo se envían nombres de apps y minutos.',
+    'Start': 'Inicio',
+    'Start time': 'Hora de inicio',
+    'Use a time like 9:30 and 15–180 min': 'Usa una hora como 9:30 y 15–180 min',
+    'Test': 'Probar',
+    'Testing…': 'Probando…',
+    'Connected': 'Conectado',
+    'Not reachable': 'Sin conexión',
+    'Thinking…': 'Pensando…',
+    'The server did not answer, so on-device rules made this one.': 'El servidor no respondió, así que esta la hicieron las reglas en el dispositivo.',
+    'Needs the desktop app': 'Necesita la app de escritorio',
+    'AI requests left': 'Solicitudes de IA disponibles',
+    'See exactly what is sent': 'Ver exactamente qué se envía',
+    'What the model saw': 'Qué vio el modelo',
+    'Send': 'Enviar',
+    'Adjust': 'Ajustar',
+    'Ollama URL': 'URL de Ollama',
+    'Next step note': 'Nota del siguiente paso',
+    'App name to block': 'Nombre de la app a bloquear',
+    'Tracking this PC': 'Siguiendo este equipo',
+    'Document': 'Documento',
+    'Browser': 'Navegador',
+    'Spreadsheet': 'Hoja de cálculo',
+    'Minutes': 'Minutos',
+    'Step': 'Paso',
+    'of': 'de',
+    'Block': 'Bloque',
+    'blocks': 'bloques',
+    'block': 'bloque',
+    /* Login gate */
+    'Pick up where you left off': 'Retoma donde lo dejaste',
+    'Name or email': 'Nombre o correo',
+    'Password': 'Contraseña',
+    'Show': 'Mostrar',
+    'Hide': 'Ocultar',
+    'Sign in': 'Entrar',
+    'Continue without an account': 'Continuar sin cuenta',
+    'Demo: no account is created and nothing leaves this device.': 'Demo: no se crea ninguna cuenta y nada sale de este equipo.',
+    'Signing in…': 'Entrando…',
+    'Enter your name or email and your password.': 'Escribe tu nombre o correo y tu contraseña.',
+    'Enter your name or email.': 'Escribe tu nombre o correo.',
+    'Enter your password.': 'Escribe tu contraseña.',
+    'Account': 'Cuenta',
+    'Demo session: no account is stored.': 'Sesión de demostración: no se guarda ninguna cuenta.',
+    'Sign out': 'Cerrar sesión',
   };
 
   var PATTERNS = [
+    [/^Connected \u00b7 (.+)$/, 'Conectado \u00b7 $1'],
+    [/^Local model/, 'Modelo local'],
+    [/^Cloud model/, 'Modelo en la nube'],
+    [/Retoma server/, 'Servidor Retoma'],
+    [/^(\d+) requests left$/, '$1 solicitudes disponibles'],
+    [/^1 request left$/, '1 solicitud disponible'],
+    [/ 1 request left$/, ' 1 solicitud disponible'],
+    [/ (\d+) requests left$/, ' $1 solicitudes disponibles'],
+    [/^AI requests: 1 left$/, 'Solicitudes de IA: 1 disponible'],
+    [/^AI requests: (\d+) left$/, 'Solicitudes de IA: $1 disponibles'],
+    [/adjusted to/, 'ajustado a'],
+    [/^Today, (.+) took the morning$/, 'Hoy, $1 se llevó la mañana'],
     [/^You were in (.+)$/, 'Estabas en $1'],
     [/^(\d+) min here$/, '$1 min aquí'],
+    [/^Was here (\d+) min$/, 'Estabas aquí $1 min'],
+    [/^Earlier, (\d+) of (\d+)$/, 'Antes, $1 de $2'],
     [/^Next: (.*)$/, 'Siguiente: $1'],
     [/^(.+) interrupted you \u00b7 (\d+) min$/, '$1 te interrumpió \u00b7 $2 min'],
     [/^(.+) interrupted you$/, '$1 te interrumpió'],
     [/Tomorrow:/, 'Mañana:'],
+    [/^Planned for tomorrow, (.+)$/, 'Planeado para mañana, $1'],
     [/Planned:/, 'Planeado:'],
     [/Actual:/, 'Real:'],
     [/How I decided:/, 'Cómo decidí:'],
@@ -203,7 +326,7 @@ var I18n = (function () {
     [/before the messages arrive/, 'antes de que lleguen los mensajes'],
     [/for the report/, 'para el informe'],
     [/ (\d{1,2}:\d{2}) to (\d{1,2}:\d{2})/, ' $1 a $2'],
-    [/^After (.+), I will (.+) for (\d+) min\.?$/, 'Después de $1, haré $2 durante $3 min.'],
+    [/^After (.+), I will (.+) for (\d+) min\.?$/, 'Cuando $1, voy a $2 durante $3 min.'],
     [/I finish a message check/, 'reviso los mensajes'],
     [/I open my main task/, 'abro mi tarea principal'],
     [/I check messages/, 'reviso los mensajes'],
@@ -215,6 +338,9 @@ var I18n = (function () {
     [/return to my main task/, 'volver a mi tarea principal'],
     [/do one focused stretch/, 'hacer un tramo enfocado'],
     [/Many quick switches today/, 'Muchos cambios rápidos hoy'],
+    [/^1 block\)\. Short single-app stretches can help ideas settle\.$/, '1 bloque). Los tramos cortos en una sola app ayudan a asentar ideas.'],
+    [/^(.+) min in (.+) across 1 block\. Small reps keep it going\.$/, '$1 min en $2 en 1 bloque. Los pequeños repasos lo mantienen.'],
+    [/^(.+) min in (.+) across (\d+) blocks\. Small reps keep it going\.$/, '$1 min en $2 en $3 bloques. Los pequeños repasos lo mantienen.'],
     [/per hour across/, 'por hora en'],
     [/blocks\)\. Short single-app stretches can help ideas settle\./, 'bloques). Los tramos cortos en una sola app ayudan a asentar ideas.'],
     [/No block reached/, 'Ningún bloque llegó a'],
@@ -229,10 +355,14 @@ var I18n = (function () {
     [/Small reps keep it going\./, 'Los pequeños repasos lo mantienen.'],
     [/^Your longest block was (.+) (\d+) min \(median (.+) min\)\.?$/, 'Tu bloque más largo fue $1 $2 min (mediana $3 min).'],
     [/^(\d+) blocks, about (.+) switches per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
+    [/^1 block, about 1 switch per hour\.?$/, '1 bloque, unos 1 cambio por hora.'],
+    [/^1 block, about (.+) switch(es)? per hour\.?$/, '1 bloque, unos $1 cambios por hora.'],
+    [/^(\d+) blocks?, about (.+) switch(es)? per hour\.?$/, '$1 bloques, unos $2 cambios por hora.'],
     [/^Messages and browsing: (\d+) min \((\d+)% of tracked time\)\.?$/, 'Mensajes y navegación: $1 min ($2% del tiempo registrado).'],
     [/^First activity (.+), last (.+)\.?$/, 'Primera actividad $1, última $2.'],
     [/last ran late/, 'la última terminó tarde'],
     [/^(\d+) breaks of 10\+ min \(longest gap (\d+) min\)\.?$/, '$1 pausas de 10+ min (pausa más larga $2 min).'],
+    [/^1 break of 10\+ min \(longest gap (\d+) min\)\.?$/, '1 pausa de 10+ min (pausa más larga $1 min).'],
     [/^Tracked (\d+) min recently vs (\d+) min before \((.+)\)\.?$/, 'Registrado $1 min reciente vs $2 min antes ($3).'],
     [/^Most-used app: (.+) (\d+) min of (\d+) min tracked\.?$/, 'App más usada: $1 $2 min de $3 min registrados.'],
     [/^I cannot tell from the tracked time yet\. Ask about your longest block, most-used app, or switches\.?$/, 'Todavía no puedo saberlo con el tiempo registrado. Pregunta por tu bloque más largo, tu app más usada o los cambios.'],
@@ -243,15 +373,23 @@ var I18n = (function () {
     [/vs target /, 'vs objetivo '],
     [/ - followed\./, ' - logrado.'],
     [/ - not yet\./, ' - todavía no.'],
-    [/evening stop/, 'pausa nocturna']
+    [/evening stop/, 'pausa nocturna'],
+    [/^Welcome back, (.+)$/, 'Hola de nuevo, $1']
   ];
 
   function translateString(s) {
-    if (Object.prototype.hasOwnProperty.call(DICT, s)) return DICT[s];
-    var out = s;
-    for (var i = 0; i < PATTERNS.length; i++) {
-      try { out = out.replace(PATTERNS[i][0], PATTERNS[i][1]); } catch (e) { /* keep */ }
+    var out = Object.prototype.hasOwnProperty.call(DICT, s) ? DICT[s] : s;
+    if (out === s) {
+      for (var i = 0; i < PATTERNS.length; i++) {
+        try { out = out.replace(PATTERNS[i][0], PATTERNS[i][1]); } catch (e) { /* keep */ }
+      }
     }
+    /* Demo app names are data, but they are read on screen: show them in the
+     * active language without ever touching state or storage. */
+    out = out
+      .replace(/\bSpreadsheet\b/g, 'Hoja de cálculo')
+      .replace(/\bDocument\b/g, 'Documento')
+      .replace(/\bBrowser\b/g, 'Navegador');
     return out;
   }
 
@@ -481,20 +619,41 @@ var I18n = (function () {
 
   function getLang() { return lang; }
 
+  function onChange(fn) {
+    if (typeof fn === 'function') listeners.push(fn);
+  }
+
+  function emit() {
+    for (var i = 0; i < listeners.length; i++) {
+      try { listeners[i](lang); } catch (e) { /* one listener never blocks the rest */ }
+    }
+  }
+
+  /* Number/date formatting follows the active locale (es-CO / en-US). */
+  function intlLocale() { return lang === 'es' ? 'es-CO' : 'en-US'; }
+  function formatNumber(n) {
+    try { return new Intl.NumberFormat(intlLocale()).format(Number(n)); } catch (e) { return String(n); }
+  }
+
   function setLang(next) {
     if (next !== 'es' && next !== 'en') return;
+    if (next === lang) { applyLang(); emit(); return; }
     lang = next;
     try { window.localStorage.setItem(KEY, lang); } catch (e) { /* noop */ }
     try { if (window.retoma && window.retoma.setLang) window.retoma.setLang(lang); } catch (e) { /* noop */ }
     applyLang();
+    emit();
   }
 
   function mount() {
     try {
       var s = window.localStorage.getItem(KEY);
       if (s === 'es' || s === 'en') lang = s;
-    } catch (e) { lang = 'en'; }
-    if (lang !== 'es') lang = 'en';
+    } catch (e) { lang = 'es'; }
+    if (lang !== 'es' && lang !== 'en') lang = 'es';
+    /* Tell the main process at launch so the tray and native notification
+     * follow the language the person reads the app in. */
+    try { if (window.retoma && window.retoma.setLang) window.retoma.setLang(lang); } catch (e) { /* noop */ }
     try {
       var btns = document.querySelectorAll('.lang-switch__btn');
       Array.prototype.forEach.call(btns, function (b) {
@@ -507,8 +666,12 @@ var I18n = (function () {
       setTimeout(function () { if (lang === 'es') translateTree(document.body); }, 50);
       setTimeout(function () { if (lang === 'es') translateTree(document.body); }, 400);
     }
+    emit();
   }
 
-  return { mount: mount, setLang: setLang, getLang: getLang };
+  /* t(): the string in the current language, for values that are not DOM text (an input's value). */
+  function t(s) { return lang === 'es' ? translateString(s) : s; }
+
+  return { mount: mount, setLang: setLang, getLang: getLang, t: t, onChange: onChange, formatNumber: formatNumber, locale: intlLocale };
 })();
 window.I18n = I18n;
